@@ -5,8 +5,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pockode/server/logger"
@@ -28,16 +30,34 @@ func NewClaudeAgent() *ClaudeAgent {
 	return &ClaudeAgent{timeout: DefaultTimeout}
 }
 
+// userMessage is the format for sending prompts via stdin with stream-json input.
+type userMessage struct {
+	Type    string      `json:"type"`
+	Message userContent `json:"message"`
+}
+
+type userContent struct {
+	Role    string        `json:"role"`
+	Content []textContent `json:"content"`
+}
+
+type textContent struct {
+	Type string `json:"type"`
+	Text string `json:"text"`
+}
+
 // Run executes Claude CLI with the given prompt and streams events.
 // sessionID is used to continue a previous conversation. If empty, a new session is created.
-func (c *ClaudeAgent) Run(ctx context.Context, prompt string, workDir string, sessionID string) (<-chan AgentEvent, error) {
+func (c *ClaudeAgent) Run(ctx context.Context, prompt string, workDir string, sessionID string) (*Session, error) {
 	events := make(chan AgentEvent)
 
 	timeoutCtx, cancel := context.WithTimeout(ctx, c.timeout)
 
+	// When using --input-format stream-json, prompt is sent via stdin, not -p flag
 	args := []string{
-		"-p", prompt,
 		"--output-format", "stream-json",
+		"--input-format", "stream-json",
+		"--permission-prompt-tool", "stdio",
 		"--verbose",
 	}
 	if sessionID != "" {
@@ -46,6 +66,12 @@ func (c *ClaudeAgent) Run(ctx context.Context, prompt string, workDir string, se
 
 	cmd := exec.CommandContext(timeoutCtx, ClaudeBinary, args...)
 	cmd.Dir = workDir
+
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		cancel()
+		return nil, fmt.Errorf("failed to create stdin pipe: %w", err)
+	}
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -64,9 +90,53 @@ func (c *ClaudeAgent) Run(ctx context.Context, prompt string, workDir string, se
 		return nil, fmt.Errorf("failed to start claude: %w", err)
 	}
 
+	// Helper to cleanup on error after process started
+	cleanupOnError := func(err error) (*Session, error) {
+		cancel()
+		stdin.Close()
+		cmd.Process.Kill()
+		cmd.Wait()
+		return nil, err
+	}
+
+	// Send prompt via stdin as JSON (required for --input-format stream-json)
+	userMsg := userMessage{
+		Type: "user",
+		Message: userContent{
+			Role: "user",
+			Content: []textContent{
+				{Type: "text", Text: prompt},
+			},
+		},
+	}
+	msgData, err := json.Marshal(userMsg)
+	if err != nil {
+		return cleanupOnError(fmt.Errorf("failed to marshal user message: %w", err))
+	}
+	if _, err := stdin.Write(append(msgData, '\n')); err != nil {
+		return cleanupOnError(fmt.Errorf("failed to write prompt to stdin: %w", err))
+	}
+
+	// Track pending permission requests for response handling
+	pendingRequests := &sync.Map{}
+
+	// Create session with permission response capability
+	session := &Session{
+		Events: events,
+		sendPermission: func(resp PermissionResponse) error {
+			pending, ok := pendingRequests.Load(resp.RequestID)
+			if !ok {
+				return fmt.Errorf("no pending request for id: %s", resp.RequestID)
+			}
+			req := pending.(*controlRequest)
+			return c.sendControlResponse(stdin, resp, req)
+		},
+	}
+
 	go func() {
 		defer close(events)
 		defer cancel()
+		defer stdin.Close()
 
 		// Read stderr in a separate goroutine
 		stderrCh := make(chan string, 1)
@@ -90,13 +160,18 @@ func (c *ClaudeAgent) Run(ctx context.Context, prompt string, workDir string, se
 				continue
 			}
 
-			parsedEvents := c.parseLine(line)
+			parsedEvents, isResult := c.parseLine(line, pendingRequests)
 			for _, event := range parsedEvents {
 				select {
 				case events <- event:
 				case <-timeoutCtx.Done():
 					return
 				}
+			}
+
+			// Close stdin after result to let CLI exit
+			if isResult {
+				stdin.Close()
 			}
 		}
 
@@ -129,7 +204,78 @@ func (c *ClaudeAgent) Run(ctx context.Context, prompt string, workDir string, se
 		}
 	}()
 
-	return events, nil
+	return session, nil
+}
+
+// controlRequest holds data for a pending permission request.
+type controlRequest struct {
+	RequestID string          `json:"request_id"`
+	Request   *permissionData `json:"request"`
+}
+
+// permissionData contains the details of a permission request.
+type permissionData struct {
+	Subtype   string          `json:"subtype"`
+	ToolName  string          `json:"tool_name"`
+	Input     json.RawMessage `json:"input"`
+	ToolUseID string          `json:"tool_use_id"`
+}
+
+// controlResponse is the response format for permission requests.
+type controlResponse struct {
+	Type     string                 `json:"type"`
+	Response controlResponsePayload `json:"response"`
+}
+
+type controlResponsePayload struct {
+	Subtype   string                 `json:"subtype"`
+	RequestID string                 `json:"request_id"`
+	Response  controlResponseContent `json:"response"`
+}
+
+type controlResponseContent struct {
+	Behavior     string          `json:"behavior"`
+	Message      string          `json:"message,omitempty"`
+	Interrupt    bool            `json:"interrupt,omitempty"`
+	ToolUseID    string          `json:"toolUseID"`
+	UpdatedInput json.RawMessage `json:"updatedInput,omitempty"`
+}
+
+// sendControlResponse writes a permission response to stdin.
+func (c *ClaudeAgent) sendControlResponse(stdin io.Writer, resp PermissionResponse, req *controlRequest) error {
+	var content controlResponseContent
+	if resp.Allow {
+		content = controlResponseContent{
+			Behavior:     "allow",
+			ToolUseID:    req.Request.ToolUseID,
+			UpdatedInput: req.Request.Input,
+		}
+	} else {
+		content = controlResponseContent{
+			Behavior:  "deny",
+			Message:   "User denied permission",
+			Interrupt: true,
+			ToolUseID: req.Request.ToolUseID,
+		}
+	}
+
+	response := controlResponse{
+		Type: "control_response",
+		Response: controlResponsePayload{
+			Subtype:   "success",
+			RequestID: resp.RequestID,
+			Response:  content,
+		},
+	}
+
+	data, err := json.Marshal(response)
+	if err != nil {
+		return fmt.Errorf("failed to marshal control response: %w", err)
+	}
+
+	logger.Debug("sendControlResponse: %s", string(data))
+	_, err = stdin.Write(append(data, '\n'))
+	return err
 }
 
 // cliEvent represents a raw event from Claude CLI verbose stream-json output.
@@ -158,10 +304,10 @@ type cliContentBlock struct {
 }
 
 // parseLine parses a single line of Claude CLI verbose stream-json output.
-// Returns a slice of events since one message can contain multiple content blocks.
-func (c *ClaudeAgent) parseLine(line []byte) []AgentEvent {
+// Returns a slice of events and a bool indicating if this is a result event (signals end of turn).
+func (c *ClaudeAgent) parseLine(line []byte, pendingRequests *sync.Map) ([]AgentEvent, bool) {
 	if len(line) == 0 {
-		return nil
+		return nil, false
 	}
 
 	var event cliEvent
@@ -171,34 +317,68 @@ func (c *ClaudeAgent) parseLine(line []byte) []AgentEvent {
 		return []AgentEvent{{
 			Type:    EventTypeText,
 			Content: string(line),
-		}}
+		}}, false
 	}
 
 	switch event.Type {
 	case "assistant":
-		return c.parseAssistantEvent(event)
+		return c.parseAssistantEvent(event), false
 	case "user":
 		// "user" in Claude API contains tool_result, not actual user input
-		return c.parseUserEvent(event)
+		return c.parseUserEvent(event), false
 	case "result":
-		// Result event means completion, we'll send done in the main loop
-		return nil
+		// Result event means completion, signal to close stdin
+		return nil, true
 	case "system":
 		// System event contains the session ID
 		if event.SessionID != "" {
 			return []AgentEvent{{
 				Type:      EventTypeSession,
 				SessionID: event.SessionID,
-			}}
+			}}, false
 		}
-		return nil
+		return nil, false
+	case "control_request":
+		return c.parseControlRequest(line, pendingRequests), false
 	default:
 		logger.Info("parseLine: unknown event type: %s", event.Type)
 		return []AgentEvent{{
 			Type:    EventTypeText,
 			Content: string(line),
-		}}
+		}}, false
 	}
+}
+
+// parseControlRequest handles permission request messages from Claude CLI.
+func (c *ClaudeAgent) parseControlRequest(line []byte, pendingRequests *sync.Map) []AgentEvent {
+	var req controlRequest
+	if err := json.Unmarshal(line, &req); err != nil {
+		logger.Error("parseControlRequest: failed to parse: %v", err)
+		return nil
+	}
+
+	// Only handle can_use_tool requests (permission requests)
+	if req.Request == nil {
+		logger.Debug("parseControlRequest: ignoring request with nil request data")
+		return nil
+	}
+	if req.Request.Subtype != "can_use_tool" {
+		logger.Debug("parseControlRequest: ignoring non-permission request: %s", req.Request.Subtype)
+		return nil
+	}
+
+	logger.Info("parseControlRequest: tool=%s, requestID=%s", req.Request.ToolName, req.RequestID)
+
+	// Store the request for later response
+	pendingRequests.Store(req.RequestID, &req)
+
+	return []AgentEvent{{
+		Type:      EventTypePermissionRequest,
+		RequestID: req.RequestID,
+		ToolName:  req.Request.ToolName,
+		ToolInput: req.Request.Input,
+		ToolUseID: req.Request.ToolUseID,
+	}}
 }
 
 // parseAssistantEvent handles assistant message events.

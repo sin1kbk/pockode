@@ -27,7 +27,7 @@ type mockAgentRunCall struct {
 	SessionID string
 }
 
-func (m *mockAgent) Run(ctx context.Context, prompt string, workDir string, sessionID string) (<-chan agent.AgentEvent, error) {
+func (m *mockAgent) Run(ctx context.Context, prompt string, workDir string, sessionID string) (*agent.Session, error) {
 	m.calls = append(m.calls, mockAgentRunCall{
 		Prompt:    prompt,
 		WorkDir:   workDir,
@@ -61,8 +61,23 @@ func (m *mockAgent) Run(ctx context.Context, prompt string, workDir string, sess
 				return
 			}
 		}
+
+		// Always send done event at the end if not already included in events
+		hasDone := false
+		for _, e := range m.events {
+			if e.Type == agent.EventTypeDone {
+				hasDone = true
+				break
+			}
+		}
+		if !hasDone {
+			select {
+			case ch <- agent.AgentEvent{Type: agent.EventTypeDone}:
+			case <-ctx.Done():
+			}
+		}
 	}()
-	return ch, nil
+	return &agent.Session{Events: ch}, nil
 }
 
 func TestHandler_MissingToken(t *testing.T) {
@@ -287,5 +302,124 @@ func TestHandler_ClientProvidedSessionID(t *testing.T) {
 
 	if mock.calls[0].SessionID != "client-session-xyz" {
 		t.Errorf("expected client-provided sessionID 'client-session-xyz', got %q", mock.calls[0].SessionID)
+	}
+}
+
+func TestHandler_PermissionRequest(t *testing.T) {
+	events := []agent.AgentEvent{
+		{
+			Type:      agent.EventTypePermissionRequest,
+			RequestID: "req-123",
+			ToolName:  "Bash",
+			ToolInput: []byte(`{"command":"ruby --version"}`),
+			ToolUseID: "toolu_abc",
+		},
+		{Type: agent.EventTypeDone},
+	}
+	h := NewHandler("test-token", &mockAgent{events: events}, "/tmp", true)
+
+	server := httptest.NewServer(h)
+	defer server.Close()
+
+	wsURL := "ws" + strings.TrimPrefix(server.URL, "http") + "?token=test-token"
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	conn, _, err := websocket.Dial(ctx, wsURL, nil)
+	if err != nil {
+		t.Fatalf("failed to connect: %v", err)
+	}
+	defer conn.Close(websocket.StatusNormalClosure, "")
+
+	// Send a message
+	msg := ClientMessage{
+		Type:    "message",
+		ID:      "test-perm-123",
+		Content: "run ruby --version",
+	}
+	msgData, _ := json.Marshal(msg)
+	if err := conn.Write(ctx, websocket.MessageText, msgData); err != nil {
+		t.Fatalf("failed to write: %v", err)
+	}
+
+	// Read responses (session + permission_request + done = 3)
+	var responses []ServerMessage
+	for i := 0; i < 3; i++ {
+		_, data, err := conn.Read(ctx)
+		if err != nil {
+			t.Fatalf("failed to read: %v", err)
+		}
+		var resp ServerMessage
+		if err := json.Unmarshal(data, &resp); err != nil {
+			t.Fatalf("failed to unmarshal: %v", err)
+		}
+		responses = append(responses, resp)
+	}
+
+	// Verify permission_request message
+	if responses[1].Type != "permission_request" {
+		t.Errorf("expected second response to be permission_request, got %+v", responses[1])
+	}
+
+	if responses[1].RequestID != "req-123" {
+		t.Errorf("expected request_id 'req-123', got %q", responses[1].RequestID)
+	}
+
+	if responses[1].ToolName != "Bash" {
+		t.Errorf("expected tool_name 'Bash', got %q", responses[1].ToolName)
+	}
+
+	if responses[1].MessageID != "test-perm-123" {
+		t.Errorf("expected message_id 'test-perm-123', got %q", responses[1].MessageID)
+	}
+}
+
+func TestHandler_PermissionResponseNoSession(t *testing.T) {
+	h := NewHandler("test-token", &mockAgent{}, "/tmp", true)
+
+	server := httptest.NewServer(h)
+	defer server.Close()
+
+	wsURL := "ws" + strings.TrimPrefix(server.URL, "http") + "?token=test-token"
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	conn, _, err := websocket.Dial(ctx, wsURL, nil)
+	if err != nil {
+		t.Fatalf("failed to connect: %v", err)
+	}
+	defer conn.Close(websocket.StatusNormalClosure, "")
+
+	// Send permission_response without an active session
+	// This should be handled gracefully (logged as error, not crash)
+	msg := ClientMessage{
+		Type:      "permission_response",
+		RequestID: "nonexistent-req",
+		Allow:     true,
+	}
+	msgData, _ := json.Marshal(msg)
+	if err := conn.Write(ctx, websocket.MessageText, msgData); err != nil {
+		t.Fatalf("failed to write: %v", err)
+	}
+
+	// Connection should still be alive - send a ping-like message
+	msg2 := ClientMessage{
+		Type:    "message",
+		ID:      "test-after-perm",
+		Content: "hello",
+	}
+	msgData2, _ := json.Marshal(msg2)
+	if err := conn.Write(ctx, websocket.MessageText, msgData2); err != nil {
+		t.Fatalf("failed to write second message: %v", err)
+	}
+
+	// Should get responses (session + done = 2)
+	for i := 0; i < 2; i++ {
+		_, _, err := conn.Read(ctx)
+		if err != nil {
+			t.Fatalf("failed to read response %d: %v", i, err)
+		}
 	}
 }

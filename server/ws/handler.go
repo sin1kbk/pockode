@@ -66,6 +66,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 type sessionState struct {
 	mu        sync.Mutex
 	sessionID string
+	session   *agent.Session // current active session for permission responses
 }
 
 // handleConnection manages the WebSocket connection lifecycle.
@@ -110,6 +111,21 @@ func (h *Handler) handleConnection(ctx context.Context, conn *websocket.Conn) {
 				cancel = nil
 			}
 
+		case "permission_response":
+			state.mu.Lock()
+			session := state.session
+			state.mu.Unlock()
+			if session != nil {
+				if err := session.SendPermissionResponse(agent.PermissionResponse{
+					RequestID: msg.RequestID,
+					Allow:     msg.Allow,
+				}); err != nil {
+					logger.Error("handleConnection: permission response error: %v", err)
+				}
+			} else {
+				logger.Error("handleConnection: no active session for permission response")
+			}
+
 		default:
 			h.sendError(ctx, conn, msg.ID, "Unknown message type")
 		}
@@ -128,14 +144,19 @@ func (h *Handler) handleMessage(ctx context.Context, conn *websocket.Conn, msg C
 
 	logger.Info("handleMessage: prompt=%q, workDir=%s, sessionID=%s", logger.Truncate(msg.Content, promptLogMaxLen), h.workDir, sessionID)
 
-	events, err := h.agent.Run(ctx, msg.Content, h.workDir, sessionID)
+	session, err := h.agent.Run(ctx, msg.Content, h.workDir, sessionID)
 	if err != nil {
 		logger.Error("agent.Run error: %v", err)
 		h.sendError(ctx, conn, msg.ID, err.Error())
 		return
 	}
 
-	for event := range events {
+	// Store session for permission responses
+	state.mu.Lock()
+	state.session = session
+	state.mu.Unlock()
+
+	for event := range session.Events {
 		logger.Debug("event: type=%s", event.Type)
 
 		// Update session ID when received from agent
@@ -156,6 +177,7 @@ func (h *Handler) handleMessage(ctx context.Context, conn *websocket.Conn, msg C
 			ToolResult: event.ToolResult,
 			Error:      event.Error,
 			SessionID:  event.SessionID,
+			RequestID:  event.RequestID,
 		}
 
 		if err := h.send(ctx, conn, serverMsg); err != nil {
@@ -163,6 +185,11 @@ func (h *Handler) handleMessage(ctx context.Context, conn *websocket.Conn, msg C
 			return
 		}
 	}
+
+	// Clear session when done
+	state.mu.Lock()
+	state.session = nil
+	state.mu.Unlock()
 }
 
 // send writes a message to the WebSocket connection.

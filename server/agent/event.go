@@ -6,12 +6,13 @@ import "encoding/json"
 type EventType string
 
 const (
-	EventTypeText       EventType = "text"
-	EventTypeToolCall   EventType = "tool_call"
-	EventTypeToolResult EventType = "tool_result"
-	EventTypeError      EventType = "error"
-	EventTypeDone       EventType = "done"
-	EventTypeSession    EventType = "session"
+	EventTypeText              EventType = "text"
+	EventTypeToolCall          EventType = "tool_call"
+	EventTypeToolResult        EventType = "tool_result"
+	EventTypeError             EventType = "error"
+	EventTypeDone              EventType = "done"
+	EventTypeSession           EventType = "session"
+	EventTypePermissionRequest EventType = "permission_request"
 )
 
 // AgentEvent represents a unified event from an AI agent.
@@ -24,4 +25,12 @@ type AgentEvent struct {
 	ToolResult string          `json:"tool_result,omitempty"`
 	Error      string          `json:"error,omitempty"`
 	SessionID  string          `json:"session_id,omitempty"`
+	// Permission request fields
+	RequestID string `json:"request_id,omitempty"`
+}
+
+// PermissionResponse represents a response to a permission request.
+type PermissionResponse struct {
+	RequestID string `json:"request_id"`
+	Allow     bool   `json:"allow"`
 }

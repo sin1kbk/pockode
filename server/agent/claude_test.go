@@ -1,7 +1,9 @@
 package agent
 
 import (
+	"bytes"
 	"encoding/json"
+	"sync"
 	"testing"
 )
 
@@ -12,6 +14,7 @@ func TestParseLine(t *testing.T) {
 		name     string
 		input    string
 		expected []AgentEvent
+		isResult bool
 	}{
 		{
 			name:     "empty line",
@@ -35,6 +38,7 @@ func TestParseLine(t *testing.T) {
 			name:     "result event",
 			input:    `{"type":"result","subtype":"success","result":"Hello"}`,
 			expected: nil,
+			isResult: true,
 		},
 		{
 			name:  "assistant text message",
@@ -142,11 +146,37 @@ func TestParseLine(t *testing.T) {
 				Content: `{"type":"unknown_event"}`,
 			}},
 		},
+		{
+			name:  "control_request permission request",
+			input: `{"type":"control_request","request_id":"req-123","request":{"subtype":"can_use_tool","tool_name":"Bash","input":{"command":"ruby --version"},"tool_use_id":"toolu_abc"}}`,
+			expected: []AgentEvent{{
+				Type:      EventTypePermissionRequest,
+				RequestID: "req-123",
+				ToolName:  "Bash",
+				ToolInput: json.RawMessage(`{"command":"ruby --version"}`),
+				ToolUseID: "toolu_abc",
+			}},
+		},
+		{
+			name:     "control_request non-permission request ignored",
+			input:    `{"type":"control_request","request_id":"req-456","request":{"subtype":"other_type"}}`,
+			expected: nil,
+		},
+		{
+			name:     "control_request with nil request ignored",
+			input:    `{"type":"control_request","request_id":"req-789"}`,
+			expected: nil,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			results := agent.parseLine([]byte(tt.input))
+			pendingRequests := &sync.Map{}
+			results, isResult := agent.parseLine([]byte(tt.input), pendingRequests)
+
+			if isResult != tt.isResult {
+				t.Errorf("isResult: expected %v, got %v", tt.isResult, isResult)
+			}
 
 			if tt.expected == nil {
 				if len(results) != 0 {
@@ -182,6 +212,10 @@ func TestParseLine(t *testing.T) {
 					t.Errorf("event[%d] ToolResult: expected %q, got %q", i, expected.ToolResult, result.ToolResult)
 				}
 
+				if result.RequestID != expected.RequestID {
+					t.Errorf("event[%d] RequestID: expected %q, got %q", i, expected.RequestID, result.RequestID)
+				}
+
 				if expected.ToolInput != nil {
 					if string(result.ToolInput) != string(expected.ToolInput) {
 						t.Errorf("event[%d] ToolInput: expected %s, got %s", i, expected.ToolInput, result.ToolInput)
@@ -201,5 +235,119 @@ func TestNewClaudeAgent(t *testing.T) {
 
 	if agent.timeout != DefaultTimeout {
 		t.Errorf("expected timeout %v, got %v", DefaultTimeout, agent.timeout)
+	}
+}
+
+func TestParseControlRequest_StoresPendingRequest(t *testing.T) {
+	agent := NewClaudeAgent()
+	pendingRequests := &sync.Map{}
+
+	input := `{"type":"control_request","request_id":"req-789","request":{"subtype":"can_use_tool","tool_name":"Bash","input":{"command":"ls"},"tool_use_id":"toolu_xyz"}}`
+	results, isResult := agent.parseLine([]byte(input), pendingRequests)
+
+	if isResult {
+		t.Error("expected isResult to be false for control_request")
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(results))
+	}
+
+	// Verify request is stored in pending map
+	stored, ok := pendingRequests.Load("req-789")
+	if !ok {
+		t.Fatal("expected pending request to be stored")
+	}
+
+	req := stored.(*controlRequest)
+	if req.RequestID != "req-789" {
+		t.Errorf("expected request_id 'req-789', got %q", req.RequestID)
+	}
+	if req.Request.ToolName != "Bash" {
+		t.Errorf("expected tool_name 'Bash', got %q", req.Request.ToolName)
+	}
+	if req.Request.ToolUseID != "toolu_xyz" {
+		t.Errorf("expected tool_use_id 'toolu_xyz', got %q", req.Request.ToolUseID)
+	}
+}
+
+func TestSendControlResponse_Allow(t *testing.T) {
+	agent := NewClaudeAgent()
+	var buf bytes.Buffer
+
+	req := &controlRequest{
+		RequestID: "req-123",
+		Request: &permissionData{
+			ToolUseID: "toolu_abc",
+			Input:     json.RawMessage(`{"command":"ruby --version"}`),
+		},
+	}
+
+	err := agent.sendControlResponse(&buf, PermissionResponse{
+		RequestID: "req-123",
+		Allow:     true,
+	}, req)
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var response controlResponse
+	if err := json.Unmarshal(buf.Bytes(), &response); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
+
+	if response.Type != "control_response" {
+		t.Errorf("expected type 'control_response', got %q", response.Type)
+	}
+	if response.Response.Subtype != "success" {
+		t.Errorf("expected subtype 'success', got %q", response.Response.Subtype)
+	}
+	if response.Response.RequestID != "req-123" {
+		t.Errorf("expected request_id 'req-123', got %q", response.Response.RequestID)
+	}
+	if response.Response.Response.Behavior != "allow" {
+		t.Errorf("expected behavior 'allow', got %q", response.Response.Response.Behavior)
+	}
+	if response.Response.Response.ToolUseID != "toolu_abc" {
+		t.Errorf("expected toolUseID 'toolu_abc', got %q", response.Response.Response.ToolUseID)
+	}
+	if string(response.Response.Response.UpdatedInput) != `{"command":"ruby --version"}` {
+		t.Errorf("expected updatedInput, got %q", string(response.Response.Response.UpdatedInput))
+	}
+}
+
+func TestSendControlResponse_Deny(t *testing.T) {
+	agent := NewClaudeAgent()
+	var buf bytes.Buffer
+
+	req := &controlRequest{
+		RequestID: "req-456",
+		Request: &permissionData{
+			ToolUseID: "toolu_def",
+		},
+	}
+
+	err := agent.sendControlResponse(&buf, PermissionResponse{
+		RequestID: "req-456",
+		Allow:     false,
+	}, req)
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var response controlResponse
+	if err := json.Unmarshal(buf.Bytes(), &response); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
+
+	if response.Response.Response.Behavior != "deny" {
+		t.Errorf("expected behavior 'deny', got %q", response.Response.Response.Behavior)
+	}
+	if !response.Response.Response.Interrupt {
+		t.Error("expected interrupt to be true")
+	}
+	if response.Response.Response.Message != "User denied permission" {
+		t.Errorf("expected message 'User denied permission', got %q", response.Response.Response.Message)
 	}
 }
