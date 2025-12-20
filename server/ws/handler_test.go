@@ -15,11 +15,25 @@ import (
 
 // mockAgent implements agent.Agent for testing.
 type mockAgent struct {
-	events []agent.AgentEvent
-	err    error
+	events    []agent.AgentEvent
+	err       error
+	sessionID string             // session ID to return
+	calls     []mockAgentRunCall // record of all Run calls
 }
 
-func (m *mockAgent) Run(ctx context.Context, prompt string, workDir string) (<-chan agent.AgentEvent, error) {
+type mockAgentRunCall struct {
+	Prompt    string
+	WorkDir   string
+	SessionID string
+}
+
+func (m *mockAgent) Run(ctx context.Context, prompt string, workDir string, sessionID string) (<-chan agent.AgentEvent, error) {
+	m.calls = append(m.calls, mockAgentRunCall{
+		Prompt:    prompt,
+		WorkDir:   workDir,
+		SessionID: sessionID,
+	})
+
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -27,6 +41,19 @@ func (m *mockAgent) Run(ctx context.Context, prompt string, workDir string) (<-c
 	ch := make(chan agent.AgentEvent)
 	go func() {
 		defer close(ch)
+
+		// Always send session event first (matches real Claude CLI behavior)
+		// If no sessionID configured, generate a fake one for testing
+		sessionID := m.sessionID
+		if sessionID == "" {
+			sessionID = "mock-session-" + prompt[:min(8, len(prompt))]
+		}
+		select {
+		case ch <- agent.AgentEvent{Type: agent.EventTypeSession, SessionID: sessionID}:
+		case <-ctx.Done():
+			return
+		}
+
 		for _, event := range m.events {
 			select {
 			case ch <- event:
@@ -104,9 +131,9 @@ func TestHandler_WebSocketConnection(t *testing.T) {
 		t.Fatalf("failed to write: %v", err)
 	}
 
-	// Read responses
+	// Read responses (session + text + done = 3)
 	var responses []ServerMessage
-	for i := 0; i < 2; i++ {
+	for i := 0; i < 3; i++ {
 		_, data, err := conn.Read(ctx)
 		if err != nil {
 			t.Fatalf("failed to read: %v", err)
@@ -119,20 +146,146 @@ func TestHandler_WebSocketConnection(t *testing.T) {
 	}
 
 	// Verify responses
-	if len(responses) != 2 {
-		t.Fatalf("expected 2 responses, got %d", len(responses))
+	if len(responses) != 3 {
+		t.Fatalf("expected 3 responses, got %d", len(responses))
 	}
 
-	if responses[0].Type != "text" || responses[0].Content != "Hello" {
-		t.Errorf("unexpected first response: %+v", responses[0])
+	if responses[0].Type != "session" {
+		t.Errorf("expected first response to be session, got %+v", responses[0])
 	}
 
-	if responses[1].Type != "done" {
+	if responses[1].Type != "text" || responses[1].Content != "Hello" {
 		t.Errorf("unexpected second response: %+v", responses[1])
 	}
 
-	if responses[0].MessageID != "test-123" {
-		t.Errorf("expected message_id 'test-123', got %q", responses[0].MessageID)
+	if responses[2].Type != "done" {
+		t.Errorf("unexpected third response: %+v", responses[2])
+	}
+
+	if responses[1].MessageID != "test-123" {
+		t.Errorf("expected message_id 'test-123', got %q", responses[1].MessageID)
 	}
 }
 
+func TestHandler_SessionPersistence(t *testing.T) {
+	mock := &mockAgent{
+		sessionID: "session-abc-123",
+		events: []agent.AgentEvent{
+			{Type: agent.EventTypeText, Content: "Response"},
+			{Type: agent.EventTypeDone},
+		},
+	}
+	h := NewHandler("test-token", mock, "/tmp", true)
+
+	server := httptest.NewServer(h)
+	defer server.Close()
+
+	wsURL := "ws" + strings.TrimPrefix(server.URL, "http") + "?token=test-token"
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	conn, _, err := websocket.Dial(ctx, wsURL, nil)
+	if err != nil {
+		t.Fatalf("failed to connect: %v", err)
+	}
+	defer conn.Close(websocket.StatusNormalClosure, "")
+
+	// Send first message
+	msg1 := ClientMessage{Type: "message", ID: "msg-1", Content: "First message"}
+	msgData, _ := json.Marshal(msg1)
+	if err := conn.Write(ctx, websocket.MessageText, msgData); err != nil {
+		t.Fatalf("failed to write first message: %v", err)
+	}
+
+	// Read all responses for first message (session + text + done = 3)
+	for i := 0; i < 3; i++ {
+		_, _, err := conn.Read(ctx)
+		if err != nil {
+			t.Fatalf("failed to read response %d: %v", i, err)
+		}
+	}
+
+	// Send second message
+	msg2 := ClientMessage{Type: "message", ID: "msg-2", Content: "Second message"}
+	msgData, _ = json.Marshal(msg2)
+	if err := conn.Write(ctx, websocket.MessageText, msgData); err != nil {
+		t.Fatalf("failed to write second message: %v", err)
+	}
+
+	// Read all responses for second message
+	for i := 0; i < 3; i++ {
+		_, _, err := conn.Read(ctx)
+		if err != nil {
+			t.Fatalf("failed to read response %d: %v", i, err)
+		}
+	}
+
+	// Verify session persistence
+	if len(mock.calls) != 2 {
+		t.Fatalf("expected 2 agent calls, got %d", len(mock.calls))
+	}
+
+	// First call should have empty session ID
+	if mock.calls[0].SessionID != "" {
+		t.Errorf("first call should have empty sessionID, got %q", mock.calls[0].SessionID)
+	}
+
+	// Second call should have the session ID from first response
+	if mock.calls[1].SessionID != "session-abc-123" {
+		t.Errorf("second call should have sessionID 'session-abc-123', got %q", mock.calls[1].SessionID)
+	}
+}
+
+func TestHandler_ClientProvidedSessionID(t *testing.T) {
+	mock := &mockAgent{
+		events: []agent.AgentEvent{
+			{Type: agent.EventTypeText, Content: "Response"},
+			{Type: agent.EventTypeDone},
+		},
+	}
+	h := NewHandler("test-token", mock, "/tmp", true)
+
+	server := httptest.NewServer(h)
+	defer server.Close()
+
+	wsURL := "ws" + strings.TrimPrefix(server.URL, "http") + "?token=test-token"
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	conn, _, err := websocket.Dial(ctx, wsURL, nil)
+	if err != nil {
+		t.Fatalf("failed to connect: %v", err)
+	}
+	defer conn.Close(websocket.StatusNormalClosure, "")
+
+	// Send message with client-provided session ID
+	msg := ClientMessage{
+		Type:      "message",
+		ID:        "msg-1",
+		Content:   "Hello",
+		SessionID: "client-session-xyz",
+	}
+	msgData, _ := json.Marshal(msg)
+	if err := conn.Write(ctx, websocket.MessageText, msgData); err != nil {
+		t.Fatalf("failed to write: %v", err)
+	}
+
+	// Read all responses (session + text + done = 3)
+	for i := 0; i < 3; i++ {
+		_, _, err := conn.Read(ctx)
+		if err != nil {
+			t.Fatalf("failed to read response %d: %v", i, err)
+		}
+	}
+
+	// Verify client-provided session ID was used
+	if len(mock.calls) != 1 {
+		t.Fatalf("expected 1 agent call, got %d", len(mock.calls))
+	}
+
+	if mock.calls[0].SessionID != "client-session-xyz" {
+		t.Errorf("expected client-provided sessionID 'client-session-xyz', got %q", mock.calls[0].SessionID)
+	}
+}

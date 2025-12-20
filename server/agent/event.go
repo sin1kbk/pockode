@@ -11,6 +11,7 @@ const (
 	EventTypeToolResult EventType = "tool_result"
 	EventTypeError      EventType = "error"
 	EventTypeDone       EventType = "done"
+	EventTypeSession    EventType = "session"
 )
 
 // AgentEvent represents a unified event from an AI agent.
@@ -22,4 +23,5 @@ type AgentEvent struct {
 	ToolUseID  string          `json:"tool_use_id,omitempty"`
 	ToolResult string          `json:"tool_result,omitempty"`
 	Error      string          `json:"error,omitempty"`
+	SessionID  string          `json:"session_id,omitempty"`
 }

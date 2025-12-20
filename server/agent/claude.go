@@ -29,17 +29,22 @@ func NewClaudeAgent() *ClaudeAgent {
 }
 
 // Run executes Claude CLI with the given prompt and streams events.
-func (c *ClaudeAgent) Run(ctx context.Context, prompt string, workDir string) (<-chan AgentEvent, error) {
+// sessionID is used to continue a previous conversation. If empty, a new session is created.
+func (c *ClaudeAgent) Run(ctx context.Context, prompt string, workDir string, sessionID string) (<-chan AgentEvent, error) {
 	events := make(chan AgentEvent)
 
 	timeoutCtx, cancel := context.WithTimeout(ctx, c.timeout)
 
-	cmd := exec.CommandContext(timeoutCtx,
-		ClaudeBinary,
+	args := []string{
 		"-p", prompt,
 		"--output-format", "stream-json",
 		"--verbose",
-	)
+	}
+	if sessionID != "" {
+		args = append(args, "--resume", sessionID)
+	}
+
+	cmd := exec.CommandContext(timeoutCtx, ClaudeBinary, args...)
 	cmd.Dir = workDir
 
 	stdout, err := cmd.StdoutPipe()
@@ -129,10 +134,11 @@ func (c *ClaudeAgent) Run(ctx context.Context, prompt string, workDir string) (<
 
 // cliEvent represents a raw event from Claude CLI verbose stream-json output.
 type cliEvent struct {
-	Type    string          `json:"type"`
-	Subtype string          `json:"subtype,omitempty"`
-	Message json.RawMessage `json:"message,omitempty"`
-	Result  string          `json:"result,omitempty"`
+	Type      string          `json:"type"`
+	Subtype   string          `json:"subtype,omitempty"`
+	Message   json.RawMessage `json:"message,omitempty"`
+	Result    string          `json:"result,omitempty"`
+	SessionID string          `json:"session_id,omitempty"`
 }
 
 // cliMessage represents the message object in assistant events.
@@ -178,7 +184,13 @@ func (c *ClaudeAgent) parseLine(line []byte) []AgentEvent {
 		// Result event means completion, we'll send done in the main loop
 		return nil
 	case "system":
-		// Ignore system/init events
+		// System event contains the session ID
+		if event.SessionID != "" {
+			return []AgentEvent{{
+				Type:      EventTypeSession,
+				SessionID: event.SessionID,
+			}}
+		}
 		return nil
 	default:
 		logger.Info("parseLine: unknown event type: %s", event.Type)

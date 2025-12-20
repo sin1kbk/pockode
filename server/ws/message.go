@@ -4,9 +4,10 @@ import "encoding/json"
 
 // ClientMessage represents a message sent by the client.
 type ClientMessage struct {
-	Type    string `json:"type"`    // "message" or "cancel"
-	ID      string `json:"id"`      // Message ID (UUID)
-	Content string `json:"content"` // User input (for "message" type)
+	Type      string `json:"type"`                 // "message" or "cancel"
+	ID        string `json:"id"`                   // Message ID (UUID)
+	Content   string `json:"content"`              // User input (for "message" type)
+	SessionID string `json:"session_id,omitempty"` // Optional: resume a specific session
 }
 
 // ServerMessage represents a message sent by the server.
@@ -19,4 +20,5 @@ type ServerMessage struct {
 	ToolUseID  string          `json:"tool_use_id,omitempty"` // Tool use ID (for tool_result)
 	ToolResult string          `json:"tool_result,omitempty"` // Tool result content
 	Error      string          `json:"error,omitempty"`       // Error message
+	SessionID  string          `json:"session_id,omitempty"`  // Session ID for conversation continuity
 }

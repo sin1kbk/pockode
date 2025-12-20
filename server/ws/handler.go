@@ -5,6 +5,7 @@ import (
 	"crypto/subtle"
 	"encoding/json"
 	"net/http"
+	"sync"
 
 	"github.com/coder/websocket"
 	"github.com/pockode/server/agent"
@@ -61,10 +62,17 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.handleConnection(r.Context(), conn)
 }
 
+// sessionState holds the state for a WebSocket connection.
+type sessionState struct {
+	mu        sync.Mutex
+	sessionID string
+}
+
 // handleConnection manages the WebSocket connection lifecycle.
 func (h *Handler) handleConnection(ctx context.Context, conn *websocket.Conn) {
 	logger.Info("handleConnection: new connection")
 	var cancel context.CancelFunc
+	state := &sessionState{}
 
 	for {
 		_, data, err := conn.Read(ctx)
@@ -94,7 +102,7 @@ func (h *Handler) handleConnection(ctx context.Context, conn *websocket.Conn) {
 			}
 			var msgCtx context.Context
 			msgCtx, cancel = context.WithCancel(ctx)
-			go h.handleMessage(msgCtx, conn, msg)
+			go h.handleMessage(msgCtx, conn, msg, state)
 
 		case "cancel":
 			if cancel != nil {
@@ -109,10 +117,18 @@ func (h *Handler) handleConnection(ctx context.Context, conn *websocket.Conn) {
 }
 
 // handleMessage processes a user message and streams the response.
-func (h *Handler) handleMessage(ctx context.Context, conn *websocket.Conn, msg ClientMessage) {
-	logger.Info("handleMessage: prompt=%q, workDir=%s", logger.Truncate(msg.Content, promptLogMaxLen), h.workDir)
+func (h *Handler) handleMessage(ctx context.Context, conn *websocket.Conn, msg ClientMessage, state *sessionState) {
+	// Use client-provided sessionID if present, otherwise use server-side state
+	sessionID := msg.SessionID
+	if sessionID == "" {
+		state.mu.Lock()
+		sessionID = state.sessionID
+		state.mu.Unlock()
+	}
 
-	events, err := h.agent.Run(ctx, msg.Content, h.workDir)
+	logger.Info("handleMessage: prompt=%q, workDir=%s, sessionID=%s", logger.Truncate(msg.Content, promptLogMaxLen), h.workDir, sessionID)
+
+	events, err := h.agent.Run(ctx, msg.Content, h.workDir, sessionID)
 	if err != nil {
 		logger.Error("agent.Run error: %v", err)
 		h.sendError(ctx, conn, msg.ID, err.Error())
@@ -121,6 +137,14 @@ func (h *Handler) handleMessage(ctx context.Context, conn *websocket.Conn, msg C
 
 	for event := range events {
 		logger.Debug("event: type=%s", event.Type)
+
+		// Update session ID when received from agent
+		if event.SessionID != "" {
+			state.mu.Lock()
+			state.sessionID = event.SessionID
+			state.mu.Unlock()
+			logger.Info("handleMessage: session updated to %s", event.SessionID)
+		}
 
 		serverMsg := ServerMessage{
 			Type:       string(event.Type),
@@ -131,6 +155,7 @@ func (h *Handler) handleMessage(ctx context.Context, conn *websocket.Conn, msg C
 			ToolUseID:  event.ToolUseID,
 			ToolResult: event.ToolResult,
 			Error:      event.Error,
+			SessionID:  event.SessionID,
 		}
 
 		if err := h.send(ctx, conn, serverMsg); err != nil {

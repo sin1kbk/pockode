@@ -32,7 +32,7 @@ func TestIntegration_SimplePrompt(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	events, err := agent.Run(ctx, "Reply with exactly: OK", t.TempDir())
+	events, err := agent.Run(ctx, "Reply with exactly: OK", t.TempDir(), "")
 	if err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
@@ -76,7 +76,7 @@ func TestIntegration_ToolUse(t *testing.T) {
 	defer cancel()
 
 	// Prompt that forces tool use by requiring file system interaction
-	events, err := agent.Run(ctx, "Run: ls -la", t.TempDir())
+	events, err := agent.Run(ctx, "Run: ls -la", t.TempDir(), "")
 	if err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
