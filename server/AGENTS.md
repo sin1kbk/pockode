@@ -81,6 +81,19 @@ if err := json.Unmarshal(data, &parsed); err != nil {
 - 表驱动测试优先
 - 测试函数命名：`TestXxx` 或 `TestXxx_SubCase`
 
+### 集成测试（消耗 token）
+
+调用真实 Claude CLI 的集成测试，验证事件流和工具调用解析：
+
+```bash
+# 手动执行（需要 claude CLI + API 凭证）
+go test -tags=integration ./agent -v -run Integration
+```
+
+⚠️ 会消耗 API token，仅在以下情况手动执行：
+- 修改了 `agent/claude.go` 的解析逻辑
+- 升级 Claude CLI 版本后
+
 ## 边界
 
 ### Always Do
