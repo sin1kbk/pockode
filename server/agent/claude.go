@@ -172,6 +172,7 @@ func (c *ClaudeAgent) parseLine(line []byte) []AgentEvent {
 	case "assistant":
 		return c.parseAssistantEvent(event)
 	case "user":
+		// "user" in Claude API contains tool_result, not actual user input
 		return c.parseUserEvent(event)
 	case "result":
 		// Result event means completion, we'll send done in the main loop
@@ -244,8 +245,11 @@ func (c *ClaudeAgent) parseAssistantEvent(event cliEvent) []AgentEvent {
 	return events
 }
 
-// parseUserEvent handles user message events (contains tool_result).
-// Returns multiple events when message contains multiple tool results.
+// parseUserEvent handles "user" type events from Claude CLI.
+//
+// In Claude API protocol, tool execution results are sent as "user" role messages.
+// This is different from actual user input (which comes from the frontend).
+// We extract tool_result blocks and convert them to EventTypeToolResult.
 func (c *ClaudeAgent) parseUserEvent(event cliEvent) []AgentEvent {
 	if event.Message == nil {
 		return nil
