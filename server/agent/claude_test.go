@@ -19,9 +19,12 @@ func TestParseLine(t *testing.T) {
 			expected: nil,
 		},
 		{
-			name:     "invalid json",
-			input:    "not json",
-			expected: nil,
+			name:  "invalid json falls back to raw text",
+			input: "not json",
+			expected: &AgentEvent{
+				Type:    EventTypeText,
+				Content: "not json",
+			},
 		},
 		{
 			name:     "system init event",

@@ -151,10 +151,18 @@ type cliContentBlock struct {
 
 // parseLine parses a single line of Claude CLI verbose stream-json output.
 func (c *ClaudeAgent) parseLine(line []byte) *AgentEvent {
+	if len(line) == 0 {
+		return nil
+	}
+
 	var event cliEvent
 	if err := json.Unmarshal(line, &event); err != nil {
 		logger.Error("parseLine: failed to parse JSON: %v, line: %s", err, logger.Truncate(string(line), 100))
-		return nil
+		// Fallback: send raw content as text to ensure minimum usability
+		return &AgentEvent{
+			Type:    EventTypeText,
+			Content: string(line),
+		}
 	}
 
 	switch event.Type {
@@ -181,7 +189,11 @@ func (c *ClaudeAgent) parseAssistantEvent(event cliEvent) *AgentEvent {
 	var msg cliMessage
 	if err := json.Unmarshal(event.Message, &msg); err != nil {
 		logger.Error("parseAssistantEvent: failed to parse message: %v", err)
-		return nil
+		// Fallback: send raw message as text
+		return &AgentEvent{
+			Type:    EventTypeText,
+			Content: string(event.Message),
+		}
 	}
 
 	// Collect all text content
