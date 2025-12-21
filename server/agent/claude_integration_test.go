@@ -28,13 +28,18 @@ func TestIntegration_ClaudeCliAvailable(t *testing.T) {
 func TestIntegration_SimplePrompt(t *testing.T) {
 	agent := NewClaudeAgent()
 
-	// Test timeout is shorter than agent default (5min) to fail fast
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	session, err := agent.Run(ctx, "Reply with exactly: OK", t.TempDir(), "")
+	session, err := agent.Start(ctx, t.TempDir(), "")
 	if err != nil {
-		t.Fatalf("Run failed: %v", err)
+		t.Fatalf("Start failed: %v", err)
+	}
+	defer session.Close()
+
+	// Send the first message
+	if err := session.SendMessage("Reply with exactly: OK"); err != nil {
+		t.Fatalf("SendMessage failed: %v", err)
 	}
 
 	var textEvents, doneEvents, sessionEvents int
@@ -55,6 +60,7 @@ eventLoop:
 				t.Logf("text: %s", event.Content)
 			case EventTypeDone:
 				doneEvents++
+				break eventLoop // Message complete, exit loop
 			case EventTypeError:
 				t.Errorf("error event: %s", event.Error)
 			}
@@ -77,15 +83,19 @@ eventLoop:
 func TestIntegration_PermissionFlow(t *testing.T) {
 	agent := NewClaudeAgent()
 
-	// Test timeout is shorter than agent default (5min) to fail fast
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
+	session, err := agent.Start(ctx, t.TempDir(), "")
+	if err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+	defer session.Close()
+
 	// Use a command that will definitely require permission (not pre-approved)
 	// Ruby version check is a good candidate as it's not a common pre-approved command
-	session, err := agent.Run(ctx, "Run this exact command and show output: ruby --version", t.TempDir(), "")
-	if err != nil {
-		t.Fatalf("Run failed: %v", err)
+	if err := session.SendMessage("Run this exact command and show output: ruby --version"); err != nil {
+		t.Fatalf("SendMessage failed: %v", err)
 	}
 
 	var toolCalls, toolResults, errorEvents, permissionRequests int
@@ -125,6 +135,8 @@ eventLoop:
 				t.Logf("error: %s", event.Error)
 			case EventTypeText:
 				t.Logf("text: %s", event.Content[:min(100, len(event.Content))])
+			case EventTypeDone:
+				break eventLoop // Message complete
 			}
 		case <-ctx.Done():
 			t.Fatal("timeout waiting for events")

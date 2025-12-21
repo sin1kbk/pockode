@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/subtle"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"sync"
 
@@ -62,26 +63,44 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.handleConnection(r.Context(), conn)
 }
 
-// sessionState holds the state for a WebSocket connection.
-type sessionState struct {
-	mu        sync.Mutex
-	sessionID string
-	session   *agent.Session // current active session for permission responses
+// sessionEntry holds the state for a single agent session.
+type sessionEntry struct {
+	session *agent.Session
+}
+
+// connectionState holds the state for a WebSocket connection.
+// A single WebSocket connection can manage multiple agent sessions.
+type connectionState struct {
+	mu       sync.Mutex
+	sessions map[string]*sessionEntry // sessionID -> session entry
+
+	// writeMu protects WebSocket writes from concurrent access
+	writeMu sync.Mutex
 }
 
 // handleConnection manages the WebSocket connection lifecycle.
 func (h *Handler) handleConnection(ctx context.Context, conn *websocket.Conn) {
 	logger.Info("handleConnection: new connection")
-	var cancel context.CancelFunc
-	state := &sessionState{}
 
+	state := &connectionState{
+		sessions: make(map[string]*sessionEntry),
+	}
+
+	// Cleanup all sessions on connection close
+	defer func() {
+		state.mu.Lock()
+		for sessionID, entry := range state.sessions {
+			logger.Info("handleConnection: closing session %s", sessionID)
+			entry.session.Close()
+		}
+		state.mu.Unlock()
+	}()
+
+	// Main loop: read messages from client
 	for {
 		_, data, err := conn.Read(ctx)
 		if err != nil {
 			logger.Debug("handleConnection: read error: %v", err)
-			if cancel != nil {
-				cancel()
-			}
 			return
 		}
 
@@ -90,86 +109,98 @@ func (h *Handler) handleConnection(ctx context.Context, conn *websocket.Conn) {
 		var msg ClientMessage
 		if err := json.Unmarshal(data, &msg); err != nil {
 			logger.Error("handleConnection: unmarshal error: %v", err)
-			h.sendError(ctx, conn, "", "Invalid message format")
+			h.sendErrorWithLock(ctx, conn, state, "Invalid message format")
 			continue
 		}
 
-		logger.Debug("handleConnection: parsed message type=%s, id=%s", msg.Type, msg.ID)
+		logger.Debug("handleConnection: parsed message type=%s, id=%s, sessionID=%s", msg.Type, msg.ID, msg.SessionID)
 
 		switch msg.Type {
 		case "message":
-			if cancel != nil {
-				cancel()
+			if err := h.handleMessage(ctx, conn, msg, state); err != nil {
+				logger.Error("handleConnection: handleMessage error: %v", err)
+				h.sendErrorWithLock(ctx, conn, state, err.Error())
 			}
-			var msgCtx context.Context
-			msgCtx, cancel = context.WithCancel(ctx)
-			go h.handleMessage(msgCtx, conn, msg, state)
 
 		case "cancel":
-			if cancel != nil {
-				cancel()
-				cancel = nil
-			}
+			// TODO: implement cancel for specific session
+			logger.Info("handleConnection: cancel not yet implemented")
 
 		case "permission_response":
-			state.mu.Lock()
-			session := state.session
-			state.mu.Unlock()
-			if session != nil {
-				if err := session.SendPermissionResponse(agent.PermissionResponse{
-					RequestID: msg.RequestID,
-					Allow:     msg.Allow,
-				}); err != nil {
-					logger.Error("handleConnection: permission response error: %v", err)
-				}
-			} else {
-				logger.Error("handleConnection: no active session for permission response")
+			if err := h.handlePermissionResponse(ctx, conn, msg, state); err != nil {
+				logger.Error("handleConnection: permission response error: %v", err)
+				h.sendErrorWithLock(ctx, conn, state, err.Error())
 			}
 
 		default:
-			h.sendError(ctx, conn, msg.ID, "Unknown message type")
+			h.sendErrorWithLock(ctx, conn, state, "Unknown message type")
 		}
 	}
 }
 
-// handleMessage processes a user message and streams the response.
-func (h *Handler) handleMessage(ctx context.Context, conn *websocket.Conn, msg ClientMessage, state *sessionState) {
-	// Use client-provided sessionID if present, otherwise use server-side state
-	sessionID := msg.SessionID
-	if sessionID == "" {
-		state.mu.Lock()
-		sessionID = state.sessionID
+// handleMessage processes a user message, creating or reusing a session as needed.
+func (h *Handler) handleMessage(ctx context.Context, conn *websocket.Conn, msg ClientMessage, state *connectionState) error {
+	state.mu.Lock()
+	entry, exists := state.sessions[msg.SessionID]
+
+	if !exists {
+		// Create new session (or resume if sessionID is provided)
+		// Hold lock during creation to prevent duplicate sessions
+		session, err := h.agent.Start(ctx, h.workDir, msg.SessionID)
+		if err != nil {
+			state.mu.Unlock()
+			return err
+		}
+
+		entry = &sessionEntry{session: session}
+		state.sessions[msg.SessionID] = entry
+		state.mu.Unlock()
+
+		// Start goroutine to stream events from this session
+		go h.streamEvents(ctx, conn, msg.SessionID, state)
+
+		logger.Info("handleMessage: created session %s", msg.SessionID)
+	} else {
 		state.mu.Unlock()
 	}
 
-	logger.Info("handleMessage: prompt=%q, workDir=%s, sessionID=%s", logger.Truncate(msg.Content, promptLogMaxLen), h.workDir, sessionID)
+	logger.Info("handleMessage: prompt=%q, sessionID=%s", logger.Truncate(msg.Content, promptLogMaxLen), msg.SessionID)
 
-	session, err := h.agent.Run(ctx, msg.Content, h.workDir, sessionID)
-	if err != nil {
-		logger.Error("agent.Run error: %v", err)
-		h.sendError(ctx, conn, msg.ID, err.Error())
+	return entry.session.SendMessage(msg.Content)
+}
+
+// handlePermissionResponse routes a permission response to the correct session.
+func (h *Handler) handlePermissionResponse(ctx context.Context, conn *websocket.Conn, msg ClientMessage, state *connectionState) error {
+	state.mu.Lock()
+	entry, exists := state.sessions[msg.SessionID]
+	state.mu.Unlock()
+
+	if !exists {
+		return fmt.Errorf("session not found: %s", msg.SessionID)
+	}
+
+	return entry.session.SendPermissionResponse(agent.PermissionResponse{
+		RequestID: msg.RequestID,
+		Allow:     msg.Allow,
+	})
+}
+
+// streamEvents reads events from the agent session and sends them to the client.
+func (h *Handler) streamEvents(ctx context.Context, conn *websocket.Conn, sessionID string, state *connectionState) {
+	state.mu.Lock()
+	entry, exists := state.sessions[sessionID]
+	state.mu.Unlock()
+
+	if !exists {
+		logger.Error("streamEvents: session not found: %s", sessionID)
 		return
 	}
 
-	// Store session for permission responses
-	state.mu.Lock()
-	state.session = session
-	state.mu.Unlock()
-
-	for event := range session.Events {
-		logger.Debug("event: type=%s", event.Type)
-
-		// Update session ID when received from agent
-		if event.SessionID != "" {
-			state.mu.Lock()
-			state.sessionID = event.SessionID
-			state.mu.Unlock()
-			logger.Info("handleMessage: session updated to %s", event.SessionID)
-		}
+	for event := range entry.session.Events {
+		logger.Debug("streamEvents: sessionID=%s, type=%s", sessionID, event.Type)
 
 		serverMsg := ServerMessage{
 			Type:       string(event.Type),
-			MessageID:  msg.ID,
 			Content:    event.Content,
 			ToolName:   event.ToolName,
 			ToolInput:  event.ToolInput,
@@ -180,36 +211,30 @@ func (h *Handler) handleMessage(ctx context.Context, conn *websocket.Conn, msg C
 			RequestID:  event.RequestID,
 		}
 
-		if err := h.send(ctx, conn, serverMsg); err != nil {
-			logger.Error("send error: %v", err)
+		if err := h.sendWithLock(ctx, conn, state, serverMsg); err != nil {
+			logger.Error("streamEvents: send error: %v", err)
 			return
 		}
 	}
 
-	// Clear session when done
-	state.mu.Lock()
-	state.session = nil
-	state.mu.Unlock()
+	logger.Info("streamEvents: session %s ended", sessionID)
 }
 
-// send writes a message to the WebSocket connection.
-func (h *Handler) send(ctx context.Context, conn *websocket.Conn, msg ServerMessage) error {
+// sendWithLock writes a message to the WebSocket connection with mutex protection.
+func (h *Handler) sendWithLock(ctx context.Context, conn *websocket.Conn, state *connectionState, msg ServerMessage) error {
 	data, err := json.Marshal(msg)
 	if err != nil {
 		return err
 	}
+	state.writeMu.Lock()
+	defer state.writeMu.Unlock()
 	return conn.Write(ctx, websocket.MessageText, data)
 }
 
-// sendError sends an error message to the client.
-func (h *Handler) sendError(ctx context.Context, conn *websocket.Conn, msgID, errMsg string) error {
-	if err := h.send(ctx, conn, ServerMessage{
-		Type:      "error",
-		MessageID: msgID,
-		Error:     errMsg,
-	}); err != nil {
-		logger.Error("sendError: failed to send error message: %v", err)
-		return err
-	}
-	return nil
+// sendErrorWithLock sends an error message to the client with mutex protection.
+func (h *Handler) sendErrorWithLock(ctx context.Context, conn *websocket.Conn, state *connectionState, errMsg string) error {
+	return h.sendWithLock(ctx, conn, state, ServerMessage{
+		Type:  "error",
+		Error: errMsg,
+	})
 }

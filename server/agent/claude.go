@@ -15,19 +15,16 @@ import (
 )
 
 const (
-	DefaultTimeout    = 5 * time.Minute
 	ClaudeBinary      = "claude"
 	stderrReadTimeout = 5 * time.Second
 )
 
 // ClaudeAgent implements the Agent interface using Claude CLI.
-type ClaudeAgent struct {
-	timeout time.Duration
-}
+type ClaudeAgent struct{}
 
-// NewClaudeAgent creates a new ClaudeAgent with default settings.
+// NewClaudeAgent creates a new ClaudeAgent.
 func NewClaudeAgent() *ClaudeAgent {
-	return &ClaudeAgent{timeout: DefaultTimeout}
+	return &ClaudeAgent{}
 }
 
 // userMessage is the format for sending prompts via stdin with stream-json input.
@@ -46,14 +43,15 @@ type textContent struct {
 	Text string `json:"text"`
 }
 
-// Run executes Claude CLI with the given prompt and streams events.
-// sessionID is used to continue a previous conversation. If empty, a new session is created.
-func (c *ClaudeAgent) Run(ctx context.Context, prompt string, workDir string, sessionID string) (*Session, error) {
+// Start launches a persistent Claude CLI process.
+// The process stays alive until the context is cancelled or Session.Close is called.
+// sessionID is used to resume a previous conversation. If empty, a new session is created.
+func (c *ClaudeAgent) Start(ctx context.Context, workDir string, sessionID string) (*Session, error) {
 	events := make(chan AgentEvent)
 
-	timeoutCtx, cancel := context.WithTimeout(ctx, c.timeout)
+	// Use context for cancellation, but no timeout - process is long-lived
+	procCtx, cancel := context.WithCancel(ctx)
 
-	// When using --input-format stream-json, prompt is sent via stdin, not -p flag
 	args := []string{
 		"--output-format", "stream-json",
 		"--input-format", "stream-json",
@@ -64,7 +62,7 @@ func (c *ClaudeAgent) Run(ctx context.Context, prompt string, workDir string, se
 		args = append(args, "--resume", sessionID)
 	}
 
-	cmd := exec.CommandContext(timeoutCtx, ClaudeBinary, args...)
+	cmd := exec.CommandContext(procCtx, ClaudeBinary, args...)
 	cmd.Dir = workDir
 
 	stdin, err := cmd.StdinPipe()
@@ -90,53 +88,60 @@ func (c *ClaudeAgent) Run(ctx context.Context, prompt string, workDir string, se
 		return nil, fmt.Errorf("failed to start claude: %w", err)
 	}
 
-	// Helper to cleanup on error after process started
-	cleanupOnError := func(err error) (*Session, error) {
-		cancel()
-		stdin.Close()
-		cmd.Process.Kill()
-		cmd.Wait()
-		return nil, err
-	}
-
-	// Send prompt via stdin as JSON (required for --input-format stream-json)
-	userMsg := userMessage{
-		Type: "user",
-		Message: userContent{
-			Role: "user",
-			Content: []textContent{
-				{Type: "text", Text: prompt},
-			},
-		},
-	}
-	msgData, err := json.Marshal(userMsg)
-	if err != nil {
-		return cleanupOnError(fmt.Errorf("failed to marshal user message: %w", err))
-	}
-	if _, err := stdin.Write(append(msgData, '\n')); err != nil {
-		return cleanupOnError(fmt.Errorf("failed to write prompt to stdin: %w", err))
-	}
+	logger.Info("Start: claude process started (pid=%d)", cmd.Process.Pid)
 
 	// Track pending permission requests for response handling
 	pendingRequests := &sync.Map{}
 
-	// Create session with permission response capability
+	// Mutex to protect stdin writes
+	var stdinMu sync.Mutex
+
+	// Create session with message and permission capabilities
 	session := &Session{
 		Events: events,
+		sendMessage: func(prompt string) error {
+			stdinMu.Lock()
+			defer stdinMu.Unlock()
+
+			userMsg := userMessage{
+				Type: "user",
+				Message: userContent{
+					Role: "user",
+					Content: []textContent{
+						{Type: "text", Text: prompt},
+					},
+				},
+			}
+			msgData, err := json.Marshal(userMsg)
+			if err != nil {
+				return fmt.Errorf("failed to marshal user message: %w", err)
+			}
+			logger.Debug("sendMessage: sending prompt (len=%d)", len(prompt))
+			if _, err := stdin.Write(append(msgData, '\n')); err != nil {
+				return fmt.Errorf("failed to write prompt to stdin: %w", err)
+			}
+			return nil
+		},
 		sendPermission: func(resp PermissionResponse) error {
-			pending, ok := pendingRequests.Load(resp.RequestID)
+			pending, ok := pendingRequests.LoadAndDelete(resp.RequestID)
 			if !ok {
 				return fmt.Errorf("no pending request for id: %s", resp.RequestID)
 			}
 			req := pending.(*controlRequest)
+
+			stdinMu.Lock()
+			defer stdinMu.Unlock()
 			return c.sendControlResponse(stdin, resp, req)
+		},
+		close: func() {
+			logger.Info("Session.Close: terminating claude process")
+			cancel()
 		},
 	}
 
 	go func() {
 		defer close(events)
 		defer cancel()
-		defer stdin.Close()
 
 		// Read stderr in a separate goroutine
 		stderrCh := make(chan string, 1)
@@ -164,14 +169,17 @@ func (c *ClaudeAgent) Run(ctx context.Context, prompt string, workDir string, se
 			for _, event := range parsedEvents {
 				select {
 				case events <- event:
-				case <-timeoutCtx.Done():
+				case <-procCtx.Done():
 					return
 				}
 			}
 
-			// Close stdin after result to let CLI exit
 			if isResult {
-				stdin.Close()
+				select {
+				case events <- AgentEvent{Type: EventTypeDone}:
+				case <-procCtx.Done():
+					return
+				}
 			}
 		}
 
@@ -188,20 +196,20 @@ func (c *ClaudeAgent) Run(ctx context.Context, prompt string, workDir string, se
 		}
 
 		if err := cmd.Wait(); err != nil {
-			errMsg := stderrContent
-			if errMsg == "" {
-				errMsg = err.Error()
-			}
-			select {
-			case events <- AgentEvent{Type: EventTypeError, Error: errMsg}:
-			case <-timeoutCtx.Done():
+			// Only report error if not caused by context cancellation
+			if procCtx.Err() == nil {
+				errMsg := stderrContent
+				if errMsg == "" {
+					errMsg = err.Error()
+				}
+				select {
+				case events <- AgentEvent{Type: EventTypeError, Error: errMsg}:
+				case <-procCtx.Done():
+				}
 			}
 		}
 
-		select {
-		case events <- AgentEvent{Type: EventTypeDone}:
-		case <-timeoutCtx.Done():
-		}
+		logger.Info("Start: claude process exited")
 	}()
 
 	return session, nil
@@ -327,7 +335,7 @@ func (c *ClaudeAgent) parseLine(line []byte, pendingRequests *sync.Map) ([]Agent
 		// "user" in Claude API contains tool_result, not actual user input
 		return c.parseUserEvent(event), false
 	case "result":
-		// Result event means completion, signal to close stdin
+		// Result event means message response is complete
 		return nil, true
 	case "system":
 		// System event contains the session ID

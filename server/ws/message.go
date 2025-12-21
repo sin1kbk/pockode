@@ -16,7 +16,6 @@ type ClientMessage struct {
 // ServerMessage represents a message sent by the server.
 type ServerMessage struct {
 	Type       string          `json:"type"`                  // Event type
-	MessageID  string          `json:"message_id,omitempty"`  // Associated message ID
 	Content    string          `json:"content,omitempty"`     // Text content
 	ToolName   string          `json:"tool_name,omitempty"`   // Tool name (for tool_call, permission_request)
 	ToolInput  json.RawMessage `json:"tool_input,omitempty"`  // Tool input (for tool_call, permission_request)

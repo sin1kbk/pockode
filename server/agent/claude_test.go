@@ -232,10 +232,6 @@ func TestNewClaudeAgent(t *testing.T) {
 	if agent == nil {
 		t.Fatal("NewClaudeAgent returned nil")
 	}
-
-	if agent.timeout != DefaultTimeout {
-		t.Errorf("expected timeout %v, got %v", DefaultTimeout, agent.timeout)
-	}
 }
 
 func TestParseControlRequest_StoresPendingRequest(t *testing.T) {
