@@ -113,9 +113,6 @@ func (s *session) Events() <-chan agent.AgentEvent {
 
 // SendMessage sends a message to Claude.
 func (s *session) SendMessage(prompt string) error {
-	s.stdinMu.Lock()
-	defer s.stdinMu.Unlock()
-
 	msg := userMessage{
 		Type: "user",
 		Message: userContent{
@@ -130,10 +127,7 @@ func (s *session) SendMessage(prompt string) error {
 		return fmt.Errorf("failed to marshal message: %w", err)
 	}
 	logger.Debug("sendMessage: sending prompt (len=%d)", len(prompt))
-	if _, err := s.stdin.Write(append(data, '\n')); err != nil {
-		return fmt.Errorf("failed to write to stdin: %w", err)
-	}
-	return nil
+	return s.writeStdin(data)
 }
 
 // SendPermissionResponse sends a permission response to Claude.
@@ -143,9 +137,6 @@ func (s *session) SendPermissionResponse(requestID string, allow bool) error {
 		return fmt.Errorf("no pending request for id: %s", requestID)
 	}
 	req := pending.(*controlRequest)
-
-	s.stdinMu.Lock()
-	defer s.stdinMu.Unlock()
 	return s.sendControlResponse(req, allow)
 }
 
@@ -187,7 +178,14 @@ func (s *session) sendControlResponse(req *controlRequest, allow bool) error {
 	}
 
 	logger.Debug("sendControlResponse: %s", string(data))
-	_, err = s.stdin.Write(append(data, '\n'))
+	return s.writeStdin(data)
+}
+
+// writeStdin writes data to stdin with mutex protection.
+func (s *session) writeStdin(data []byte) error {
+	s.stdinMu.Lock()
+	defer s.stdinMu.Unlock()
+	_, err := s.stdin.Write(append(data, '\n'))
 	return err
 }
 
