@@ -1,9 +1,14 @@
 import { useCallback, useState } from "react";
 import { type ConnectionStatus, useWebSocket } from "../../hooks/useWebSocket";
-import type { Message, WSServerMessage } from "../../types/message";
+import type {
+	Message,
+	PermissionRequest,
+	WSServerMessage,
+} from "../../types/message";
 import { generateUUID } from "../../utils/uuid";
 import InputBar from "./InputBar";
 import MessageList from "./MessageList";
+import PermissionDialog from "./PermissionDialog";
 
 const STATUS_CONFIG: Record<ConnectionStatus, { text: string; color: string }> =
 	{
@@ -15,10 +20,33 @@ const STATUS_CONFIG: Record<ConnectionStatus, { text: string; color: string }> =
 
 function ChatPanel() {
 	const [messages, setMessages] = useState<Message[]>([]);
+	const [sessionId, setSessionId] = useState<string | null>(null);
+	const [permissionRequest, setPermissionRequest] =
+		useState<PermissionRequest | null>(null);
 
 	const handleServerMessage = useCallback((serverMsg: WSServerMessage) => {
+		// Handle session event
+		if (serverMsg.type === "session" && serverMsg.session_id) {
+			setSessionId(serverMsg.session_id);
+			return;
+		}
+
+		// Handle permission request
+		if (serverMsg.type === "permission_request") {
+			setPermissionRequest({
+				requestId: serverMsg.request_id ?? "",
+				toolName: serverMsg.tool_name ?? "",
+				toolInput: serverMsg.tool_input,
+				toolUseId: serverMsg.tool_use_id,
+			});
+			return;
+		}
+
 		setMessages((prev) => {
-			const index = prev.findIndex((m) => m.id === serverMsg.message_id);
+			// Find the current pending message (sending or streaming)
+			const index = prev.findIndex(
+				(m) => m.status === "sending" || m.status === "streaming",
+			);
 			if (index === -1) return prev;
 
 			const updated = [...prev];
@@ -92,11 +120,12 @@ function ChatPanel() {
 
 			setMessages((prev) => [...prev, userMessage, assistantMessage]);
 
-			// Send to server
+			// Send to server with session_id if available
 			const sent = send({
 				type: "message",
 				id: assistantMessageId,
 				content,
+				session_id: sessionId ?? undefined,
 			});
 
 			// Handle send failure
@@ -110,7 +139,23 @@ function ChatPanel() {
 				);
 			}
 		},
-		[send],
+		[send, sessionId],
+	);
+
+	const handlePermissionResponse = useCallback(
+		(allow: boolean) => {
+			if (!permissionRequest || !sessionId) return;
+
+			send({
+				type: "permission_response",
+				session_id: sessionId,
+				request_id: permissionRequest.requestId,
+				allow,
+			});
+
+			setPermissionRequest(null);
+		},
+		[send, permissionRequest, sessionId],
 	);
 
 	const { text: statusText, color: statusColor } = STATUS_CONFIG[status];
@@ -123,6 +168,14 @@ function ChatPanel() {
 			</header>
 			<MessageList messages={messages} />
 			<InputBar onSend={handleSend} disabled={status !== "connected"} />
+
+			{permissionRequest && (
+				<PermissionDialog
+					request={permissionRequest}
+					onAllow={() => handlePermissionResponse(true)}
+					onDeny={() => handlePermissionResponse(false)}
+				/>
+			)}
 		</div>
 	);
 }

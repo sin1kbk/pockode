@@ -23,21 +23,50 @@ export interface Message {
 	createdAt: Date;
 }
 
-// WebSocket client message
-export interface WSClientMessage {
-	type: "message" | "cancel";
-	id: string;
-	content: string;
+// Permission request
+export interface PermissionRequest {
+	requestId: string;
+	toolName: string;
+	toolInput: unknown;
+	toolUseId?: string;
 }
+
+// WebSocket client message
+export type WSClientMessage =
+	| {
+			type: "message";
+			id: string;
+			content: string;
+			session_id?: string;
+	  }
+	| {
+			type: "cancel";
+			id: string;
+			session_id?: string;
+	  }
+	| {
+			type: "permission_response";
+			session_id: string;
+			request_id: string;
+			allow: boolean;
+	  };
 
 // WebSocket server message
 export interface WSServerMessage {
-	type: "text" | "tool_call" | "tool_result" | "error" | "done";
-	message_id: string;
+	type:
+		| "text"
+		| "tool_call"
+		| "tool_result"
+		| "error"
+		| "done"
+		| "session"
+		| "permission_request";
 	content?: string;
 	tool_name?: string;
 	tool_input?: unknown;
 	tool_use_id?: string;
 	tool_result?: string;
 	error?: string;
+	session_id?: string;
+	request_id?: string;
 }
