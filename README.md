@@ -1,50 +1,50 @@
 # Pockode
 
-让手机编程不再痛苦。
+Mobile coding, without the pain.
 
-## 项目愿景
+## Vision
 
-手机编程一直是一个痛点：屏幕小、键盘不便、操作繁琐。Pockode 旨在彻底改变这一现状，提供一种全新的移动端开发体验。
+Mobile programming has always been painful: small screens, awkward keyboards, tedious operations. Pockode aims to change this entirely by providing a new mobile development experience.
 
-## 核心理念
+## Core Philosophy
 
-**AI 编辑为主，手动编辑为辅**
+**AI-first editing, manual editing as backup**
 
-传统方案试图把桌面编辑器塞进手机屏幕，这是错误的方向。Pockode 采用对话式交互：
+Traditional solutions try to squeeze desktop editors into phone screens—this is the wrong approach. Pockode uses conversational interaction:
 
-- 用自然语言描述你想要的改动
-- AI 理解意图并执行代码修改
-- 你只需审阅和确认
+- Describe what you want in natural language
+- AI understands your intent and makes the changes
+- You just review and confirm
 
-## 主要功能
+## Features
 
-### 对话式开发
-通过 Chat 界面与 AI 交互，完成大部分开发工作：
-- 编写和修改代码
-- 重构和优化
-- Debug 和问题排查
-- 代码解释和学习
+### Conversational Development
+Complete most development tasks through a chat interface with AI:
+- Write and modify code
+- Refactor and optimize
+- Debug and troubleshoot
+- Explain and learn code
 
-### Git 操作
-不再需要记忆命令，用自然语言完成版本控制：
-- "提交这些改动"
-- "创建新分支 feature/login"
-- "合并到主分支"
-- "查看最近的提交记录"
+### Git Operations
+No need to memorize commands—use natural language for version control:
+- "Commit these changes"
+- "Create a new branch feature/login"
+- "Merge to main"
+- "Show recent commits"
 
-### 手动编辑
-当你确实需要手动编辑时：
-- 语法高亮
-- 快捷操作面板
+### Manual Editing
+When you do need to edit manually:
+- Syntax highlighting
+- Quick action panel
 
-## 开发状态
+## Status
 
-项目正在积极开发中。
+Under active development.
 
-## 反馈
+## Feedback
 
-欢迎提交 Issue 报告问题或提出建议。项目早期可能会频繁重构，暂不接受代码贡献。
+Issues and suggestions are welcome. Code contributions are not accepted during early development due to frequent refactoring.
 
-## 许可证
+## License
 
-O'Saasy License — 可以自由使用、修改、分发，但禁止用来做与 Pockode 直接竞争的服务。
+[O'Saasy License](LICENSE.md) — Free to use, modify, and distribute, but may not be used to build a service that directly competes with Pockode.
