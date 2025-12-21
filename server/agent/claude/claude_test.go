@@ -167,6 +167,29 @@ func TestParseLine(t *testing.T) {
 			input:    `{"type":"control_request","request_id":"req-789"}`,
 			expected: nil,
 		},
+		{
+			name:  "system event with session_id",
+			input: `{"type":"system","subtype":"init","session_id":"sess-abc-123"}`,
+			expected: []agent.AgentEvent{{
+				Type:      agent.EventTypeSession,
+				SessionID: "sess-abc-123",
+			}},
+		},
+		{
+			name:     "system event without session_id ignored",
+			input:    `{"type":"system","subtype":"init","cwd":"/tmp"}`,
+			expected: nil,
+		},
+		{
+			name:     "assistant message with nil message",
+			input:    `{"type":"assistant","subtype":"partial"}`,
+			expected: nil,
+		},
+		{
+			name:     "user event with nil message",
+			input:    `{"type":"user"}`,
+			expected: nil,
+		},
 	}
 
 	for _, tt := range tests {
@@ -214,6 +237,10 @@ func TestParseLine(t *testing.T) {
 
 				if result.RequestID != expected.RequestID {
 					t.Errorf("event[%d] RequestID: expected %q, got %q", i, expected.RequestID, result.RequestID)
+				}
+
+				if result.SessionID != expected.SessionID {
+					t.Errorf("event[%d] SessionID: expected %q, got %q", i, expected.SessionID, result.SessionID)
 				}
 
 				if expected.ToolInput != nil {
