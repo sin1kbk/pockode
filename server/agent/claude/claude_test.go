@@ -3,6 +3,7 @@ package claude
 import (
 	"bytes"
 	"encoding/json"
+	"reflect"
 	"sync"
 	"testing"
 
@@ -213,40 +214,8 @@ func TestParseLine(t *testing.T) {
 			}
 
 			for i, expected := range tt.expected {
-				result := results[i]
-
-				if result.Type != expected.Type {
-					t.Errorf("event[%d] Type: expected %q, got %q", i, expected.Type, result.Type)
-				}
-
-				if result.Content != expected.Content {
-					t.Errorf("event[%d] Content: expected %q, got %q", i, expected.Content, result.Content)
-				}
-
-				if result.ToolName != expected.ToolName {
-					t.Errorf("event[%d] ToolName: expected %q, got %q", i, expected.ToolName, result.ToolName)
-				}
-
-				if result.ToolUseID != expected.ToolUseID {
-					t.Errorf("event[%d] ToolUseID: expected %q, got %q", i, expected.ToolUseID, result.ToolUseID)
-				}
-
-				if result.ToolResult != expected.ToolResult {
-					t.Errorf("event[%d] ToolResult: expected %q, got %q", i, expected.ToolResult, result.ToolResult)
-				}
-
-				if result.RequestID != expected.RequestID {
-					t.Errorf("event[%d] RequestID: expected %q, got %q", i, expected.RequestID, result.RequestID)
-				}
-
-				if result.SessionID != expected.SessionID {
-					t.Errorf("event[%d] SessionID: expected %q, got %q", i, expected.SessionID, result.SessionID)
-				}
-
-				if expected.ToolInput != nil {
-					if string(result.ToolInput) != string(expected.ToolInput) {
-						t.Errorf("event[%d] ToolInput: expected %s, got %s", i, expected.ToolInput, result.ToolInput)
-					}
+				if !reflect.DeepEqual(results[i], expected) {
+					t.Errorf("event[%d]: expected %+v, got %+v", i, expected, results[i])
 				}
 			}
 		})
