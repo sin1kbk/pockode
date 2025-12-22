@@ -12,7 +12,6 @@ const (
 	EventTypeError             EventType = "error"
 	EventTypeDone              EventType = "done"
 	EventTypeInterrupted       EventType = "interrupted"
-	EventTypeSession           EventType = "session"
 	EventTypePermissionRequest EventType = "permission_request"
 )
 
@@ -28,7 +27,6 @@ type AgentEvent struct {
 	ToolUseID  string          `json:"tool_use_id,omitempty"`
 	ToolResult string          `json:"tool_result,omitempty"`
 	Error      string          `json:"error,omitempty"`
-	SessionID  string          `json:"session_id,omitempty"`
 	// Permission request fields
 	RequestID string `json:"request_id,omitempty"`
 }

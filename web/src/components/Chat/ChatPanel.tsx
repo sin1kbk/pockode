@@ -29,12 +29,6 @@ function ChatPanel({ onLogout }: Props) {
 		useState<PermissionRequest | null>(null);
 
 	const handleServerMessage = useCallback((serverMsg: WSServerMessage) => {
-		// Handle session event
-		if (serverMsg.type === "session" && serverMsg.session_id) {
-			setSessionId(serverMsg.session_id);
-			return;
-		}
-
 		// Handle permission request
 		if (serverMsg.type === "permission_request") {
 			setPermissionRequest({
@@ -125,6 +119,13 @@ function ChatPanel({ onLogout }: Props) {
 			const userMessageId = generateUUID();
 			const assistantMessageId = generateUUID();
 
+			// Generate sessionId on first message if not already set
+			let currentSessionId = sessionId;
+			if (!currentSessionId) {
+				currentSessionId = generateUUID();
+				setSessionId(currentSessionId);
+			}
+
 			// Add user message
 			const userMessage: Message = {
 				id: userMessageId,
@@ -145,12 +146,12 @@ function ChatPanel({ onLogout }: Props) {
 
 			setMessages((prev) => [...prev, userMessage, assistantMessage]);
 
-			// Send to server with session_id if available
+			// Send to server with session_id
 			const sent = send({
 				type: "message",
 				id: assistantMessageId,
 				content,
-				session_id: sessionId ?? undefined,
+				session_id: currentSessionId,
 			});
 
 			// Handle send failure

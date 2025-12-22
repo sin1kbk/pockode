@@ -176,16 +176,8 @@ func TestParseLine(t *testing.T) {
 			expected: nil,
 		},
 		{
-			name:  "system event with session_id",
-			input: `{"type":"system","subtype":"init","session_id":"sess-abc-123"}`,
-			expected: []agent.AgentEvent{{
-				Type:      agent.EventTypeSession,
-				SessionID: "sess-abc-123",
-			}},
-		},
-		{
-			name:     "system event without session_id ignored",
-			input:    `{"type":"system","subtype":"init","cwd":"/tmp"}`,
+			name:     "system event ignored",
+			input:    `{"type":"system","subtype":"init","session_id":"sess-abc-123"}`,
 			expected: nil,
 		},
 		{

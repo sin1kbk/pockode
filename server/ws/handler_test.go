@@ -127,12 +127,6 @@ func (m *mockAgent) Start(ctx context.Context, workDir string, sessionID string)
 				m.messagesBySession[effectiveSessionID] = append(m.messagesBySession[effectiveSessionID], prompt)
 				m.mu.Unlock()
 
-				select {
-				case eventsChan <- agent.AgentEvent{Type: agent.EventTypeSession, SessionID: effectiveSessionID}:
-				case <-ctx.Done():
-					return
-				}
-
 				for _, event := range m.events {
 					if event.Type == agent.EventTypePermissionRequest {
 						pendingRequests.Store(event.RequestID, true)
@@ -257,7 +251,7 @@ func TestHandler_WebSocketConnection(t *testing.T) {
 	}
 
 	var responses []ServerMessage
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 2; i++ {
 		_, data, err := conn.Read(ctx)
 		if err != nil {
 			t.Fatalf("failed to read response %d: %v", i, err)
@@ -269,20 +263,16 @@ func TestHandler_WebSocketConnection(t *testing.T) {
 		responses = append(responses, resp)
 	}
 
-	if len(responses) != 3 {
-		t.Fatalf("expected 3 responses, got %d", len(responses))
+	if len(responses) != 2 {
+		t.Fatalf("expected 2 responses, got %d", len(responses))
 	}
 
-	if responses[0].Type != "session" {
-		t.Errorf("expected first response to be session, got %+v", responses[0])
+	if responses[0].Type != "text" || responses[0].Content != "Hello" {
+		t.Errorf("unexpected first response: %+v", responses[0])
 	}
 
-	if responses[1].Type != "text" || responses[1].Content != "Hello" {
+	if responses[1].Type != "done" {
 		t.Errorf("unexpected second response: %+v", responses[1])
-	}
-
-	if responses[2].Type != "done" {
-		t.Errorf("unexpected third response: %+v", responses[2])
 	}
 }
 
@@ -316,7 +306,7 @@ func TestHandler_MultipleMessages(t *testing.T) {
 		t.Fatalf("failed to write first message: %v", err)
 	}
 
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 2; i++ {
 		_, _, err := conn.Read(ctx)
 		if err != nil {
 			t.Fatalf("failed to read response %d: %v", i, err)
@@ -329,7 +319,7 @@ func TestHandler_MultipleMessages(t *testing.T) {
 		t.Fatalf("failed to write second message: %v", err)
 	}
 
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 2; i++ {
 		_, _, err := conn.Read(ctx)
 		if err != nil {
 			t.Fatalf("failed to read response %d: %v", i, err)
@@ -379,7 +369,7 @@ func TestHandler_MultipleSessions(t *testing.T) {
 		t.Fatalf("failed to write message A: %v", err)
 	}
 
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 2; i++ {
 		_, _, err := conn.Read(ctx)
 		if err != nil {
 			t.Fatalf("failed to read response A-%d: %v", i, err)
@@ -392,7 +382,7 @@ func TestHandler_MultipleSessions(t *testing.T) {
 		t.Fatalf("failed to write message B: %v", err)
 	}
 
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 2; i++ {
 		_, _, err := conn.Read(ctx)
 		if err != nil {
 			t.Fatalf("failed to read response B-%d: %v", i, err)
@@ -405,7 +395,7 @@ func TestHandler_MultipleSessions(t *testing.T) {
 		t.Fatalf("failed to write message A2: %v", err)
 	}
 
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 2; i++ {
 		_, _, err := conn.Read(ctx)
 		if err != nil {
 			t.Fatalf("failed to read response A2-%d: %v", i, err)
@@ -470,7 +460,7 @@ func TestHandler_PermissionRequest(t *testing.T) {
 	}
 
 	var responses []ServerMessage
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 2; i++ {
 		_, data, err := conn.Read(ctx)
 		if err != nil {
 			t.Fatalf("failed to read: %v", err)
@@ -482,16 +472,16 @@ func TestHandler_PermissionRequest(t *testing.T) {
 		responses = append(responses, resp)
 	}
 
-	if responses[1].Type != "permission_request" {
-		t.Errorf("expected second response to be permission_request, got %+v", responses[1])
+	if responses[0].Type != "permission_request" {
+		t.Errorf("expected first response to be permission_request, got %+v", responses[0])
 	}
 
-	if responses[1].RequestID != "req-123" {
-		t.Errorf("expected request_id 'req-123', got %q", responses[1].RequestID)
+	if responses[0].RequestID != "req-123" {
+		t.Errorf("expected request_id 'req-123', got %q", responses[0].RequestID)
 	}
 
-	if responses[1].ToolName != "Bash" {
-		t.Errorf("expected tool_name 'Bash', got %q", responses[1].ToolName)
+	if responses[0].ToolName != "Bash" {
+		t.Errorf("expected tool_name 'Bash', got %q", responses[0].ToolName)
 	}
 }
 
@@ -569,7 +559,7 @@ func TestHandler_PermissionResponseInvalidRequestID(t *testing.T) {
 		t.Fatalf("failed to write: %v", err)
 	}
 
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 2; i++ {
 		_, _, err := conn.Read(ctx)
 		if err != nil {
 			t.Fatalf("failed to read response %d: %v", i, err)
@@ -681,8 +671,8 @@ func TestHandler_Interrupt(t *testing.T) {
 		t.Fatalf("failed to write: %v", err)
 	}
 
-	// Read responses (session, text, done)
-	for i := 0; i < 3; i++ {
+	// Read responses (text, done)
+	for i := 0; i < 2; i++ {
 		_, _, err := conn.Read(ctx)
 		if err != nil {
 			t.Fatalf("failed to read response %d: %v", i, err)
@@ -787,7 +777,7 @@ func TestHandler_PermissionResponseDuplicate(t *testing.T) {
 		t.Fatalf("failed to write: %v", err)
 	}
 
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 2; i++ {
 		_, _, err := conn.Read(ctx)
 		if err != nil {
 			t.Fatalf("failed to read response %d: %v", i, err)

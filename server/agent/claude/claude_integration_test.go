@@ -17,8 +17,6 @@ import (
 func requireFields(t *testing.T, event agent.AgentEvent) {
 	t.Helper()
 	switch event.Type {
-	case agent.EventTypeSession:
-		requireNonEmpty(t, "SessionID", event.SessionID)
 	case agent.EventTypeText:
 		requireNonEmpty(t, "Content", event.Content)
 	case agent.EventTypeToolCall:
@@ -75,7 +73,7 @@ func TestIntegration_SimplePrompt(t *testing.T) {
 		t.Fatalf("SendMessage failed: %v", err)
 	}
 
-	var textEvents, doneEvents, sessionEvents int
+	var textEvents, doneEvents int
 
 eventLoop:
 	for {
@@ -86,9 +84,6 @@ eventLoop:
 			}
 			requireFields(t, event)
 			switch event.Type {
-			case agent.EventTypeSession:
-				sessionEvents++
-				t.Logf("session: %s", event.SessionID)
 			case agent.EventTypeText:
 				textEvents++
 				t.Logf("text: %s", event.Content)
@@ -103,9 +98,6 @@ eventLoop:
 		}
 	}
 
-	if sessionEvents == 0 {
-		t.Error("expected at least one session event")
-	}
 	if textEvents == 0 {
 		t.Error("expected at least one text event")
 	}

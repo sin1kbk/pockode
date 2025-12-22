@@ -161,16 +161,13 @@ func (h *Handler) handleMessage(ctx context.Context, conn *websocket.Conn, msg C
 	state.mu.Unlock()
 
 	if !exists {
-		// Create new session (or resume conversation history if sessionID is provided).
+		// Create new session (or resume if sessionID exists in Claude's history).
 		var err error
 		sess, err = h.agent.Start(ctx, h.workDir, msg.SessionID)
 		if err != nil {
 			return err
 		}
 
-		// TODO: Bug - when msg.SessionID is empty, we store under "" key, but Claude
-		// returns the real session_id via session event. Subsequent messages with the
-		// real session_id won't find this session.
 		state.mu.Lock()
 		state.sessions[msg.SessionID] = sess
 		state.mu.Unlock()
@@ -234,7 +231,6 @@ func (h *Handler) streamEvents(ctx context.Context, conn *websocket.Conn, sessio
 			ToolUseID:  event.ToolUseID,
 			ToolResult: event.ToolResult,
 			Error:      event.Error,
-			SessionID:  event.SessionID,
 			RequestID:  event.RequestID,
 		}
 

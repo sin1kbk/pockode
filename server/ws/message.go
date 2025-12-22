@@ -7,7 +7,7 @@ type ClientMessage struct {
 	Type      string `json:"type"`                 // "message", "interrupt", or "permission_response"
 	ID        string `json:"id"`                   // TODO: unused, only logged - remove or use
 	Content   string `json:"content"`              // User input (for "message" type)
-	SessionID string `json:"session_id,omitempty"` // First "message" optional, then required
+	SessionID string `json:"session_id,omitempty"` // Session identifier
 	// Permission response fields (for "permission_response" type)
 	RequestID string `json:"request_id,omitempty"` // Permission request ID
 	Allow     bool   `json:"allow,omitempty"`      // Whether to allow the tool execution
@@ -22,6 +22,5 @@ type ServerMessage struct {
 	ToolUseID  string          `json:"tool_use_id,omitempty"` // Tool use ID (for tool_result)
 	ToolResult string          `json:"tool_result,omitempty"` // Tool result content
 	Error      string          `json:"error,omitempty"`       // Error message
-	SessionID  string          `json:"session_id,omitempty"`  // Session ID for conversation continuity
 	RequestID  string          `json:"request_id,omitempty"`  // Permission request ID (for permission_request)
 }

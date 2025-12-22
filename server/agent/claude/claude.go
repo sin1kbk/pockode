@@ -386,12 +386,7 @@ func parseLine(line []byte, pendingRequests *sync.Map) []agent.AgentEvent {
 	case "result":
 		return []agent.AgentEvent{parseResultEvent(line)}
 	case "system":
-		if event.SessionID != "" {
-			return []agent.AgentEvent{{
-				Type:      agent.EventTypeSession,
-				SessionID: event.SessionID,
-			}}
-		}
+		// Ignore system events (e.g., session_id init)
 		return nil
 	case "control_request":
 		return parseControlRequest(line, pendingRequests)

@@ -7,7 +7,7 @@ type Agent interface {
 	// Start launches a persistent agent process and returns a Session.
 	// The process stays alive until the context is cancelled or Close is called.
 	// workDir is the working directory for the agent.
-	// sessionID is used to resume a previous conversation. If empty, a new session is created.
+	// sessionID identifies and resumes conversations.
 	Start(ctx context.Context, workDir string, sessionID string) (Session, error)
 }
 

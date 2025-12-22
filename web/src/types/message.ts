@@ -47,7 +47,7 @@ export type WSClientMessage =
 			type: "message";
 			id: string;
 			content: string;
-			session_id?: string;
+			session_id: string;
 	  }
 	| {
 			type: "interrupt";
@@ -69,7 +69,6 @@ export interface WSServerMessage {
 		| "error"
 		| "done"
 		| "interrupted"
-		| "session"
 		| "permission_request";
 	content?: string;
 	tool_name?: string;
@@ -77,6 +76,5 @@ export interface WSServerMessage {
 	tool_use_id?: string;
 	tool_result?: string;
 	error?: string;
-	session_id?: string;
 	request_id?: string;
 }
