@@ -173,7 +173,6 @@ func (h *Handler) handleMessage(ctx context.Context, conn *websocket.Conn, msg C
 		state.mu.Unlock()
 
 		// Start goroutine to stream events from this session.
-		// Pass sess directly to avoid race when session is cancelled and recreated.
 		go h.streamEvents(ctx, conn, msg.SessionID, sess, state)
 
 		logger.Info("handleMessage: created session %s", msg.SessionID)
@@ -217,8 +216,6 @@ func (h *Handler) handlePermissionResponse(ctx context.Context, conn *websocket.
 }
 
 // streamEvents reads events from the agent session and sends them to the client.
-// It takes the session directly to avoid race conditions when session is cancelled
-// and recreated with the same sessionID.
 func (h *Handler) streamEvents(ctx context.Context, conn *websocket.Conn, sessionID string, sess agent.Session, state *connectionState) {
 	for event := range sess.Events() {
 		logger.Debug("streamEvents: sessionID=%s, type=%s", sessionID, event.Type)
