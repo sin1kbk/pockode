@@ -1,3 +1,11 @@
+// Session metadata
+export interface SessionMeta {
+	id: string;
+	title: string;
+	created_at: string;
+	updated_at: string;
+}
+
 // Message role
 export type MessageRole = "user" | "assistant";
 

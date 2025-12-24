@@ -9,13 +9,15 @@ import (
 	"time"
 
 	"github.com/pockode/server/agent/claude"
+	"github.com/pockode/server/api"
 	"github.com/pockode/server/git"
 	"github.com/pockode/server/logger"
 	"github.com/pockode/server/middleware"
+	"github.com/pockode/server/session"
 	"github.com/pockode/server/ws"
 )
 
-func newHandler(token, workDir string, devMode bool) http.Handler {
+func newHandler(token, workDir string, devMode bool, sessionStore session.Store) http.Handler {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
@@ -27,6 +29,10 @@ func newHandler(token, workDir string, devMode bool) http.Handler {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{"message":"pong"}`))
 	})
+
+	// Session REST API
+	sessionHandler := api.NewSessionHandler(sessionStore)
+	sessionHandler.Register(mux)
 
 	// WebSocket endpoint (handles its own auth via query param)
 	wsHandler := ws.NewHandler(token, claude.New(), workDir, devMode)
@@ -64,6 +70,11 @@ func main() {
 
 	devMode := os.Getenv("DEV_MODE") == "true"
 
+	dataDir := os.Getenv("DATA_DIR")
+	if dataDir == "" {
+		dataDir = ".pockode"
+	}
+
 	// Git initialization (optional, controlled by GIT_ENABLED)
 	if os.Getenv("GIT_ENABLED") == "true" {
 		cfg := git.Config{
@@ -79,7 +90,14 @@ func main() {
 		}
 	}
 
-	handler := newHandler(token, workDir, devMode)
+	// Initialize session store
+	sessionStore, err := session.NewFileStore(dataDir)
+	if err != nil {
+		logger.Error("Failed to initialize session store: %v", err)
+		os.Exit(1)
+	}
+
+	handler := newHandler(token, workDir, devMode, sessionStore)
 
 	srv := &http.Server{
 		Addr:    ":" + port,
@@ -100,7 +118,7 @@ func main() {
 		}
 	}()
 
-	logger.Info("Server starting on :%s (workDir: %s, devMode: %v)", port, workDir, devMode)
+	logger.Info("Server starting on :%s (workDir: %s, dataDir: %s, devMode: %v)", port, workDir, dataDir, devMode)
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		logger.Error("Server error: %v", err)
 		os.Exit(1)

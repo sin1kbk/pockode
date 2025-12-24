@@ -4,10 +4,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/pockode/server/session"
 )
 
 func TestHealthEndpoint(t *testing.T) {
-	handler := newHandler("test-token", "/tmp", true)
+	store, _ := session.NewFileStore(t.TempDir())
+	handler := newHandler("test-token", "/tmp", true, store)
 	req := httptest.NewRequest(http.MethodGet, "/health", nil)
 	rec := httptest.NewRecorder()
 
@@ -23,7 +26,8 @@ func TestHealthEndpoint(t *testing.T) {
 
 func TestPingEndpoint(t *testing.T) {
 	const token = "test-token"
-	handler := newHandler(token, "/tmp", true)
+	store, _ := session.NewFileStore(t.TempDir())
+	handler := newHandler(token, "/tmp", true, store)
 
 	t.Run("returns pong with valid token", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/api/ping", nil)

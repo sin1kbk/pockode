@@ -11,7 +11,9 @@ import MessageList from "./MessageList";
 import PermissionDialog from "./PermissionDialog";
 
 interface Props {
+	sessionId: string;
 	onLogout?: () => void;
+	onOpenSidebar?: () => void;
 }
 
 const STATUS_CONFIG: Record<ConnectionStatus, { text: string; color: string }> =
@@ -22,11 +24,17 @@ const STATUS_CONFIG: Record<ConnectionStatus, { text: string; color: string }> =
 		connecting: { text: "Connecting...", color: "text-yellow-400" },
 	};
 
-function ChatPanel({ onLogout }: Props) {
+function ChatPanel({ sessionId, onLogout, onOpenSidebar }: Props) {
 	const [messages, setMessages] = useState<Message[]>([]);
-	const [sessionId, setSessionId] = useState<string | null>(null);
 	const [permissionRequest, setPermissionRequest] =
 		useState<PermissionRequest | null>(null);
+
+	// Clear messages when session changes
+	// biome-ignore lint/correctness/useExhaustiveDependencies: intentionally clearing state when sessionId prop changes
+	useEffect(() => {
+		setMessages([]);
+		setPermissionRequest(null);
+	}, [sessionId]);
 
 	const handleServerMessage = useCallback((serverMsg: WSServerMessage) => {
 		// Handle permission request
@@ -135,13 +143,6 @@ function ChatPanel({ onLogout }: Props) {
 			const userMessageId = generateUUID();
 			const assistantMessageId = generateUUID();
 
-			// Generate sessionId on first message if not already set
-			let currentSessionId = sessionId;
-			if (!currentSessionId) {
-				currentSessionId = generateUUID();
-				setSessionId(currentSessionId);
-			}
-
 			// Add user message
 			const userMessage: Message = {
 				id: userMessageId,
@@ -166,7 +167,7 @@ function ChatPanel({ onLogout }: Props) {
 			const sent = send({
 				type: "message",
 				content,
-				session_id: currentSessionId,
+				session_id: sessionId,
 			});
 
 			// Handle send failure
@@ -185,7 +186,7 @@ function ChatPanel({ onLogout }: Props) {
 
 	const handlePermissionResponse = useCallback(
 		(allow: boolean) => {
-			if (!permissionRequest || !sessionId) return;
+			if (!permissionRequest) return;
 
 			send({
 				type: "permission_response",
@@ -206,8 +207,6 @@ function ChatPanel({ onLogout }: Props) {
 
 	// Handle interrupt request
 	const handleInterrupt = useCallback(() => {
-		if (!sessionId) return;
-
 		send({
 			type: "interrupt",
 			session_id: sessionId,
@@ -231,7 +230,32 @@ function ChatPanel({ onLogout }: Props) {
 	return (
 		<div className="flex h-screen flex-col bg-gray-900">
 			<header className="flex items-center justify-between border-b border-gray-700 p-4">
-				<h1 className="text-xl font-bold text-white">Pockode</h1>
+				<div className="flex items-center gap-3">
+					{onOpenSidebar && (
+						<button
+							type="button"
+							onClick={onOpenSidebar}
+							className="rounded p-1 text-gray-400 hover:bg-gray-700 hover:text-white"
+							aria-label="Open menu"
+						>
+							<svg
+								className="h-6 w-6"
+								fill="none"
+								stroke="currentColor"
+								viewBox="0 0 24 24"
+								aria-hidden="true"
+							>
+								<path
+									strokeLinecap="round"
+									strokeLinejoin="round"
+									strokeWidth={2}
+									d="M4 6h16M4 12h16M4 18h16"
+								/>
+							</svg>
+						</button>
+					)}
+					<h1 className="text-xl font-bold text-white">Pockode</h1>
+				</div>
 				<div className="flex items-center gap-4">
 					<span className={`text-sm ${statusColor}`}>{statusText}</span>
 					{onLogout && (
