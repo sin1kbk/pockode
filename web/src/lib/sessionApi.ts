@@ -37,3 +37,13 @@ export async function deleteSession(sessionId: string): Promise<void> {
 		method: "DELETE",
 	});
 }
+
+export async function updateSessionTitle(
+	sessionId: string,
+	title: string,
+): Promise<void> {
+	await fetchWithAuth(`/api/sessions/${sessionId}`, {
+		method: "PATCH",
+		body: JSON.stringify({ title }),
+	});
+}

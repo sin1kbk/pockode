@@ -64,9 +64,40 @@ func (h *SessionHandler) HandleDelete(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// HandleUpdate handles PATCH /api/sessions/{id}
+func (h *SessionHandler) HandleUpdate(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+	if sessionID == "" {
+		http.Error(w, "Session ID required", http.StatusBadRequest)
+		return
+	}
+
+	var req struct {
+		Title string `json:"title"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.Title == "" {
+		http.Error(w, "Title required", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.store.Update(sessionID, req.Title); err != nil {
+		logger.Error("Failed to update session: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
 // Register registers session handlers to the given mux.
 func (h *SessionHandler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/sessions", h.HandleList)
 	mux.HandleFunc("POST /api/sessions", h.HandleCreate)
 	mux.HandleFunc("DELETE /api/sessions/{id}", h.HandleDelete)
+	mux.HandleFunc("PATCH /api/sessions/{id}", h.HandleUpdate)
 }

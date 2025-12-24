@@ -13,11 +13,13 @@ function App() {
 	const {
 		sessions,
 		currentSessionId,
+		currentSession,
 		isLoading,
 		loadSessions,
 		createSession,
 		selectSession,
 		deleteSession,
+		updateTitle,
 	} = useSession({ enabled: hasToken });
 
 	const handleTokenSubmit = (token: string) => {
@@ -45,7 +47,7 @@ function App() {
 		return <TokenInput onSubmit={handleTokenSubmit} />;
 	}
 
-	if (!currentSessionId) {
+	if (!currentSessionId || !currentSession) {
 		return (
 			<div className="flex h-screen items-center justify-center bg-gray-900">
 				<div className="text-gray-400">Loading...</div>
@@ -57,6 +59,8 @@ function App() {
 		<>
 			<ChatPanel
 				sessionId={currentSessionId}
+				sessionTitle={currentSession.title}
+				onUpdateTitle={(title) => updateTitle(currentSessionId, title)}
 				onLogout={handleLogout}
 				onOpenSidebar={handleOpenSidebar}
 			/>

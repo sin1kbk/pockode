@@ -85,6 +85,41 @@ func TestFileStore_DeleteNonExistent(t *testing.T) {
 	}
 }
 
+func TestFileStore_Update(t *testing.T) {
+	store, _ := NewFileStore(t.TempDir())
+
+	sess, _ := store.Create()
+	if sess.Title != "New Chat" {
+		t.Fatalf("expected initial title 'New Chat', got %q", sess.Title)
+	}
+
+	err := store.Update(sess.ID, "Updated Title")
+	if err != nil {
+		t.Fatalf("Update failed: %v", err)
+	}
+
+	sessions, _ := store.List()
+	if len(sessions) != 1 {
+		t.Fatalf("expected 1 session, got %d", len(sessions))
+	}
+	if sessions[0].Title != "Updated Title" {
+		t.Errorf("expected title 'Updated Title', got %q", sessions[0].Title)
+	}
+	if !sessions[0].UpdatedAt.After(sess.UpdatedAt) {
+		t.Error("expected UpdatedAt to be updated")
+	}
+}
+
+func TestFileStore_UpdateNonExistent(t *testing.T) {
+	store, _ := NewFileStore(t.TempDir())
+
+	// Should not error on non-existent session
+	err := store.Update("non-existent-id", "Title")
+	if err != nil {
+		t.Errorf("Update non-existent should not error, got %v", err)
+	}
+}
+
 func TestFileStore_Persistence(t *testing.T) {
 	dir := t.TempDir()
 

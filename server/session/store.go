@@ -15,6 +15,7 @@ type Store interface {
 	List() ([]SessionMeta, error)
 	Create() (SessionMeta, error)
 	Delete(sessionID string) error
+	Update(sessionID string, title string) error
 }
 
 // indexData is the structure of index.json.
@@ -140,4 +141,26 @@ func (s *FileStore) Delete(sessionID string) error {
 	idx.Sessions = newSessions
 
 	return s.writeIndex(idx)
+}
+
+// Update updates a session's title by ID.
+func (s *FileStore) Update(sessionID string, title string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	idx, err := s.readIndex()
+	if err != nil {
+		return err
+	}
+
+	now := time.Now()
+	for i, sess := range idx.Sessions {
+		if sess.ID == sessionID {
+			idx.Sessions[i].Title = title
+			idx.Sessions[i].UpdatedAt = now
+			return s.writeIndex(idx)
+		}
+	}
+
+	return nil // Session not found, no error
 }

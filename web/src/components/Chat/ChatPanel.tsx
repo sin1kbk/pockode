@@ -12,6 +12,8 @@ import PermissionDialog from "./PermissionDialog";
 
 interface Props {
 	sessionId: string;
+	sessionTitle: string;
+	onUpdateTitle: (title: string) => void;
 	onLogout?: () => void;
 	onOpenSidebar?: () => void;
 }
@@ -24,7 +26,13 @@ const STATUS_CONFIG: Record<ConnectionStatus, { text: string; color: string }> =
 		connecting: { text: "Connecting...", color: "text-yellow-400" },
 	};
 
-function ChatPanel({ sessionId, onLogout, onOpenSidebar }: Props) {
+function ChatPanel({
+	sessionId,
+	sessionTitle,
+	onUpdateTitle,
+	onLogout,
+	onOpenSidebar,
+}: Props) {
 	const [messages, setMessages] = useState<Message[]>([]);
 	const [permissionRequest, setPermissionRequest] =
 		useState<PermissionRequest | null>(null);
@@ -138,6 +146,15 @@ function ChatPanel({ sessionId, onLogout, onOpenSidebar }: Props) {
 			const userMessageId = generateUUID();
 			const assistantMessageId = generateUUID();
 
+			// Update session title on first message
+			if (sessionTitle === "New Chat") {
+				const title =
+					content.length > 30
+						? `${content.slice(0, 30).replace(/\n/g, " ")}...`
+						: content.replace(/\n/g, " ");
+				onUpdateTitle(title);
+			}
+
 			// Add user message
 			const userMessage: Message = {
 				id: userMessageId,
@@ -176,7 +193,7 @@ function ChatPanel({ sessionId, onLogout, onOpenSidebar }: Props) {
 				);
 			}
 		},
-		[send, sessionId],
+		[send, sessionId, sessionTitle, onUpdateTitle],
 	);
 
 	const handlePermissionResponse = useCallback(

@@ -1,6 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { createSession, deleteSession, listSessions } from "../lib/sessionApi";
+import {
+	createSession,
+	deleteSession,
+	listSessions,
+	updateSessionTitle,
+} from "../lib/sessionApi";
+import type { SessionMeta } from "../types/message";
 
 interface UseSessionOptions {
 	enabled?: boolean;
@@ -40,6 +46,16 @@ export function useSession({ enabled = true }: UseSessionOptions = {}) {
 		},
 	});
 
+	const updateTitleMutation = useMutation({
+		mutationFn: ({ id, title }: { id: string; title: string }) =>
+			updateSessionTitle(id, title),
+		onSuccess: (_, { id, title }) => {
+			queryClient.setQueryData<SessionMeta[]>(["sessions"], (old = []) =>
+				old.map((s) => (s.id === id ? { ...s, title } : s)),
+			);
+		},
+	});
+
 	// Set initial session when data loads
 	useEffect(() => {
 		if (!isSuccess || currentSessionId || createMutation.isPending) return;
@@ -68,14 +84,19 @@ export function useSession({ enabled = true }: UseSessionOptions = {}) {
 		}
 	};
 
+	const currentSession = sessions.find((s) => s.id === currentSessionId);
+
 	return {
 		sessions,
 		currentSessionId,
+		currentSession,
 		isLoading,
 		loadSessions: () =>
 			queryClient.invalidateQueries({ queryKey: ["sessions"] }),
 		createSession: () => createMutation.mutateAsync(),
 		selectSession: setCurrentSessionId,
 		deleteSession: handleDelete,
+		updateTitle: (id: string, title: string) =>
+			updateTitleMutation.mutate({ id, title }),
 	};
 }
