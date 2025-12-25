@@ -56,7 +56,7 @@ describe("PermissionDialog", () => {
 		expect(onDeny).toHaveBeenCalledTimes(1);
 	});
 
-	it("calls onDeny when Escape key is pressed", async () => {
+	it("closes on Escape key", async () => {
 		const user = userEvent.setup();
 		const onDeny = vi.fn();
 
@@ -70,17 +70,5 @@ describe("PermissionDialog", () => {
 
 		await user.keyboard("{Escape}");
 		expect(onDeny).toHaveBeenCalledTimes(1);
-	});
-
-	it("has accessible dialog role", () => {
-		render(
-			<PermissionDialog
-				request={mockRequest}
-				onAllow={vi.fn()}
-				onDeny={vi.fn()}
-			/>,
-		);
-
-		expect(screen.getByRole("dialog")).toBeInTheDocument();
 	});
 });

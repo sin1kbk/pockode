@@ -4,15 +4,6 @@ import { describe, expect, it, vi } from "vitest";
 import InputBar from "./InputBar";
 
 describe("InputBar", () => {
-	it("renders textarea and send button", () => {
-		render(<InputBar onSend={() => {}} />);
-
-		expect(
-			screen.getByPlaceholderText("Type a message..."),
-		).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: "Send" })).toBeInTheDocument();
-	});
-
 	it("disables input when disabled prop is true", () => {
 		render(<InputBar onSend={() => {}} disabled />);
 

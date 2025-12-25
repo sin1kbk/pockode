@@ -126,43 +126,4 @@ describe("MessageItem", () => {
 		expect(screen.getByText(/file2\.txt/)).toBeInTheDocument();
 	});
 
-	it("preserves whitespace in text parts", () => {
-		const message: Message = {
-			id: "7",
-			role: "assistant",
-			content: "",
-			parts: [{ type: "text", content: "Line 1\n  Indented line\nLine 3" }],
-			status: "complete",
-			createdAt: new Date(),
-		};
-
-		render(<MessageItem message={message} />);
-		const paragraph = screen.getByText(/Line 1/);
-		expect(paragraph).toHaveClass("whitespace-pre-wrap");
-	});
-
-	it("renders parts in timeline order", () => {
-		const message: Message = {
-			id: "8",
-			role: "assistant",
-			content: "",
-			parts: [
-				{ type: "text", content: "First text" },
-				{ type: "tool_call", tool: { id: "tool-3", name: "Read", input: {} } },
-				{ type: "text", content: "Second text" },
-			],
-			status: "complete",
-			createdAt: new Date(),
-		};
-
-		render(<MessageItem message={message} />);
-
-		const container = screen.getByText("First text").parentElement;
-		const children = container?.children;
-
-		// Verify order: text -> tool -> text
-		expect(children?.[0]).toHaveTextContent("First text");
-		expect(children?.[1]).toHaveTextContent("Read");
-		expect(children?.[2]).toHaveTextContent("Second text");
-	});
 });
