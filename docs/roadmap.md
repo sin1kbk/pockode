@@ -105,29 +105,29 @@
 
 **目标**：提升移动端网络不稳定场景下的可靠性
 
-### 架构重构：REST + SSE
+### 架构重构：REST + WebSocket
 
-将当前纯 WebSocket 架构改为 REST + SSE 混合模式：
+采用 REST + WebSocket 混合模式，关键操作使用 REST 确保可靠性：
 
 | 操作 | 方式 | 理由 |
 |------|------|------|
 | 发送消息 | POST /api/sessions/:id/messages | HTTP 可靠、可重试 |
-| 取消生成 | POST /api/sessions/:id/cancel | 不依赖 SSE 连接 |
-| 权限响应 | POST /api/permissions/:id | 不依赖 SSE 连接 |
+| 取消生成 | POST /api/sessions/:id/cancel | 不依赖 WebSocket 连接 |
+| 权限响应 | POST /api/permissions/:id | 不依赖 WebSocket 连接 |
 | 获取历史 | GET /api/sessions/:id/messages | 重连后恢复上下文 |
-| 流式响应 | GET /api/sessions/:id/stream (SSE) | 浏览器自动重连 |
+| 流式响应 | WebSocket | 双向通信、低延迟 |
 
 ### 后端
 
 - [ ] REST API：消息发送、权限响应、历史获取
-- [ ] SSE 流式推送（替代 WebSocket）
-- [ ] 支持 `Last-Event-ID` 断点续传（仅缓存当前回复）
+- [ ] WebSocket 断线重连支持
+- [ ] 消息序列号，支持断点续传（仅缓存当前回复）
 
 ### 前端
 
-- [ ] EventSource 替代 WebSocket
 - [ ] 消息发送改用 fetch POST
-- [ ] 断线重连后自动同步缺失消息
+- [ ] WebSocket 断线自动重连
+- [ ] 重连后通过 REST 同步缺失消息
 
 ### 交付物
 
@@ -141,7 +141,7 @@
 | 决策点 | 选择 | 理由 |
 |--------|------|------|
 | AI 调用 | `--output-format stream-json` | 实时流式输出 + 工具调用详情 |
-| 实时通信 | WebSocket → SSE（阶段 4） | 当前用 WebSocket；阶段 4 改为 REST + SSE 提升稳定性 |
+| 实时通信 | WebSocket + REST（阶段 4） | WebSocket 负责流式输出；REST 处理关键操作确保可靠性 |
 | 文件存储 | 文件系统目录 | 简单，便于 Claude 操作 |
 
 ---
@@ -151,7 +151,7 @@
 | 风险 | 对策 |
 |------|------|
 | Claude CLI 进程泄漏 | 超时自动终止 |
-| 网络连接不稳定 | SSE 自动重连 + REST 历史恢复（阶段 4） |
+| 网络连接不稳定 | WebSocket 自动重连 + REST 历史恢复（阶段 4） |
 | 路径遍历攻击 | 路径验证 |
 
 ---
