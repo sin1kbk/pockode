@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { type ConnectionStatus, useWebSocket } from "../../hooks/useWebSocket";
+import { getHistory } from "../../lib/sessionApi";
 import type {
 	Message,
+	MessagePart,
 	PermissionRequest,
 	WSServerMessage,
 } from "../../types/message";
@@ -9,6 +11,154 @@ import { generateUUID } from "../../utils/uuid";
 import InputBar from "./InputBar";
 import MessageList from "./MessageList";
 import PermissionDialog from "./PermissionDialog";
+
+// Normalized event with camelCase (internal representation)
+interface NormalizedEvent {
+	type: string;
+	content?: string;
+	toolUseId?: string;
+	toolName?: string;
+	toolInput?: unknown;
+	toolResult?: string;
+	error?: string;
+}
+
+// Convert snake_case server event to camelCase
+function normalizeEvent(
+	e: WSServerMessage | Record<string, unknown>,
+): NormalizedEvent {
+	return {
+		type: e.type as string,
+		content: e.content as string | undefined,
+		toolUseId: e.tool_use_id as string | undefined,
+		toolName: e.tool_name as string | undefined,
+		toolInput: e.tool_input,
+		toolResult: e.tool_result as string | undefined,
+		error: e.error as string | undefined,
+	};
+}
+
+// Apply an event to message parts, returning updated parts
+function applyEventToParts(
+	parts: MessagePart[],
+	event: NormalizedEvent,
+): MessagePart[] {
+	switch (event.type) {
+		case "text": {
+			const lastPart = parts[parts.length - 1];
+			if (lastPart?.type === "text") {
+				return [
+					...parts.slice(0, -1),
+					{ type: "text", content: lastPart.content + (event.content ?? "") },
+				];
+			}
+			return [...parts, { type: "text", content: event.content ?? "" }];
+		}
+		case "tool_call":
+			return [
+				...parts,
+				{
+					type: "tool_call",
+					tool: {
+						id: event.toolUseId ?? "",
+						name: event.toolName ?? "",
+						input: event.toolInput,
+					},
+				},
+			];
+		case "tool_result":
+			return parts.map((part) =>
+				part.type === "tool_call" && part.tool.id === event.toolUseId
+					? { ...part, tool: { ...part.tool, result: event.toolResult ?? "" } }
+					: part,
+			);
+		default:
+			return parts;
+	}
+}
+
+// Create a new assistant message
+function createAssistantMessage(
+	status: Message["status"] = "streaming",
+): Message {
+	return {
+		id: generateUUID(),
+		role: "assistant",
+		content: "",
+		parts: [],
+		status,
+		createdAt: new Date(),
+	};
+}
+
+// Apply a server event to message list (pure function, shared by replay and real-time)
+function applyServerEvent(
+	messages: Message[],
+	event: NormalizedEvent,
+): Message[] {
+	// System messages are always standalone
+	if (event.type === "system") {
+		const systemMessage = createAssistantMessage("complete");
+		systemMessage.parts = [{ type: "system", content: event.content ?? "" }];
+		return [...messages, systemMessage];
+	}
+
+	// Find current assistant (sending or streaming)
+	let index = messages.findIndex(
+		(m) => m.status === "sending" || m.status === "streaming",
+	);
+
+	// No current assistant? Create one to hold the orphan event
+	if (index === -1) {
+		const newAssistant = createAssistantMessage();
+		messages = [...messages, newAssistant];
+		index = messages.length - 1;
+	}
+
+	// Apply event to the assistant message
+	const updated = [...messages];
+	const message = { ...updated[index] };
+	message.parts = applyEventToParts(message.parts ?? [], event);
+
+	// Update status
+	if (event.type === "text") {
+		message.status = "streaming";
+	} else if (event.type === "done") {
+		message.status = "complete";
+	} else if (event.type === "interrupted") {
+		message.status = "interrupted";
+	} else if (event.type === "error") {
+		message.status = "error";
+		message.error = event.error;
+	}
+
+	updated[index] = message;
+	return updated;
+}
+
+// Finalize any incomplete assistant message and add user message + new assistant
+function applyUserMessage(messages: Message[], content: string): Message[] {
+	// Finalize any streaming assistant
+	const finalized = messages.map((m) =>
+		m.status === "sending" || m.status === "streaming"
+			? { ...m, status: "complete" as const }
+			: m,
+	);
+
+	// Add user message
+	const userMessage: Message = {
+		id: generateUUID(),
+		role: "user",
+		content,
+		status: "complete",
+		createdAt: new Date(),
+	};
+
+	// Add empty assistant message
+	const assistantMessage = createAssistantMessage();
+
+	return [...finalized, userMessage, assistantMessage];
+}
 
 interface Props {
 	sessionId: string;
@@ -37,15 +187,48 @@ function ChatPanel({
 	const [permissionRequest, setPermissionRequest] =
 		useState<PermissionRequest | null>(null);
 
-	// Clear messages when session changes
-	// biome-ignore lint/correctness/useExhaustiveDependencies: intentionally clearing state when sessionId prop changes
+	const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+
+	// Load history when session changes
+	// biome-ignore lint/correctness/useExhaustiveDependencies: intentionally loading history when sessionId prop changes
 	useEffect(() => {
 		setMessages([]);
 		setPermissionRequest(null);
+
+		async function loadHistory() {
+			setIsLoadingHistory(true);
+			try {
+				const history = await getHistory(sessionId);
+				replayHistory(history);
+			} catch (err) {
+				console.error("Failed to load history:", err);
+			} finally {
+				setIsLoadingHistory(false);
+			}
+		}
+
+		loadHistory();
 	}, [sessionId]);
 
+	// Replay historical records to rebuild message state
+	const replayHistory = useCallback((records: unknown[]) => {
+		let messages: Message[] = [];
+
+		for (const record of records) {
+			const event = normalizeEvent(record as Record<string, unknown>);
+
+			if (event.type === "message" && event.content) {
+				messages = applyUserMessage(messages, event.content);
+			} else {
+				messages = applyServerEvent(messages, event);
+			}
+		}
+
+		setMessages(messages);
+	}, []);
+
 	const handleServerMessage = useCallback((serverMsg: WSServerMessage) => {
-		// Handle permission request
+		// Handle permission request (not stored in history, UI-only)
 		if (serverMsg.type === "permission_request") {
 			setPermissionRequest({
 				requestId: serverMsg.request_id,
@@ -56,85 +239,8 @@ function ChatPanel({
 			return;
 		}
 
-		// Handle system messages independently (e.g., login prompts before any message)
-		if (serverMsg.type === "system") {
-			setMessages((prev) => {
-				const systemMessage: Message = {
-					id: generateUUID(),
-					role: "assistant",
-					content: "",
-					parts: [{ type: "system", content: serverMsg.content }],
-					status: "complete",
-					createdAt: new Date(),
-				};
-				return [...prev, systemMessage];
-			});
-			return;
-		}
-
-		setMessages((prev) => {
-			// Find the current pending message (sending or streaming)
-			const index = prev.findIndex(
-				(m) => m.status === "sending" || m.status === "streaming",
-			);
-			if (index === -1) return prev;
-
-			const updated = [...prev];
-			const message = { ...updated[index] };
-			const parts = [...(message.parts ?? [])];
-
-			switch (serverMsg.type) {
-				case "text": {
-					// Append to last text part or create new one
-					const lastPart = parts[parts.length - 1];
-					if (lastPart?.type === "text") {
-						parts[parts.length - 1] = {
-							type: "text",
-							content: lastPart.content + serverMsg.content,
-						};
-					} else {
-						parts.push({ type: "text", content: serverMsg.content });
-					}
-					message.parts = parts;
-					message.status = "streaming";
-					break;
-				}
-				case "tool_call":
-					parts.push({
-						type: "tool_call",
-						tool: {
-							id: serverMsg.tool_use_id,
-							name: serverMsg.tool_name,
-							input: serverMsg.tool_input,
-						},
-					});
-					message.parts = parts;
-					break;
-				case "tool_result":
-					message.parts = parts.map((part) =>
-						part.type === "tool_call" && part.tool.id === serverMsg.tool_use_id
-							? {
-									...part,
-									tool: { ...part.tool, result: serverMsg.tool_result },
-								}
-							: part,
-					);
-					break;
-				case "done":
-					message.status = "complete";
-					break;
-				case "interrupted":
-					message.status = "interrupted";
-					break;
-				case "error":
-					message.status = "error";
-					message.error = serverMsg.error;
-					break;
-			}
-
-			updated[index] = message;
-			return updated;
-		});
+		const event = normalizeEvent(serverMsg);
+		setMessages((prev) => applyServerEvent(prev, event));
 	}, []);
 
 	const { status, send } = useWebSocket({
@@ -284,7 +390,7 @@ function ChatPanel({
 			<MessageList messages={messages} />
 			<InputBar
 				onSend={handleSend}
-				disabled={status !== "connected"}
+				disabled={status !== "connected" || isLoadingHistory}
 				isStreaming={isStreaming}
 				onInterrupt={handleInterrupt}
 			/>

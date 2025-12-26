@@ -1,4 +1,4 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { WSServerMessage } from "../../types/message";
@@ -29,6 +29,11 @@ vi.mock("../../utils/uuid", () => ({
 	generateUUID: () => `uuid-${++mockState.uuidCounter}`,
 }));
 
+const mockGetHistory = vi.fn(() => Promise.resolve([]));
+vi.mock("../../lib/sessionApi", () => ({
+	getHistory: () => mockGetHistory(),
+}));
+
 describe("ChatPanel", () => {
 	const defaultProps = {
 		sessionId: "test-session",
@@ -41,12 +46,23 @@ describe("ChatPanel", () => {
 		mockState.send.mockReturnValue(true);
 		mockState.onMessage = null;
 		mockState.uuidCounter = 0;
+		mockGetHistory.mockResolvedValue([]);
 	});
+
+	// Helper to wait for history loading to complete
+	const waitForHistoryLoad = async () => {
+		await waitFor(() => {
+			expect(
+				screen.getByPlaceholderText("Type a message..."),
+			).not.toBeDisabled();
+		});
+	};
 
 	describe("sending messages", () => {
 		it("sends message to WebSocket with session_id", async () => {
 			const user = userEvent.setup();
 			render(<ChatPanel {...defaultProps} />);
+			await waitForHistoryLoad();
 
 			const textarea = screen.getByPlaceholderText("Type a message...");
 			await user.type(textarea, "Hello AI");
@@ -70,6 +86,7 @@ describe("ChatPanel", () => {
 					onUpdateTitle={onUpdateTitle}
 				/>,
 			);
+			await waitForHistoryLoad();
 
 			const textarea = screen.getByPlaceholderText("Type a message...");
 			await user.type(textarea, "My first message");
@@ -82,6 +99,7 @@ describe("ChatPanel", () => {
 			mockState.send.mockReturnValueOnce(false);
 			const user = userEvent.setup();
 			render(<ChatPanel {...defaultProps} />);
+			await waitForHistoryLoad();
 
 			const textarea = screen.getByPlaceholderText("Type a message...");
 			await user.type(textarea, "Hello");
@@ -95,6 +113,7 @@ describe("ChatPanel", () => {
 		it("accumulates streaming text into assistant message", async () => {
 			const user = userEvent.setup();
 			render(<ChatPanel {...defaultProps} />);
+			await waitForHistoryLoad();
 
 			const textarea = screen.getByPlaceholderText("Type a message...");
 			await user.type(textarea, "Hi");
@@ -111,6 +130,7 @@ describe("ChatPanel", () => {
 		it("displays tool calls with results", async () => {
 			const user = userEvent.setup();
 			render(<ChatPanel {...defaultProps} />);
+			await waitForHistoryLoad();
 
 			const textarea = screen.getByPlaceholderText("Type a message...");
 			await user.type(textarea, "List files");
@@ -139,6 +159,7 @@ describe("ChatPanel", () => {
 		it("shows error message from server", async () => {
 			const user = userEvent.setup();
 			render(<ChatPanel {...defaultProps} />);
+			await waitForHistoryLoad();
 
 			const textarea = screen.getByPlaceholderText("Type a message...");
 			await user.type(textarea, "Hi");
@@ -156,6 +177,7 @@ describe("ChatPanel", () => {
 		it("shows dialog and sends allow response", async () => {
 			const user = userEvent.setup();
 			render(<ChatPanel {...defaultProps} />);
+			await waitForHistoryLoad();
 
 			act(() => {
 				mockState.onMessage?.({
@@ -184,6 +206,7 @@ describe("ChatPanel", () => {
 		it("sends interrupt when Stop clicked", async () => {
 			const user = userEvent.setup();
 			render(<ChatPanel {...defaultProps} />);
+			await waitForHistoryLoad();
 
 			const textarea = screen.getByPlaceholderText("Type a message...");
 			await user.type(textarea, "Hi");
@@ -199,4 +222,112 @@ describe("ChatPanel", () => {
 		});
 	});
 
+	describe("history replay", () => {
+		it("replays history with text and tool calls", async () => {
+			const user = userEvent.setup();
+			mockGetHistory.mockResolvedValue([
+				{ type: "message", content: "Hello" },
+				{ type: "text", content: "Hi there!" },
+				{
+					type: "tool_call",
+					tool_name: "Bash",
+					tool_input: { command: "ls" },
+					tool_use_id: "tool-1",
+				},
+				{ type: "tool_result", tool_use_id: "tool-1", tool_result: "file.txt" },
+				{ type: "done" },
+			]);
+
+			render(<ChatPanel {...defaultProps} />);
+			await waitForHistoryLoad();
+
+			// User message displayed
+			expect(screen.getByText("Hello")).toBeInTheDocument();
+			// Assistant text displayed
+			expect(screen.getByText("Hi there!")).toBeInTheDocument();
+			// Tool call displayed
+			expect(screen.getByText("Bash")).toBeInTheDocument();
+			// Expand tool to see result
+			await user.click(screen.getByText("Bash"));
+			expect(screen.getByText("file.txt")).toBeInTheDocument();
+		});
+
+		it("replays multiple conversation turns", async () => {
+			mockGetHistory.mockResolvedValue([
+				{ type: "message", content: "First question" },
+				{ type: "text", content: "First answer" },
+				{ type: "done" },
+				{ type: "message", content: "Second question" },
+				{ type: "text", content: "Second answer" },
+				{ type: "done" },
+			]);
+
+			render(<ChatPanel {...defaultProps} />);
+			await waitForHistoryLoad();
+
+			expect(screen.getByText("First question")).toBeInTheDocument();
+			expect(screen.getByText("First answer")).toBeInTheDocument();
+			expect(screen.getByText("Second question")).toBeInTheDocument();
+			expect(screen.getByText("Second answer")).toBeInTheDocument();
+		});
+
+		it("handles incomplete assistant message without done event", async () => {
+			// Simulates abnormal end: assistant was responding but crashed,
+			// then user sent another message
+			mockGetHistory.mockResolvedValue([
+				{ type: "message", content: "First question" },
+				{ type: "text", content: "Partial answer..." },
+				// No "done" event - abnormal end
+				{ type: "message", content: "Second question" },
+				{ type: "text", content: "Complete answer" },
+				{ type: "done" },
+			]);
+
+			render(<ChatPanel {...defaultProps} />);
+			await waitForHistoryLoad();
+
+			// Both conversations should be visible
+			expect(screen.getByText("First question")).toBeInTheDocument();
+			expect(screen.getByText("Partial answer...")).toBeInTheDocument();
+			expect(screen.getByText("Second question")).toBeInTheDocument();
+			expect(screen.getByText("Complete answer")).toBeInTheDocument();
+		});
+
+		it("replays system message as standalone before user message", async () => {
+			const user = userEvent.setup();
+			mockGetHistory.mockResolvedValue([
+				{ type: "system", content: "Welcome! Please login." },
+				{ type: "message", content: "Hello" },
+				{ type: "text", content: "Hi there!" },
+				{ type: "done" },
+			]);
+
+			render(<ChatPanel {...defaultProps} />);
+			await waitForHistoryLoad();
+
+			// System message is standalone (expand to see content)
+			await user.click(screen.getByText("system"));
+			expect(screen.getByText("Welcome! Please login.")).toBeInTheDocument();
+			// Subsequent conversation works
+			expect(screen.getByText("Hello")).toBeInTheDocument();
+			expect(screen.getByText("Hi there!")).toBeInTheDocument();
+		});
+
+		it("separates consecutive server responses after done", async () => {
+			// Two separate assistant responses without user messages in between
+			mockGetHistory.mockResolvedValue([
+				{ type: "text", content: "First response" },
+				{ type: "done" },
+				{ type: "text", content: "Second response" },
+				{ type: "done" },
+			]);
+
+			render(<ChatPanel {...defaultProps} />);
+			await waitForHistoryLoad();
+
+			// Both should be visible as separate messages
+			expect(screen.getByText("First response")).toBeInTheDocument();
+			expect(screen.getByText("Second response")).toBeInTheDocument();
+		});
+	});
 });
