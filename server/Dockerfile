@@ -34,15 +34,14 @@ RUN apt-get update \
 RUN groupadd -r pockode && useradd -r -g pockode -m pockode \
     && mkdir -p /workspace && chown pockode:pockode /workspace
 
-# Copy the binary from builder
-COPY --from=builder --chown=pockode:pockode /app/server /usr/local/bin/server
-
 # Switch to non-root user and install Claude CLI
 USER pockode
 ENV HOME=/home/pockode
 RUN curl -fsSL https://claude.ai/install.sh | bash
 
 WORKDIR /workspace
+
+COPY --from=builder --chown=pockode:pockode /app/server /usr/local/bin/server
 
 # Environment variables
 ENV PORT=8080
