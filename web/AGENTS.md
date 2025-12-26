@@ -114,7 +114,8 @@ class Dialog extends React.Component<any> { ... }
 ### Tailwind 使用
 
 - 优先使用 Tailwind 类，避免自定义 CSS
-- 响应式设计使用 `sm:`, `md:`, `lg:` 前缀
+- **Mobile-first** — 默认样式针对移动端，使用 `sm:`, `md:`, `lg:` 前缀适配更大屏幕
+- 全屏容器使用 `h-dvh`（动态视口高度，适配移动端 URL 栏）
 - 深色模式使用 `dark:` 前缀（如需要）
 
 ## 测试
