@@ -160,3 +160,6 @@
 
 - 多 AI 代理支持（Gemini、GPT）
 - Git 操作 UI（commit、push、分支管理）
+- Tool AskUserQuestion 支持（Claude 向用户提问的交互式 UI）
+- system 消息展示重设计（改为 toast/banner 形式，不作为对话气泡）
+- 空 assistant 消息的 UI 优化（发送失败时的显示方式）
