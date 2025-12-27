@@ -1,4 +1,4 @@
-import { type KeyboardEvent, useCallback, useState } from "react";
+import { type KeyboardEvent, useCallback, useMemo, useState } from "react";
 
 interface Props {
 	onSend: (content: string) => void;
@@ -14,6 +14,13 @@ function InputBar({
 	onInterrupt,
 }: Props) {
 	const [input, setInput] = useState("");
+	const isMac = useMemo(
+		() =>
+			typeof navigator !== "undefined" &&
+			/Mac|iPhone|iPad|iPod/.test(navigator.userAgent),
+		[],
+	);
+	const shortcutHint = isMac ? "⌘↵" : "Ctrl↵";
 
 	const handleSend = useCallback(() => {
 		const trimmed = input.trim();
@@ -25,7 +32,7 @@ function InputBar({
 
 	const handleKeyDown = useCallback(
 		(e: KeyboardEvent<HTMLTextAreaElement>) => {
-			if (e.key === "Enter" && !e.shiftKey) {
+			if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
 				e.preventDefault();
 				handleSend();
 			}
@@ -52,6 +59,7 @@ function InputBar({
 						className="min-h-[44px] rounded-lg bg-red-600 px-3 py-2 text-white hover:bg-red-700 sm:px-4"
 					>
 						Stop
+						<span className="hidden text-red-300 text-xs sm:inline"> Esc</span>
 					</button>
 				) : (
 					<button
@@ -61,6 +69,10 @@ function InputBar({
 						className="min-h-[44px] rounded-lg bg-blue-600 px-3 py-2 text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4"
 					>
 						Send
+						<span className="hidden text-blue-300 text-xs sm:inline">
+							{" "}
+							{shortcutHint}
+						</span>
 					</button>
 				)}
 			</div>

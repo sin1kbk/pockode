@@ -66,7 +66,7 @@ describe("ChatPanel", () => {
 
 			const textarea = screen.getByPlaceholderText("Type a message...");
 			await user.type(textarea, "Hello AI");
-			await user.click(screen.getByRole("button", { name: "Send" }));
+			await user.click(screen.getByRole("button", { name: /Send/ }));
 
 			expect(mockState.send).toHaveBeenCalledWith({
 				type: "message",
@@ -90,7 +90,7 @@ describe("ChatPanel", () => {
 
 			const textarea = screen.getByPlaceholderText("Type a message...");
 			await user.type(textarea, "My first message");
-			await user.click(screen.getByRole("button", { name: "Send" }));
+			await user.click(screen.getByRole("button", { name: /Send/ }));
 
 			expect(onUpdateTitle).toHaveBeenCalledWith("My first message");
 		});
@@ -103,7 +103,7 @@ describe("ChatPanel", () => {
 
 			const textarea = screen.getByPlaceholderText("Type a message...");
 			await user.type(textarea, "Hello");
-			await user.click(screen.getByRole("button", { name: "Send" }));
+			await user.click(screen.getByRole("button", { name: /Send/ }));
 
 			expect(screen.getByText("Failed to send message")).toBeInTheDocument();
 		});
@@ -117,7 +117,7 @@ describe("ChatPanel", () => {
 
 			const textarea = screen.getByPlaceholderText("Type a message...");
 			await user.type(textarea, "Hi");
-			await user.click(screen.getByRole("button", { name: "Send" }));
+			await user.click(screen.getByRole("button", { name: /Send/ }));
 
 			act(() => {
 				mockState.onMessage?.({ type: "text", content: "Hello " });
@@ -134,7 +134,7 @@ describe("ChatPanel", () => {
 
 			const textarea = screen.getByPlaceholderText("Type a message...");
 			await user.type(textarea, "List files");
-			await user.click(screen.getByRole("button", { name: "Send" }));
+			await user.click(screen.getByRole("button", { name: /Send/ }));
 
 			act(() => {
 				mockState.onMessage?.({
@@ -163,7 +163,7 @@ describe("ChatPanel", () => {
 
 			const textarea = screen.getByPlaceholderText("Type a message...");
 			await user.type(textarea, "Hi");
-			await user.click(screen.getByRole("button", { name: "Send" }));
+			await user.click(screen.getByRole("button", { name: /Send/ }));
 
 			act(() => {
 				mockState.onMessage?.({ type: "error", error: "Something went wrong" });
@@ -210,10 +210,10 @@ describe("ChatPanel", () => {
 
 			const textarea = screen.getByPlaceholderText("Type a message...");
 			await user.type(textarea, "Hi");
-			await user.click(screen.getByRole("button", { name: "Send" }));
+			await user.click(screen.getByRole("button", { name: /Send/ }));
 			mockState.send.mockClear();
 
-			await user.click(screen.getByRole("button", { name: "Stop" }));
+			await user.click(screen.getByRole("button", { name: /Stop/ }));
 
 			expect(mockState.send).toHaveBeenCalledWith({
 				type: "interrupt",

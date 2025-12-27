@@ -8,7 +8,7 @@ describe("InputBar", () => {
 		render(<InputBar onSend={() => {}} disabled />);
 
 		expect(screen.getByPlaceholderText("Type a message...")).toBeDisabled();
-		expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+		expect(screen.getByRole("button", { name: /Send/ })).toBeDisabled();
 	});
 
 	it("calls onSend with trimmed input when button clicked", async () => {
@@ -18,7 +18,7 @@ describe("InputBar", () => {
 
 		const textarea = screen.getByPlaceholderText("Type a message...");
 		await user.type(textarea, "  Hello World  ");
-		await user.click(screen.getByRole("button", { name: "Send" }));
+		await user.click(screen.getByRole("button", { name: /Send/ }));
 
 		expect(onSend).toHaveBeenCalledWith("Hello World");
 	});
@@ -29,30 +29,40 @@ describe("InputBar", () => {
 
 		const textarea = screen.getByPlaceholderText("Type a message...");
 		await user.type(textarea, "Test message");
-		await user.click(screen.getByRole("button", { name: "Send" }));
+		await user.click(screen.getByRole("button", { name: /Send/ }));
 
 		expect(textarea).toHaveValue("");
 	});
 
-	it("sends on Enter key (without Shift)", async () => {
-		const user = userEvent.setup();
+	it("sends on Cmd+Enter (Mac)", async () => {
 		const onSend = vi.fn();
 		render(<InputBar onSend={onSend} />);
 
 		const textarea = screen.getByPlaceholderText("Type a message...");
-		await user.type(textarea, "Enter test");
-		await user.keyboard("{Enter}");
+		fireEvent.change(textarea, { target: { value: "Cmd+Enter test" } });
+		fireEvent.keyDown(textarea, { key: "Enter", metaKey: true });
 
-		expect(onSend).toHaveBeenCalledWith("Enter test");
+		expect(onSend).toHaveBeenCalledWith("Cmd+Enter test");
 	});
 
-	it("does not send on Shift+Enter", async () => {
+	it("sends on Ctrl+Enter (Windows/Linux)", async () => {
 		const onSend = vi.fn();
 		render(<InputBar onSend={onSend} />);
 
 		const textarea = screen.getByPlaceholderText("Type a message...");
-		fireEvent.change(textarea, { target: { value: "Multi-line" } });
-		fireEvent.keyDown(textarea, { key: "Enter", shiftKey: true });
+		fireEvent.change(textarea, { target: { value: "Ctrl+Enter test" } });
+		fireEvent.keyDown(textarea, { key: "Enter", ctrlKey: true });
+
+		expect(onSend).toHaveBeenCalledWith("Ctrl+Enter test");
+	});
+
+	it("does not send on Enter alone", async () => {
+		const onSend = vi.fn();
+		render(<InputBar onSend={onSend} />);
+
+		const textarea = screen.getByPlaceholderText("Type a message...");
+		fireEvent.change(textarea, { target: { value: "Plain Enter" } });
+		fireEvent.keyDown(textarea, { key: "Enter" });
 
 		expect(onSend).not.toHaveBeenCalled();
 	});
@@ -62,7 +72,7 @@ describe("InputBar", () => {
 		const onSend = vi.fn();
 		render(<InputBar onSend={onSend} />);
 
-		await user.click(screen.getByRole("button", { name: "Send" }));
+		await user.click(screen.getByRole("button", { name: /Send/ }));
 		expect(onSend).not.toHaveBeenCalled();
 	});
 
@@ -73,7 +83,7 @@ describe("InputBar", () => {
 
 		const textarea = screen.getByPlaceholderText("Type a message...");
 		await user.type(textarea, "   ");
-		await user.click(screen.getByRole("button", { name: "Send" }));
+		await user.click(screen.getByRole("button", { name: /Send/ }));
 
 		expect(onSend).not.toHaveBeenCalled();
 	});
@@ -81,9 +91,9 @@ describe("InputBar", () => {
 	it("shows Stop button when streaming", () => {
 		render(<InputBar onSend={() => {}} isStreaming onInterrupt={() => {}} />);
 
-		expect(screen.getByRole("button", { name: "Stop" })).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: /Stop/ })).toBeInTheDocument();
 		expect(
-			screen.queryByRole("button", { name: "Send" }),
+			screen.queryByRole("button", { name: /Send/ }),
 		).not.toBeInTheDocument();
 	});
 
@@ -94,7 +104,7 @@ describe("InputBar", () => {
 			<InputBar onSend={() => {}} isStreaming onInterrupt={onInterrupt} />,
 		);
 
-		await user.click(screen.getByRole("button", { name: "Stop" }));
+		await user.click(screen.getByRole("button", { name: /Stop/ }));
 
 		expect(onInterrupt).toHaveBeenCalled();
 	});
