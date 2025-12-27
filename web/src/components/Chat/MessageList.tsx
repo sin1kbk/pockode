@@ -4,11 +4,20 @@ import MessageItem from "./MessageItem";
 
 interface Props {
 	messages: Message[];
+	sessionId: string;
 }
 
-function MessageList({ messages }: Props) {
+function MessageList({ messages, sessionId }: Props) {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const [isScrolledUp, setIsScrolledUp] = useState(false);
+
+	// When switching sessions, reset scroll state so the messages effect will auto-scroll to bottom.
+	// Without this, if user scrolled up in Session A (isScrolledUp=true) and switches to Session B,
+	// the state persists and prevents auto-scrolling to the latest messages.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: sessionId triggers reset on session switch
+	useEffect(() => {
+		setIsScrolledUp(false);
+	}, [sessionId]);
 
 	// Detect user scroll: if scrolling away from bottom, mark as scrolled up
 	const handleScroll = () => {

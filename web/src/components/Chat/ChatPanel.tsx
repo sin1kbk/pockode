@@ -430,7 +430,7 @@ function ChatPanel({
 					)}
 				</div>
 			</header>
-			<MessageList messages={messages} />
+			<MessageList messages={messages} sessionId={sessionId} />
 			<InputBar
 				onSend={handleSend}
 				disabled={status !== "connected" || isLoadingHistory}
