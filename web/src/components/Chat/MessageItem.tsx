@@ -52,19 +52,16 @@ function ToolCallItem({ tool }: ToolCallItemProps) {
 		<div className="rounded bg-gray-800 text-xs">
 			<button
 				type="button"
-				onClick={() => setExpanded(!expanded)}
-				className="flex w-full items-center gap-2 p-2 text-left hover:bg-gray-750"
+				onClick={() => hasResult && setExpanded(!expanded)}
+				className={`flex w-full items-center gap-1.5 p-2 text-left ${hasResult ? "hover:bg-gray-750" : ""}`}
 			>
 				<span
-					className={`text-gray-500 transition-transform ${expanded ? "rotate-90" : ""}`}
+					className={`w-2.5 shrink-0 text-gray-500 transition-transform ${expanded ? "rotate-90" : ""}`}
 				>
-					▶
+					{hasResult && "▶"}
 				</span>
 				<span className="shrink-0 text-blue-400">{tool.name}</span>
 				{summary && <span className="truncate text-gray-400">{summary}</span>}
-				{hasResult && !expanded && (
-					<span className="ml-auto shrink-0 text-gray-500">...</span>
-				)}
 			</button>
 			{expanded && tool.result && (
 				<pre className="max-h-48 overflow-auto border-t border-gray-700 p-2 text-gray-400">
@@ -87,10 +84,10 @@ function SystemItem({ content }: SystemItemProps) {
 			<button
 				type="button"
 				onClick={() => setExpanded(!expanded)}
-				className="flex w-full items-center gap-2 p-2 text-left hover:bg-gray-750"
+				className="flex w-full items-center gap-1.5 p-2 text-left hover:bg-gray-750"
 			>
 				<span
-					className={`text-gray-500 transition-transform ${expanded ? "rotate-90" : ""}`}
+					className={`w-2.5 shrink-0 text-gray-500 transition-transform ${expanded ? "rotate-90" : ""}`}
 				>
 					▶
 				</span>
