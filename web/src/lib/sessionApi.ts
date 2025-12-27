@@ -1,6 +1,13 @@
 import type { SessionMeta } from "../types/message";
 import { getApiBaseUrl, getToken } from "../utils/config";
 
+export class AuthError extends Error {
+	constructor() {
+		super("Unauthorized");
+		this.name = "AuthError";
+	}
+}
+
 async function fetchWithAuth(path: string, options: RequestInit = {}) {
 	const token = getToken();
 	const response = await fetch(`${getApiBaseUrl()}${path}`, {
@@ -11,6 +18,10 @@ async function fetchWithAuth(path: string, options: RequestInit = {}) {
 			"Content-Type": "application/json",
 		},
 	});
+
+	if (response.status === 401) {
+		throw new AuthError();
+	}
 
 	if (!response.ok) {
 		throw new Error(`HTTP ${response.status}: ${response.statusText}`);

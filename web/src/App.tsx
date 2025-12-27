@@ -1,8 +1,9 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import TokenInput from "./components/Auth/TokenInput";
 import { ChatPanel } from "./components/Chat";
 import { SessionSidebar } from "./components/Session";
 import { useSession } from "./hooks/useSession";
+import { AuthError } from "./lib/sessionApi";
 import { wsStore } from "./lib/wsStore";
 import { clearToken, getToken, saveToken } from "./utils/config";
 
@@ -15,6 +16,7 @@ function App() {
 		currentSessionId,
 		currentSession,
 		isLoading,
+		error,
 		loadSessions,
 		createSession,
 		selectSession,
@@ -27,11 +29,18 @@ function App() {
 		setHasToken(true);
 	};
 
-	const handleLogout = () => {
+	const handleLogout = useCallback(() => {
 		wsStore.disconnect();
 		clearToken();
 		setHasToken(false);
-	};
+	}, []);
+
+	// Auto logout on auth error
+	useEffect(() => {
+		if (error instanceof AuthError) {
+			handleLogout();
+		}
+	}, [error, handleLogout]);
 
 	const handleOpenSidebar = useCallback(() => {
 		setSidebarOpen(true);

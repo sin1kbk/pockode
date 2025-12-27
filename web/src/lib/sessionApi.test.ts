@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+	AuthError,
 	createSession,
 	deleteSession,
 	getHistory,
@@ -57,14 +58,14 @@ describe("sessionApi", () => {
 			]);
 		});
 
-		it("throws on HTTP error", async () => {
+		it("throws AuthError on 401", async () => {
 			vi.mocked(fetch).mockResolvedValueOnce({
 				ok: false,
 				status: 401,
 				statusText: "Unauthorized",
 			} as Response);
 
-			await expect(listSessions()).rejects.toThrow("HTTP 401: Unauthorized");
+			await expect(listSessions()).rejects.toThrow(AuthError);
 		});
 	});
 
