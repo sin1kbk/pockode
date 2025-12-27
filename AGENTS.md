@@ -86,6 +86,18 @@ CloudFront (React SPA)
 8. **DRY 原则** — 遵循《程序员修炼之道》理念，代码、测试、文档均不应有重复；每一处知识在系统中应有唯一、明确的表示
 9. **退一步看全局** — 遇到问题不要盲目修复；先思考问题的根源、设计是否合理，再决定行动
 
+## 参考项目
+
+以下项目可作为 schema 和实现的参考，按需克隆到项目根目录下的 `./tmp/`：
+
+```bash
+# stream-json schema 和 chat 实现参考
+git clone --depth 1 https://github.com/andrepimenta/claude-code-chat.git ./tmp/claude-code-chat
+
+# stream-json schema 间接参考（通过 API 类型定义了解消息结构）
+git clone --depth 1 https://github.com/anthropics/anthropic-sdk-go.git ./tmp/anthropic-sdk-go
+```
+
 ## 相关文档
 
 - [README.md](README.md) — 项目愿景和功能介绍
