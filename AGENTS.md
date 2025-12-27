@@ -98,6 +98,10 @@ git clone --depth 1 https://github.com/andrepimenta/claude-code-chat.git ./tmp/c
 git clone --depth 1 https://github.com/anthropics/anthropic-sdk-go.git ./tmp/anthropic-sdk-go
 ```
 
+## 官方文档
+
+- [Claude Agent SDK TypeScript Reference](https://platform.claude.com/docs/en/api/agent-sdk/typescript) — SDK 类型定义，可作为 stream-json schema 的间接参考
+
 ## 相关文档
 
 - [README.md](README.md) — 项目愿景和功能介绍
