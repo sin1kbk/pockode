@@ -148,7 +148,11 @@ func (s *session) getPendingRequest(requestID string) (*controlRequest, error) {
 	if !ok {
 		return nil, fmt.Errorf("no pending request for id: %s", requestID)
 	}
-	return pending.(*controlRequest), nil
+	req, ok := pending.(*controlRequest)
+	if !ok {
+		return nil, fmt.Errorf("invalid request type for id: %s", requestID)
+	}
+	return req, nil
 }
 
 // SendPermissionResponse sends a permission response to Claude.
