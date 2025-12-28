@@ -82,22 +82,23 @@ function MessageList({ messages, sessionId }: Props) {
 
 	return (
 		<div className="relative min-h-0 flex-1">
-			<div
-				ref={containerRef}
-				onScroll={handleScroll}
-				className="h-full overflow-y-auto p-3 sm:p-4"
-			>
-				<div ref={contentRef} className="space-y-3 sm:space-y-4">
-					{messages.length === 0 && (
-						<div className="flex h-full items-center justify-center text-th-text-muted">
-							<p>Start a conversation...</p>
-						</div>
-					)}
-					{messages.map((message) => (
-						<MessageItem key={message.id} message={message} />
-					))}
+			{messages.length === 0 ? (
+				<div className="flex h-full items-center justify-center text-th-text-muted">
+					<p>Start a conversation...</p>
 				</div>
-			</div>
+			) : (
+				<div
+					ref={containerRef}
+					onScroll={handleScroll}
+					className="h-full overflow-y-auto p-3 sm:p-4"
+				>
+					<div ref={contentRef} className="space-y-3 sm:space-y-4">
+						{messages.map((message) => (
+							<MessageItem key={message.id} message={message} />
+						))}
+					</div>
+				</div>
+			)}
 			{isScrolledUp && (
 				<button
 					type="button"
