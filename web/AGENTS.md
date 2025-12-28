@@ -116,7 +116,15 @@ class Dialog extends React.Component<any> { ... }
 - 优先使用 Tailwind 类，避免自定义 CSS
 - **Mobile-first** — 默认样式针对移动端，使用 `sm:`, `md:`, `lg:` 前缀适配更大屏幕
 - 全屏容器使用 `h-dvh`（动态视口高度，适配移动端 URL 栏）
-- 深色模式使用 `dark:` 前缀（如需要）
+
+### 主题系统
+
+项目使用语义化主题 token，详见 [`docs/theming.md`](docs/theming.md)。
+
+**核心规则：**
+- 必须使用 `th-` 前缀的语义化颜色
+- 禁止硬编码颜色（如 `bg-gray-900`、`text-white`）
+- 仅在特殊情况使用 `dark:` 前缀（如 `prose dark:prose-invert`）
 
 ## 测试
 
@@ -179,3 +187,4 @@ describe("MyComponent", () => {
 - 直接编辑 `package-lock.json`（使用 `npm install`）
 - 在组件中硬编码 API 地址
 - 提交 `console.log` 调试代码
+- 使用硬编码颜色（如 `bg-gray-900`），必须用 `th-` 前缀的主题 token

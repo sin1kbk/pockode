@@ -16,7 +16,9 @@ function SessionList({
 }: Props) {
 	if (sessions.length === 0) {
 		return (
-			<div className="p-4 text-center text-gray-500">No conversations yet</div>
+			<div className="p-4 text-center text-th-text-muted">
+				No conversations yet
+			</div>
 		);
 	}
 

@@ -1,2 +1,138 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
+
+/* Enable class-based dark mode */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Theme color tokens with th- prefix for easy identification */
+@theme inline {
+	/* Backgrounds */
+	--color-th-bg-primary: var(--th-bg-primary);
+	--color-th-bg-secondary: var(--th-bg-secondary);
+	--color-th-bg-tertiary: var(--th-bg-tertiary);
+	--color-th-bg-overlay: var(--th-bg-overlay);
+
+	/* Text */
+	--color-th-text-primary: var(--th-text-primary);
+	--color-th-text-secondary: var(--th-text-secondary);
+	--color-th-text-muted: var(--th-text-muted);
+	--color-th-text-inverse: var(--th-text-inverse);
+
+	/* Borders */
+	--color-th-border: var(--th-border);
+	--color-th-border-focus: var(--th-border-focus);
+
+	/* Interactive / Accent */
+	--color-th-accent: var(--th-accent);
+	--color-th-accent-hover: var(--th-accent-hover);
+	--color-th-accent-text: var(--th-accent-text);
+
+	/* Semantic */
+	--color-th-success: var(--th-success);
+	--color-th-error: var(--th-error);
+	--color-th-warning: var(--th-warning);
+
+	/* Special - Code */
+	--color-th-code-bg: var(--th-code-bg);
+	--color-th-code-text: var(--th-code-text);
+
+	/* Special - Chat bubbles */
+	--color-th-user-bubble: var(--th-user-bubble);
+	--color-th-user-bubble-text: var(--th-user-bubble-text);
+	--color-th-ai-bubble: var(--th-ai-bubble);
+	--color-th-ai-bubble-text: var(--th-ai-bubble-text);
+}
+
+/*
+ * Theme: Clarity (Light)
+ *
+ * Design philosophy:
+ * - Clean, airy feel with subtle cool undertones
+ * - Slate palette for sophistication (not pure gray)
+ * - Indigo accent for modern tech/AI identity
+ * - High readability with comfortable contrast
+ */
+:root {
+	/* Backgrounds - Pure white base with cool gray progression */
+	--th-bg-primary: #ffffff;
+	--th-bg-secondary: #f8fafc; /* slate-50: subtle blue tint */
+	--th-bg-tertiary: #f1f5f9; /* slate-100: soft elevation */
+	--th-bg-overlay: rgba(15, 23, 42, 0.6); /* slate-900 based */
+
+	/* Text - Slate grays for softer, more refined look */
+	--th-text-primary: #0f172a; /* slate-900: deep but not harsh */
+	--th-text-secondary: #475569; /* slate-600: comfortable reading */
+	--th-text-muted: #94a3b8; /* slate-400: subtle hints */
+	--th-text-inverse: #ffffff;
+
+	/* Borders - Subtle definition */
+	--th-border: #e2e8f0; /* slate-200: soft separation */
+	--th-border-focus: #6366f1; /* indigo-500: matches accent */
+
+	/* Interactive - Indigo for modern, intelligent feel */
+	--th-accent: #6366f1; /* indigo-500: distinctive, not generic blue */
+	--th-accent-hover: #4f46e5; /* indigo-600: deepens on interaction */
+	--th-accent-text: #ffffff;
+
+	/* Semantic - Carefully chosen for clarity */
+	--th-success: #10b981; /* emerald-500: fresh, modern green */
+	--th-error: #ef4444; /* red-500: clear danger signal */
+	--th-warning: #f59e0b; /* amber-500: warm, visible caution */
+
+	/* Special - Code */
+	--th-code-bg: #f1f5f9; /* slate-100: subtle code background */
+	--th-code-text: #1e293b; /* slate-800: high contrast code */
+
+	/* Special - Chat bubbles */
+	--th-user-bubble: #6366f1; /* indigo-500: user messages */
+	--th-user-bubble-text: #ffffff;
+	--th-ai-bubble: #f1f5f9; /* slate-100: AI messages */
+	--th-ai-bubble-text: #0f172a; /* slate-900: readable on light bg */
+}
+
+/*
+ * Theme: Obsidian (Dark)
+ *
+ * Design philosophy:
+ * - Deep slate-blue base for reduced eye strain
+ * - NOT pure black - subtle warmth for comfort
+ * - Brighter accent for visibility on dark
+ * - Carefully calibrated contrast for extended use
+ */
+.dark {
+	/* Backgrounds - Deep midnight slate, not pure black */
+	--th-bg-primary: #0f172a; /* slate-900: deep but not harsh */
+	--th-bg-secondary: #1e293b; /* slate-800: elevated surfaces */
+	--th-bg-tertiary: #334155; /* slate-700: interactive elements */
+	--th-bg-overlay: rgba(0, 0, 0, 0.75);
+
+	/* Text - Bright but easy on the eyes */
+	--th-text-primary: #f1f5f9; /* slate-100: not pure white */
+	--th-text-secondary: #cbd5e1; /* slate-300: comfortable secondary */
+	--th-text-muted: #64748b; /* slate-500: subtle but readable */
+	--th-text-inverse: #0f172a; /* slate-900 */
+
+	/* Borders - Visible but not harsh */
+	--th-border: #334155; /* slate-700: subtle definition */
+	--th-border-focus: #818cf8; /* indigo-400: brighter for dark bg */
+
+	/* Interactive - Brighter indigo for dark mode visibility */
+	--th-accent: #818cf8; /* indigo-400: luminous on dark */
+	--th-accent-hover: #a5b4fc; /* indigo-300: lightens on hover */
+	--th-accent-text: #0f172a; /* dark text for contrast */
+
+	/* Semantic - Brighter variants for visibility */
+	--th-success: #34d399; /* emerald-400: vibrant success */
+	--th-error: #f87171; /* red-400: visible but not alarming */
+	--th-warning: #fbbf24; /* amber-400: warm and visible */
+
+	/* Special - Code */
+	--th-code-bg: #1e293b; /* slate-800: elevated code blocks */
+	--th-code-text: #e2e8f0; /* slate-200: high contrast code */
+
+	/* Special - Chat bubbles */
+	--th-user-bubble: #6366f1; /* indigo-500: user messages */
+	--th-user-bubble-text: #ffffff;
+	--th-ai-bubble: #334155; /* slate-700: AI messages */
+	--th-ai-bubble-text: #f1f5f9; /* slate-100: readable on dark bg */
+}

@@ -16,7 +16,7 @@ function CodeBlock({ className, children, node }: CodeProps) {
 
 	if (isInline) {
 		return (
-			<code className="rounded bg-gray-800 px-1.5 py-0.5 text-sm text-gray-200">
+			<code className="rounded bg-th-code-bg px-1.5 py-0.5 text-sm text-th-code-text">
 				{children}
 			</code>
 		);
@@ -35,7 +35,7 @@ interface MarkdownContentProps {
 
 export function MarkdownContent({ content }: MarkdownContentProps) {
 	return (
-		<div className="prose prose-invert prose-sm max-w-none prose-code:before:content-none prose-code:after:content-none">
+		<div className="prose dark:prose-invert prose-sm max-w-none prose-code:before:content-none prose-code:after:content-none">
 			<Markdown
 				remarkPlugins={[remarkGfm]}
 				components={{

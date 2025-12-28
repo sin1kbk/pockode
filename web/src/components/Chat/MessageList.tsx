@@ -55,7 +55,7 @@ function MessageList({ messages, sessionId }: Props) {
 				className="h-full space-y-3 overflow-y-auto p-3 sm:space-y-4 sm:p-4"
 			>
 				{messages.length === 0 && (
-					<div className="flex h-full items-center justify-center text-gray-500">
+					<div className="flex h-full items-center justify-center text-th-text-muted">
 						<p>Start a conversation...</p>
 					</div>
 				)}
@@ -67,7 +67,7 @@ function MessageList({ messages, sessionId }: Props) {
 				<button
 					type="button"
 					onClick={scrollToBottom}
-					className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-gray-700 p-2 text-gray-300 shadow-lg transition-colors hover:bg-gray-600 hover:text-white"
+					className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-th-bg-tertiary p-2 text-th-text-secondary shadow-lg transition-colors hover:bg-th-bg-secondary hover:text-th-text-primary"
 					aria-label="Scroll to bottom"
 				>
 					<svg

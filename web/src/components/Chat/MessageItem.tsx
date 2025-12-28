@@ -50,22 +50,24 @@ function ToolCallItem({ tool }: ToolCallItemProps) {
 	const summary = getToolSummary(tool);
 
 	return (
-		<div className="rounded bg-gray-800 text-xs">
+		<div className="rounded bg-th-bg-secondary text-xs">
 			<button
 				type="button"
 				onClick={() => hasResult && setExpanded(!expanded)}
-				className={`flex w-full items-center gap-1.5 p-2 text-left ${hasResult ? "hover:bg-gray-750" : ""}`}
+				className={`flex w-full items-center gap-1.5 p-2 text-left ${hasResult ? "hover:bg-th-bg-tertiary" : ""}`}
 			>
 				<span
-					className={`w-2.5 shrink-0 text-gray-500 transition-transform ${expanded ? "rotate-90" : ""}`}
+					className={`w-2.5 shrink-0 text-th-text-muted transition-transform ${expanded ? "rotate-90" : ""}`}
 				>
 					{hasResult && "▶"}
 				</span>
-				<span className="shrink-0 text-blue-400">{tool.name}</span>
-				{summary && <span className="truncate text-gray-400">{summary}</span>}
+				<span className="shrink-0 text-th-accent">{tool.name}</span>
+				{summary && (
+					<span className="truncate text-th-text-muted">{summary}</span>
+				)}
 			</button>
 			{expanded && tool.result && (
-				<pre className="max-h-48 overflow-auto border-t border-gray-700 p-2 text-gray-400">
+				<pre className="max-h-48 overflow-auto border-t border-th-border p-2 text-th-text-muted">
 					{tool.result}
 				</pre>
 			)}
@@ -81,21 +83,21 @@ function SystemItem({ content }: SystemItemProps) {
 	const [expanded, setExpanded] = useState(false);
 
 	return (
-		<div className="rounded bg-gray-800 text-xs">
+		<div className="rounded bg-th-bg-secondary text-xs">
 			<button
 				type="button"
 				onClick={() => setExpanded(!expanded)}
-				className="flex w-full items-center gap-1.5 p-2 text-left hover:bg-gray-750"
+				className="flex w-full items-center gap-1.5 p-2 text-left hover:bg-th-bg-tertiary"
 			>
 				<span
-					className={`w-2.5 shrink-0 text-gray-500 transition-transform ${expanded ? "rotate-90" : ""}`}
+					className={`w-2.5 shrink-0 text-th-text-muted transition-transform ${expanded ? "rotate-90" : ""}`}
 				>
 					▶
 				</span>
-				<span className="italic text-gray-500">system</span>
+				<span className="italic text-th-text-muted">system</span>
 			</button>
 			{expanded && (
-				<pre className="max-h-48 overflow-auto border-t border-gray-700 p-2 text-gray-400">
+				<pre className="max-h-48 overflow-auto border-t border-th-border p-2 text-th-text-muted">
 					{content}
 				</pre>
 			)}
@@ -153,7 +155,9 @@ function MessageItem({ message }: Props) {
 		<div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
 			<div
 				className={`max-w-[80%] rounded-lg p-2.5 sm:p-3 ${
-					isUser ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-100"
+					isUser
+						? "bg-th-user-bubble text-th-user-bubble-text"
+						: "bg-th-ai-bubble text-th-ai-bubble-text"
 				}`}
 			>
 				{renderContent()}
@@ -163,13 +167,13 @@ function MessageItem({ message }: Props) {
 					<Spinner className="mt-2" />
 				)}
 				{message.status === "error" && (
-					<p className="mt-2 text-sm text-red-400">{message.error}</p>
+					<p className="mt-2 text-sm text-th-error">{message.error}</p>
 				)}
 				{message.status === "interrupted" && (
-					<p className="mt-2 text-sm text-gray-400">Interrupted</p>
+					<p className="mt-2 text-sm text-th-text-muted">Interrupted</p>
 				)}
 				{message.status === "process_ended" && (
-					<p className="mt-2 text-sm text-yellow-400">Process ended</p>
+					<p className="mt-2 text-sm text-th-warning">Process ended</p>
 				)}
 			</div>
 		</div>

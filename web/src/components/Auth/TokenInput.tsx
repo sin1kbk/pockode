@@ -16,14 +16,14 @@ function TokenInput({ onSubmit }: Props) {
 	};
 
 	return (
-		<div className="flex h-dvh items-center justify-center bg-gray-900">
+		<div className="flex h-dvh items-center justify-center bg-th-bg-primary">
 			<form onSubmit={handleSubmit} className="w-full max-w-md p-6">
-				<h1 className="mb-6 text-center text-2xl font-bold text-white">
+				<h1 className="mb-6 text-center text-2xl font-bold text-th-text-primary">
 					Pockode
 				</h1>
 				<label
 					htmlFor="token-input"
-					className="mb-4 block text-center text-gray-400"
+					className="mb-4 block text-center text-th-text-muted"
 				>
 					Enter your authentication token to connect
 				</label>
@@ -33,12 +33,12 @@ function TokenInput({ onSubmit }: Props) {
 					value={token}
 					onChange={(e) => setToken(e.target.value)}
 					placeholder="Token"
-					className="mb-4 w-full rounded-lg border border-gray-600 bg-gray-800 p-3 text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none"
+					className="mb-4 w-full rounded-lg border border-th-border bg-th-bg-secondary p-3 text-th-text-primary placeholder:text-th-text-muted focus:border-th-border-focus focus:outline-none"
 				/>
 				<button
 					type="submit"
 					disabled={!token.trim()}
-					className="w-full rounded-lg bg-blue-600 p-3 font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-600"
+					className="w-full rounded-lg bg-th-accent p-3 font-semibold text-th-accent-text transition-colors hover:bg-th-accent-hover disabled:cursor-not-allowed disabled:bg-th-bg-tertiary disabled:text-th-text-muted"
 				>
 					Connect
 				</button>

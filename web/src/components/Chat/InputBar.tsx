@@ -58,7 +58,7 @@ function InputBar({
 	);
 
 	return (
-		<div className="border-t border-gray-700 p-3 sm:p-4">
+		<div className="border-t border-th-border p-3 sm:p-4">
 			<div className="flex items-end gap-2">
 				<textarea
 					ref={textareaRef}
@@ -68,26 +68,26 @@ function InputBar({
 					placeholder="Type a message..."
 					disabled={disabled}
 					rows={1}
-					className="min-h-[44px] max-h-[40vh] flex-1 resize-none overflow-y-auto rounded-lg bg-gray-800 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 sm:max-h-[200px] sm:px-4"
+					className="min-h-[44px] max-h-[40vh] flex-1 resize-none overflow-y-auto rounded-lg bg-th-bg-secondary px-3 py-2 text-th-text-primary placeholder:text-th-text-muted focus:outline-none focus:ring-2 focus:ring-th-border-focus disabled:opacity-50 sm:max-h-[200px] sm:px-4"
 				/>
 				{isStreaming ? (
 					<button
 						type="button"
 						onClick={onInterrupt}
-						className="min-h-[44px] rounded-lg bg-red-600 px-3 py-2 text-white hover:bg-red-700 sm:px-4"
+						className="min-h-[44px] rounded-lg bg-th-error px-3 py-2 text-th-text-inverse hover:opacity-90 sm:px-4"
 					>
 						Stop
-						<span className="hidden text-red-300 text-xs sm:inline"> Esc</span>
+						<span className="hidden text-xs opacity-70 sm:inline"> Esc</span>
 					</button>
 				) : (
 					<button
 						type="button"
 						onClick={handleSend}
 						disabled={disabled || !input.trim()}
-						className="min-h-[44px] rounded-lg bg-blue-600 px-3 py-2 text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4"
+						className="min-h-[44px] rounded-lg bg-th-accent px-3 py-2 text-th-accent-text hover:bg-th-accent-hover disabled:cursor-not-allowed disabled:opacity-50 sm:px-4"
 					>
 						Send
-						<span className="hidden text-blue-300 text-xs sm:inline">
+						<span className="hidden text-xs opacity-70 sm:inline">
 							{" "}
 							{shortcutHint}
 						</span>

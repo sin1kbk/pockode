@@ -8,6 +8,7 @@ import type {
 	WSServerMessage,
 } from "../../types/message";
 import { generateUUID } from "../../utils/uuid";
+import { ThemeToggle } from "../ui";
 import InputBar from "./InputBar";
 import MessageList from "./MessageList";
 import PermissionDialog from "./PermissionDialog";
@@ -204,10 +205,10 @@ interface Props {
 
 const STATUS_CONFIG: Record<ConnectionStatus, { text: string; color: string }> =
 	{
-		connected: { text: "Connected", color: "text-green-400" },
-		error: { text: "Connection Error", color: "text-red-400" },
-		disconnected: { text: "Disconnected", color: "text-yellow-400" },
-		connecting: { text: "Connecting...", color: "text-yellow-400" },
+		connected: { text: "Connected", color: "text-th-success" },
+		error: { text: "Connection Error", color: "text-th-error" },
+		disconnected: { text: "Disconnected", color: "text-th-warning" },
+		connecting: { text: "Connecting...", color: "text-th-warning" },
 	};
 
 function ChatPanel({
@@ -389,14 +390,14 @@ function ChatPanel({
 	const { text: statusText, color: statusColor } = STATUS_CONFIG[status];
 
 	return (
-		<div className="flex h-dvh flex-col bg-gray-900">
-			<header className="flex items-center justify-between border-b border-gray-700 p-3 sm:p-4">
+		<div className="flex h-dvh flex-col bg-th-bg-primary">
+			<header className="flex items-center justify-between border-b border-th-border p-3 sm:p-4">
 				<div className="flex items-center gap-3">
 					{onOpenSidebar && (
 						<button
 							type="button"
 							onClick={onOpenSidebar}
-							className="rounded p-1 text-gray-400 hover:bg-gray-700 hover:text-white"
+							className="rounded p-1 text-th-text-muted hover:bg-th-bg-tertiary hover:text-th-text-primary"
 							aria-label="Open menu"
 						>
 							<svg
@@ -415,15 +416,18 @@ function ChatPanel({
 							</svg>
 						</button>
 					)}
-					<h1 className="text-lg font-bold text-white sm:text-xl">Pockode</h1>
+					<h1 className="text-lg font-bold text-th-text-primary sm:text-xl">
+						Pockode
+					</h1>
 				</div>
-				<div className="flex items-center gap-4">
+				<div className="flex items-center gap-3">
 					<span className={`text-sm ${statusColor}`}>{statusText}</span>
+					<ThemeToggle />
 					{onLogout && (
 						<button
 							type="button"
 							onClick={onLogout}
-							className="text-sm text-gray-400 hover:text-white"
+							className="text-sm text-th-text-muted hover:text-th-text-primary"
 						>
 							Logout
 						</button>

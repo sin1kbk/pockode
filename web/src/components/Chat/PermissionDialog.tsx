@@ -72,43 +72,43 @@ function PermissionDialog({ request, onAllow, onAlwaysAllow, onDeny }: Props) {
 
 	return (
 		<div
-			className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+			className="fixed inset-0 z-50 flex items-center justify-center bg-th-bg-overlay"
 			role="dialog"
 			aria-modal="true"
 			aria-labelledby="permission-dialog-title"
 		>
-			<div className="mx-4 max-h-[80vh] w-full max-w-lg overflow-hidden rounded-lg bg-gray-800 shadow-xl">
-				<div className="border-b border-gray-700 p-4">
+			<div className="mx-4 max-h-[80vh] w-full max-w-lg overflow-hidden rounded-lg bg-th-bg-secondary shadow-xl">
+				<div className="border-b border-th-border p-4">
 					<h2
 						id="permission-dialog-title"
-						className="text-lg font-semibold text-white"
+						className="text-lg font-semibold text-th-text-primary"
 					>
 						Tool Permission Request
 					</h2>
-					<p className="mt-1 text-sm text-gray-400">
+					<p className="mt-1 text-sm text-th-text-muted">
 						The AI wants to use a tool. Do you allow it?
 					</p>
 				</div>
 
 				<div className="max-h-[50vh] overflow-y-auto p-4">
 					<div className="mb-3">
-						<span className="text-sm text-gray-400">Tool:</span>
-						<span className="ml-2 font-mono text-blue-400">
+						<span className="text-sm text-th-text-muted">Tool:</span>
+						<span className="ml-2 font-mono text-th-accent">
 							{request.toolName}
 						</span>
 					</div>
 
 					<div>
-						<span className="text-sm text-gray-400">Input:</span>
-						<pre className="mt-2 overflow-x-auto rounded bg-gray-900 p-3 text-sm text-gray-300">
+						<span className="text-sm text-th-text-muted">Input:</span>
+						<pre className="mt-2 overflow-x-auto rounded bg-th-code-bg p-3 text-sm text-th-code-text">
 							{formatInput(request.toolInput)}
 						</pre>
 					</div>
 				</div>
 
 				{suggestion && hasRules(suggestion) && (
-					<div className="border-t border-gray-700 bg-gray-900/50 px-4 py-3">
-						<p className="mb-1 text-xs text-gray-500">
+					<div className="border-t border-th-border bg-th-bg-primary/50 px-4 py-3">
+						<p className="mb-1 text-xs text-th-text-muted">
 							"Always Allow" will add to{" "}
 							{getDestinationLabel(suggestion.destination)}:
 						</p>
@@ -116,7 +116,7 @@ function PermissionDialog({ request, onAllow, onAlwaysAllow, onDeny }: Props) {
 							{suggestion.rules.map((rule, idx) => (
 								<code
 									key={`${rule.toolName}-${idx}`}
-									className="rounded bg-green-900/30 px-1.5 py-0.5 text-xs text-green-400"
+									className="rounded bg-th-success/20 px-1.5 py-0.5 text-xs text-th-success"
 								>
 									{formatPermissionRule(rule)}
 								</code>
@@ -125,11 +125,11 @@ function PermissionDialog({ request, onAllow, onAlwaysAllow, onDeny }: Props) {
 					</div>
 				)}
 
-				<div className="flex justify-end gap-3 border-t border-gray-700 p-4">
+				<div className="flex justify-end gap-3 border-t border-th-border p-4">
 					<button
 						type="button"
 						onClick={onDeny}
-						className="rounded-lg bg-gray-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-500"
+						className="rounded-lg bg-th-bg-tertiary px-4 py-2 text-sm font-medium text-th-text-primary transition-colors hover:opacity-90"
 					>
 						Deny
 					</button>
@@ -137,7 +137,7 @@ function PermissionDialog({ request, onAllow, onAlwaysAllow, onDeny }: Props) {
 						<button
 							type="button"
 							onClick={onAlwaysAllow}
-							className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-500"
+							className="rounded-lg bg-th-success px-4 py-2 text-sm font-medium text-th-text-inverse transition-colors hover:opacity-90"
 						>
 							Always Allow
 						</button>
@@ -146,7 +146,7 @@ function PermissionDialog({ request, onAllow, onAlwaysAllow, onDeny }: Props) {
 						ref={allowButtonRef}
 						type="button"
 						onClick={onAllow}
-						className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-500"
+						className="rounded-lg bg-th-accent px-4 py-2 text-sm font-medium text-th-accent-text transition-colors hover:bg-th-accent-hover"
 					>
 						Allow
 					</button>

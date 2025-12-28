@@ -41,20 +41,20 @@ function SessionSidebar({
 			{/* Backdrop */}
 			<button
 				type="button"
-				className="fixed inset-0 z-40 bg-black/50"
+				className="fixed inset-0 z-40 bg-th-bg-overlay"
 				onClick={onClose}
 				aria-label="Close sidebar"
 			/>
 
 			{/* Sidebar */}
-			<div className="fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-gray-800">
+			<div className="fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-th-bg-secondary">
 				{/* Header */}
-				<div className="flex items-center justify-between border-b border-gray-700 p-4">
-					<h2 className="font-semibold text-white">Conversations</h2>
+				<div className="flex items-center justify-between border-b border-th-border p-4">
+					<h2 className="font-semibold text-th-text-primary">Conversations</h2>
 					<button
 						type="button"
 						onClick={onClose}
-						className="rounded p-1 text-gray-400 hover:bg-gray-700 hover:text-white"
+						className="rounded p-1 text-th-text-muted hover:bg-th-bg-tertiary hover:text-th-text-primary"
 						aria-label="Close sidebar"
 					>
 						<svg
@@ -79,7 +79,7 @@ function SessionSidebar({
 					<button
 						type="button"
 						onClick={onCreateSession}
-						className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 p-3 font-medium text-white hover:bg-blue-700"
+						className="flex w-full items-center justify-center gap-2 rounded-lg bg-th-accent p-3 font-medium text-th-accent-text hover:bg-th-accent-hover"
 					>
 						<svg
 							className="h-5 w-5"
@@ -102,7 +102,7 @@ function SessionSidebar({
 				{/* Session List */}
 				<div className="flex-1 overflow-y-auto">
 					{isLoading ? (
-						<div className="p-4 text-center text-gray-500">Loading...</div>
+						<div className="p-4 text-center text-th-text-muted">Loading...</div>
 					) : (
 						<SessionList
 							sessions={sessions}

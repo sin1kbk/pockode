@@ -11,7 +11,9 @@ function SessionItem({ session, isActive, onSelect, onDelete }: Props) {
 	return (
 		<div
 			className={`group flex items-center justify-between rounded-lg p-3 ${
-				isActive ? "bg-blue-600 text-white" : "text-gray-300 hover:bg-gray-700"
+				isActive
+					? "bg-th-accent text-th-accent-text"
+					: "text-th-text-secondary hover:bg-th-bg-tertiary"
 			}`}
 		>
 			<button
@@ -20,7 +22,9 @@ function SessionItem({ session, isActive, onSelect, onDelete }: Props) {
 				className="min-w-0 flex-1 cursor-pointer text-left"
 			>
 				<div className="truncate font-medium">{session.title}</div>
-				<div className="text-xs text-gray-400">
+				<div
+					className={`text-xs ${isActive ? "opacity-70" : "text-th-text-muted"}`}
+				>
 					{new Date(session.created_at).toLocaleDateString()}
 				</div>
 			</button>
@@ -28,7 +32,7 @@ function SessionItem({ session, isActive, onSelect, onDelete }: Props) {
 				type="button"
 				onClick={onDelete}
 				className={`ml-2 rounded p-1 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 ${
-					isActive ? "hover:bg-blue-700" : "hover:bg-gray-600"
+					isActive ? "hover:bg-th-accent-hover" : "hover:bg-th-bg-secondary"
 				}`}
 				aria-label="Delete session"
 			>
