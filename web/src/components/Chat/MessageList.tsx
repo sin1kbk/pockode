@@ -67,7 +67,7 @@ function MessageList({ messages, sessionId }: Props) {
 				<button
 					type="button"
 					onClick={scrollToBottom}
-					className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-th-bg-tertiary p-2 text-th-text-secondary shadow-lg transition-colors hover:bg-th-bg-secondary hover:text-th-text-primary"
+					className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full border border-th-border bg-th-bg-primary p-2 text-th-text-secondary shadow-xl transition-colors hover:bg-th-bg-secondary hover:text-th-text-primary"
 					aria-label="Scroll to bottom"
 				>
 					<svg
