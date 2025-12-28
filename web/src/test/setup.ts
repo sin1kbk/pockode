@@ -2,6 +2,13 @@ import { cleanup } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { afterEach } from "vitest";
 
+// Mock ResizeObserver for components that use it
+global.ResizeObserver = class ResizeObserver {
+	observe() {}
+	unobserve() {}
+	disconnect() {}
+};
+
 // Mock window.matchMedia for theme detection
 Object.defineProperty(window, "matchMedia", {
 	writable: true,
