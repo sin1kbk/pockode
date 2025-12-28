@@ -1,4 +1,10 @@
-import type { ContentPart, Message, WSServerMessage } from "../types/message";
+import type {
+	AssistantMessage,
+	ContentPart,
+	Message,
+	UserMessage,
+	WSServerMessage,
+} from "../types/message";
 import { generateUUID } from "../utils/uuid";
 
 // Normalized event with camelCase (internal representation)
@@ -98,12 +104,11 @@ export function applyEventToParts(
 }
 
 export function createAssistantMessage(
-	status: Message["status"] = "streaming",
-): Message {
+	status: AssistantMessage["status"] = "streaming",
+): AssistantMessage {
 	return {
 		id: generateUUID(),
 		role: "assistant",
-		content: "",
 		parts: [],
 		status,
 		createdAt: new Date(),
@@ -124,7 +129,9 @@ export function applyServerEvent(
 
 	// Find current assistant (sending or streaming)
 	let index = messages.findIndex(
-		(m) => m.status === "sending" || m.status === "streaming",
+		(m) =>
+			m.role === "assistant" &&
+			(m.status === "sending" || m.status === "streaming"),
 	);
 
 	// No current assistant? Create one to hold the orphan event
@@ -136,8 +143,15 @@ export function applyServerEvent(
 		updated = [...messages];
 	}
 
-	const message = { ...updated[index] };
-	message.parts = applyEventToParts(message.parts ?? [], event);
+	const current = updated[index];
+	if (current.role !== "assistant") {
+		return updated; // Type guard - should never happen
+	}
+
+	const message: AssistantMessage = {
+		...current,
+		parts: applyEventToParts(current.parts, event),
+	};
 
 	if (event.type === "text") {
 		message.status = "streaming";
@@ -161,13 +175,17 @@ export function applyUserMessage(
 	messages: Message[],
 	content: string,
 ): Message[] {
-	const finalized = messages.map((m) =>
-		m.status === "sending" || m.status === "streaming"
-			? { ...m, status: "complete" as const }
-			: m,
-	);
+	const finalized = messages.map((m): Message => {
+		if (
+			m.role === "assistant" &&
+			(m.status === "sending" || m.status === "streaming")
+		) {
+			return { ...m, status: "complete" };
+		}
+		return m;
+	});
 
-	const userMessage: Message = {
+	const userMessage: UserMessage = {
 		id: generateUUID(),
 		role: "user",
 		content,

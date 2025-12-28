@@ -124,43 +124,28 @@ interface Props {
 }
 
 function MessageItem({ message }: Props) {
-	const isUser = message.role === "user";
-
-	// User messages use content; assistant messages use parts
-	const renderContent = () => {
-		if (isUser) {
-			return (
-				<p className="whitespace-pre-wrap break-words">{message.content}</p>
-			);
-		}
-
-		// Assistant message with parts (timeline order)
-		// Parts are append-only during streaming, so index is stable
-		if (message.parts && message.parts.length > 0) {
-			return (
-				<div className="space-y-2">
-					{message.parts.map((part, index) => (
-						// biome-ignore lint/suspicious/noArrayIndexKey: parts are append-only
-						<ContentPartItem key={index} part={part} />
-					))}
+	if (message.role === "user") {
+		return (
+			<div className="flex justify-end">
+				<div className="max-w-[80%] rounded-lg bg-th-user-bubble p-2.5 text-th-user-bubble-text sm:p-3">
+					<p className="whitespace-pre-wrap break-words">{message.content}</p>
 				</div>
-			);
-		}
+			</div>
+		);
+	}
 
-		// Fallback for empty assistant message
-		return null;
-	};
-
+	// Assistant message
 	return (
-		<div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
-			<div
-				className={`max-w-[80%] rounded-lg p-2.5 sm:p-3 ${
-					isUser
-						? "bg-th-user-bubble text-th-user-bubble-text"
-						: "bg-th-ai-bubble text-th-ai-bubble-text"
-				}`}
-			>
-				{renderContent()}
+		<div className="flex justify-start">
+			<div className="max-w-[80%] rounded-lg bg-th-ai-bubble p-2.5 text-th-ai-bubble-text sm:p-3">
+				{message.parts.length > 0 && (
+					<div className="space-y-2">
+						{message.parts.map((part, index) => (
+							// biome-ignore lint/suspicious/noArrayIndexKey: parts are append-only
+							<ContentPartItem key={index} part={part} />
+						))}
+					</div>
+				)}
 
 				{/* Status indicator */}
 				{(message.status === "sending" || message.status === "streaming") && (

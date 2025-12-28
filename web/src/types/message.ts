@@ -6,9 +6,6 @@ export interface SessionMeta {
 	updated_at: string;
 }
 
-// Message role
-export type MessageRole = "user" | "assistant";
-
 // Message status
 export type MessageStatus =
 	| "sending"
@@ -32,16 +29,27 @@ export type ContentPart =
 	| { type: "tool_call"; tool: ToolCall }
 	| { type: "system"; content: string };
 
-// Chat message
-export interface Message {
+// User message - plain text content
+export interface UserMessage {
 	id: string;
-	role: MessageRole;
-	content: string; // For user messages; for assistant, use parts
-	parts?: ContentPart[]; // Timeline-ordered content for assistant
+	role: "user";
+	content: string;
+	status: MessageStatus;
+	createdAt: Date;
+}
+
+// Assistant message - structured parts (text, tool calls, system)
+export interface AssistantMessage {
+	id: string;
+	role: "assistant";
+	parts: ContentPart[];
 	status: MessageStatus;
 	error?: string;
 	createdAt: Date;
 }
+
+// Discriminated union by role
+export type Message = UserMessage | AssistantMessage;
 
 export type PermissionBehavior = "allow" | "deny" | "ask";
 

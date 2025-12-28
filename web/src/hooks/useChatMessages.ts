@@ -6,7 +6,9 @@ import {
 } from "../lib/messageReducer";
 import { getHistory } from "../lib/sessionApi";
 import type {
+	AssistantMessage,
 	Message,
+	UserMessage,
 	WSClientMessage,
 	WSServerMessage,
 } from "../types/message";
@@ -85,7 +87,7 @@ export function useChatMessages({
 			const userMessageId = generateUUID();
 			const assistantMessageId = generateUUID();
 
-			const userMessage: Message = {
+			const userMessage: UserMessage = {
 				id: userMessageId,
 				role: "user",
 				content,
@@ -94,10 +96,10 @@ export function useChatMessages({
 			};
 
 			// Empty assistant message ready to receive streaming content
-			const assistantMessage: Message = {
+			const assistantMessage: AssistantMessage = {
 				id: assistantMessageId,
 				role: "assistant",
-				content: "",
+				parts: [],
 				status: "sending",
 				createdAt: new Date(),
 			};
@@ -112,11 +114,12 @@ export function useChatMessages({
 
 			if (!sent) {
 				setMessages((prev) =>
-					prev.map((m) =>
-						m.id === assistantMessageId
-							? { ...m, status: "error", error: "Failed to send message" }
-							: m,
-					),
+					prev.map((m): Message => {
+						if (m.role === "assistant" && m.id === assistantMessageId) {
+							return { ...m, status: "error", error: "Failed to send message" };
+						}
+						return m;
+					}),
 				);
 			}
 

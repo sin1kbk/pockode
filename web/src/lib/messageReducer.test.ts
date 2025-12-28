@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { Message } from "../types/message";
+import type { AssistantMessage, UserMessage } from "../types/message";
 import {
 	applyEventToParts,
 	applyServerEvent,
@@ -115,10 +115,9 @@ describe("messageReducer", () => {
 	});
 
 	describe("applyServerEvent", () => {
-		const createStreamingMessage = (): Message => ({
+		const createStreamingMessage = (): AssistantMessage => ({
 			id: "msg-1",
 			role: "assistant",
-			content: "",
 			parts: [],
 			status: "streaming",
 			createdAt: new Date(),
@@ -128,7 +127,8 @@ describe("messageReducer", () => {
 			const messages = applyServerEvent([], { type: "text", content: "Hello" });
 			expect(messages).toHaveLength(1);
 			expect(messages[0].role).toBe("assistant");
-			expect(messages[0].parts).toEqual([{ type: "text", content: "Hello" }]);
+			const assistant = messages[0] as AssistantMessage;
+			expect(assistant.parts).toEqual([{ type: "text", content: "Hello" }]);
 		});
 
 		it("appends text to streaming message", () => {
@@ -137,8 +137,9 @@ describe("messageReducer", () => {
 				type: "text",
 				content: "Hello",
 			});
-			expect(messages[0].parts).toEqual([{ type: "text", content: "Hello" }]);
-			expect(messages[0].status).toBe("streaming");
+			const assistant = messages[0] as AssistantMessage;
+			expect(assistant.parts).toEqual([{ type: "text", content: "Hello" }]);
+			expect(assistant.status).toBe("streaming");
 		});
 
 		it.each([
@@ -166,8 +167,9 @@ describe("messageReducer", () => {
 				type: "error",
 				error: "Failed",
 			});
-			expect(messages[0].status).toBe("error");
-			expect(messages[0].error).toBe("Failed");
+			const assistant = messages[0] as AssistantMessage;
+			expect(assistant.status).toBe("error");
+			expect(assistant.error).toBe("Failed");
 		});
 
 		it("creates standalone message for system event", () => {
@@ -177,9 +179,8 @@ describe("messageReducer", () => {
 			});
 			expect(messages).toHaveLength(1);
 			expect(messages[0].status).toBe("complete");
-			expect(messages[0].parts).toEqual([
-				{ type: "system", content: "Welcome" },
-			]);
+			const assistant = messages[0] as AssistantMessage;
+			expect(assistant.parts).toEqual([{ type: "system", content: "Welcome" }]);
 		});
 	});
 
@@ -188,16 +189,17 @@ describe("messageReducer", () => {
 			const messages = applyUserMessage([], "Hello AI");
 			expect(messages).toHaveLength(2);
 			expect(messages[0].role).toBe("user");
-			expect(messages[0].content).toBe("Hello AI");
+			const user = messages[0] as UserMessage;
+			expect(user.content).toBe("Hello AI");
 			expect(messages[1].role).toBe("assistant");
-			expect(messages[1].parts).toEqual([]);
+			const assistant = messages[1] as AssistantMessage;
+			expect(assistant.parts).toEqual([]);
 		});
 
 		it("finalizes streaming assistant before adding user message", () => {
-			const streaming: Message = {
+			const streaming: AssistantMessage = {
 				id: "msg-1",
 				role: "assistant",
-				content: "",
 				parts: [{ type: "text", content: "Response" }],
 				status: "streaming",
 				createdAt: new Date(),
@@ -219,12 +221,12 @@ describe("messageReducer", () => {
 			const messages = replayHistory(history);
 			expect(messages).toHaveLength(2);
 			expect(messages[0].role).toBe("user");
-			expect(messages[0].content).toBe("Hello");
+			const user = messages[0] as UserMessage;
+			expect(user.content).toBe("Hello");
 			expect(messages[1].role).toBe("assistant");
-			expect(messages[1].parts).toEqual([
-				{ type: "text", content: "Hi there!" },
-			]);
-			expect(messages[1].status).toBe("complete");
+			const assistant = messages[1] as AssistantMessage;
+			expect(assistant.parts).toEqual([{ type: "text", content: "Hi there!" }]);
+			expect(assistant.status).toBe("complete");
 		});
 
 		it("replays tool calls with results", () => {
@@ -241,8 +243,8 @@ describe("messageReducer", () => {
 			];
 			const messages = replayHistory(history);
 			expect(messages).toHaveLength(2);
-			const assistantParts = messages[1].parts ?? [];
-			expect(assistantParts[0]).toEqual({
+			const assistant = messages[1] as AssistantMessage;
+			expect(assistant.parts[0]).toEqual({
 				type: "tool_call",
 				tool: {
 					id: "tool-1",
@@ -263,12 +265,12 @@ describe("messageReducer", () => {
 			];
 			const messages = replayHistory(history);
 			expect(messages).toHaveLength(4);
-			expect(messages[1].parts).toEqual([
+			const assistant1 = messages[1] as AssistantMessage;
+			expect(assistant1.parts).toEqual([
 				{ type: "text", content: "Partial..." },
 			]);
-			expect(messages[3].parts).toEqual([
-				{ type: "text", content: "Complete" },
-			]);
+			const assistant2 = messages[3] as AssistantMessage;
+			expect(assistant2.parts).toEqual([{ type: "text", content: "Complete" }]);
 		});
 
 		it("replays system message as standalone", () => {
@@ -280,10 +282,9 @@ describe("messageReducer", () => {
 			];
 			const messages = replayHistory(history);
 			expect(messages).toHaveLength(3);
-			expect(messages[0].parts).toEqual([
-				{ type: "system", content: "Welcome!" },
-			]);
-			expect(messages[0].status).toBe("complete");
+			const system = messages[0] as AssistantMessage;
+			expect(system.parts).toEqual([{ type: "system", content: "Welcome!" }]);
+			expect(system.status).toBe("complete");
 			expect(messages[1].role).toBe("user");
 			expect(messages[2].role).toBe("assistant");
 		});

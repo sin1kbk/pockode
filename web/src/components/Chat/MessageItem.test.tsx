@@ -22,7 +22,6 @@ describe("MessageItem", () => {
 		const message: Message = {
 			id: "2",
 			role: "assistant",
-			content: "",
 			parts: [{ type: "text", content: "Hello human" }],
 			status: "complete",
 			createdAt: new Date(),
@@ -36,7 +35,7 @@ describe("MessageItem", () => {
 		const message: Message = {
 			id: "3",
 			role: "assistant",
-			content: "",
+			parts: [],
 			status: "sending",
 			createdAt: new Date(),
 		};
@@ -49,7 +48,7 @@ describe("MessageItem", () => {
 		const message: Message = {
 			id: "4",
 			role: "assistant",
-			content: "",
+			parts: [],
 			status: "error",
 			error: "Connection failed",
 			createdAt: new Date(),
@@ -63,7 +62,6 @@ describe("MessageItem", () => {
 		const message: Message = {
 			id: "4b",
 			role: "assistant",
-			content: "",
 			parts: [{ type: "text", content: "Partial response" }],
 			status: "interrupted",
 			createdAt: new Date(),
@@ -77,7 +75,6 @@ describe("MessageItem", () => {
 		const message: Message = {
 			id: "5",
 			role: "assistant",
-			content: "",
 			parts: [
 				{ type: "text", content: "I'll read the file" },
 				{
@@ -98,7 +95,6 @@ describe("MessageItem", () => {
 		const message: Message = {
 			id: "6",
 			role: "assistant",
-			content: "",
 			parts: [
 				{
 					type: "tool_call",
