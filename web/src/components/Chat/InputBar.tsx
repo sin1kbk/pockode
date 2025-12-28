@@ -5,7 +5,7 @@ import { isMobile } from "../../utils/breakpoints";
 interface Props {
 	sessionId: string;
 	onSend: (content: string) => void;
-	disabled?: boolean;
+	canSend?: boolean;
 	isStreaming?: boolean;
 	onInterrupt?: () => void;
 }
@@ -13,7 +13,7 @@ interface Props {
 function InputBar({
 	sessionId,
 	onSend,
-	disabled = false,
+	canSend = true,
 	isStreaming = false,
 	onInterrupt,
 }: Props) {
@@ -29,17 +29,18 @@ function InputBar({
 		}
 	}, [input]);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: intentionally re-run when sessionId changes to focus input
 	useEffect(() => {
 		textareaRef.current?.focus();
 	}, [sessionId]);
 
 	const handleSend = useCallback(() => {
 		const trimmed = input.trim();
-		if (trimmed && !disabled && !isStreaming) {
+		if (trimmed && canSend && !isStreaming) {
 			onSend(trimmed);
 			inputActions.clear(sessionId);
 		}
-	}, [input, onSend, disabled, isStreaming, sessionId]);
+	}, [input, onSend, canSend, isStreaming, sessionId]);
 
 	const handleKeyDown = useCallback(
 		(e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -64,9 +65,8 @@ function InputBar({
 							? "Type a message..."
 							: "Type a message... (Shift+Enter for newline)"
 					}
-					disabled={disabled}
 					rows={1}
-					className="min-h-[44px] max-h-[40vh] flex-1 resize-none overflow-y-auto rounded-lg bg-th-bg-secondary px-3 py-2 text-th-text-primary placeholder:text-th-text-muted focus:outline-none focus:ring-2 focus:ring-th-border-focus disabled:opacity-50 sm:max-h-[200px] sm:px-4"
+					className="min-h-[44px] max-h-[40vh] flex-1 resize-none overflow-y-auto rounded-lg bg-th-bg-secondary px-3 py-2 text-th-text-primary placeholder:text-th-text-muted focus:outline-none focus:ring-2 focus:ring-th-border-focus sm:max-h-[200px] sm:px-4"
 				/>
 				{isStreaming ? (
 					<button
@@ -81,7 +81,7 @@ function InputBar({
 					<button
 						type="button"
 						onClick={handleSend}
-						disabled={disabled || !input.trim()}
+						disabled={!canSend || !input.trim()}
 						className="min-h-[44px] rounded-lg bg-th-accent px-3 py-2 text-th-accent-text hover:bg-th-accent-hover disabled:cursor-not-allowed disabled:opacity-50 sm:px-4"
 					>
 						Send

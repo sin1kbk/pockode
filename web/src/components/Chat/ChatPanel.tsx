@@ -160,7 +160,7 @@ function ChatPanel({
 			<InputBar
 				sessionId={sessionId}
 				onSend={handleSend}
-				disabled={status !== "connected" || isLoadingHistory}
+				canSend={status === "connected" && !isLoadingHistory}
 				isStreaming={isStreaming}
 				onInterrupt={handleInterrupt}
 			/>

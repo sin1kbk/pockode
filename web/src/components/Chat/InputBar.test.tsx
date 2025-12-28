@@ -11,11 +11,30 @@ describe("InputBar", () => {
 		useInputStore.setState({ inputs: {} });
 	});
 
-	it("disables input when disabled prop is true", () => {
-		render(<InputBar sessionId={TEST_SESSION_ID} onSend={() => {}} disabled />);
+	it("disables send button when canSend is false", () => {
+		render(
+			<InputBar
+				sessionId={TEST_SESSION_ID}
+				onSend={() => {}}
+				canSend={false}
+			/>,
+		);
 
-		expect(screen.getByRole("textbox")).toBeDisabled();
+		expect(screen.getByRole("textbox")).not.toBeDisabled();
 		expect(screen.getByRole("button", { name: /Send/ })).toBeDisabled();
+	});
+
+	it("does not send on Enter when canSend is false", () => {
+		const onSend = vi.fn();
+		render(
+			<InputBar sessionId={TEST_SESSION_ID} onSend={onSend} canSend={false} />,
+		);
+
+		const textarea = screen.getByRole("textbox");
+		fireEvent.change(textarea, { target: { value: "Should not send" } });
+		fireEvent.keyDown(textarea, { key: "Enter" });
+
+		expect(onSend).not.toHaveBeenCalled();
 	});
 
 	it("calls onSend with trimmed input when button clicked", async () => {
