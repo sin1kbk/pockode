@@ -163,22 +163,16 @@ describe("MyComponent", () => {
 
 ## Zustand 状态管理
 
-状态应尽量靠近使用它的组件。只有跨多层或不相关组件共享时才用 Zustand。
+**领域数据**用 Zustand，**UI 状态**用 React。
 
-| 场景 | 方案 |
-|------|------|
-| 跨组件共享状态 | Zustand |
-| 服务端数据缓存 | React Query / SWR |
-| 父子组件共享 | props |
-| 单组件 UI 状态 | `useState` |
+- 领域数据：与 UI 表现无关的业务数据（即使没有 UI 也存在的数据）
+- UI 状态：控制界面行为的状态（sidebar 开关、modal 显隐、选中项）
 
-### 规范
+### 使用规范
 
-- 按领域划分 store，单一职责
-- 扁平化状态结构，避免深层嵌套
-- 使用选择器订阅具体字段，禁止 `const store = useStore()`
-- 多字段订阅用 `useShallow`
-- 领域逻辑放 store，组件只负责渲染和调用 action
+- 按领域划分 store，组件只调用 action 不处理业务逻辑
+- 使用选择器订阅具体字段，多字段用 `useShallow`
+- 禁止 `const store = useStore()` 全量订阅
 
 ## 边界
 
