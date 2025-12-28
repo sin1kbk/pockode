@@ -170,6 +170,22 @@ function ThemeToggle() {
 		return () => document.removeEventListener("keydown", handleEscape);
 	}, [isOpen]);
 
+	// Prevent body scroll when panel is open on mobile
+	useEffect(() => {
+		if (!isOpen) return;
+
+		// 639px = Tailwind sm breakpoint (640px) - 1, matching sm:hidden
+		const isMobile = window.matchMedia("(max-width: 639px)").matches;
+		if (!isMobile) return;
+
+		const originalOverflow = document.body.style.overflow;
+		document.body.style.overflow = "hidden";
+
+		return () => {
+			document.body.style.overflow = originalOverflow;
+		};
+	}, [isOpen]);
+
 	const modeIcon = isDarkMode ? (
 		<svg
 			className="h-5 w-5"
@@ -208,7 +224,7 @@ function ThemeToggle() {
 				ref={buttonRef}
 				type="button"
 				onClick={() => setIsOpen(!isOpen)}
-				className="flex items-center gap-1.5 rounded p-1 text-th-text-muted hover:bg-th-bg-tertiary hover:text-th-text-primary"
+				className="flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-lg text-th-text-muted transition-transform hover:bg-th-bg-tertiary hover:text-th-text-primary active:scale-95"
 				aria-label="Theme settings"
 				aria-expanded={isOpen}
 			>
@@ -224,87 +240,99 @@ function ThemeToggle() {
 			</button>
 
 			{isOpen && (
-				<div
-					ref={panelRef}
-					className="absolute right-0 top-full z-50 mt-2 w-72 rounded-xl border border-th-border bg-th-bg-primary p-4 shadow-xl"
-					role="dialog"
-					aria-label="Theme settings"
-				>
-					{/* Mode Selection */}
-					<div className="mb-4">
-						<div className="mb-2 text-xs font-medium uppercase tracking-wider text-th-text-muted">
-							Appearance
+				<>
+					{/* Backdrop for mobile */}
+					<div
+						className="fixed inset-0 z-40 bg-black/50 sm:hidden"
+						onClick={() => setIsOpen(false)}
+						aria-hidden="true"
+					/>
+					<div
+						ref={panelRef}
+						className="fixed inset-x-0 bottom-0 z-50 max-h-[80dvh] overflow-y-auto rounded-t-2xl border-t border-th-border bg-th-bg-primary p-4 pb-[max(2rem,env(safe-area-inset-bottom))] shadow-xl sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 sm:w-72 sm:rounded-xl sm:border sm:pb-4"
+						role="dialog"
+						aria-label="Theme settings"
+					>
+						{/* Drag handle for mobile */}
+						<div className="mb-4 flex justify-center sm:hidden">
+							<div className="h-1 w-10 rounded-full bg-th-text-muted/30" />
 						</div>
-						<div className="flex gap-1 rounded-lg bg-th-bg-secondary p-1">
-							{MODE_OPTIONS.map((option) => (
-								<button
-									key={option.value}
-									type="button"
-									onClick={() => setMode(option.value)}
-									className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-2 text-sm transition-all ${
-										mode === option.value
-											? "bg-th-bg-primary text-th-text-primary shadow-sm"
-											: "text-th-text-muted hover:text-th-text-secondary"
-									}`}
-								>
-									{option.icon}
-									<span className="hidden sm:inline">{option.label}</span>
-								</button>
-							))}
-						</div>
-					</div>
-
-					{/* Theme Selection */}
-					<div>
-						<div className="mb-2 text-xs font-medium uppercase tracking-wider text-th-text-muted">
-							Theme
-						</div>
-						<div className="grid grid-cols-1 gap-2">
-							{THEME_NAMES.map((name) => {
-								const info = THEME_INFO[name];
-								const isSelected = theme === name;
-								return (
+						{/* Mode Selection */}
+						<div className="mb-4">
+							<div className="mb-2 text-xs font-medium uppercase tracking-wider text-th-text-muted">
+								Appearance
+							</div>
+							<div className="flex gap-1 rounded-lg bg-th-bg-secondary p-1">
+								{MODE_OPTIONS.map((option) => (
 									<button
-										key={name}
+										key={option.value}
 										type="button"
-										onClick={() => setTheme(name)}
-										className={`group overflow-hidden rounded-lg border text-left transition-all ${
-											isSelected
-												? "border-th-accent ring-1 ring-th-accent"
-												: "border-th-border hover:border-th-text-muted"
+										onClick={() => setMode(option.value)}
+										className={`flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-2 text-sm transition-all active:scale-95 ${
+											mode === option.value
+												? "bg-th-bg-primary text-th-text-primary shadow-sm"
+												: "text-th-text-muted hover:text-th-text-secondary"
 										}`}
 									>
-										<ThemePreview
-											themeName={name}
-											isSelected={isSelected}
-											isDarkMode={isDarkMode}
-										/>
-										<div className="flex items-center justify-between bg-th-bg-secondary px-3 py-2">
-											<div>
-												<div
-													className={`text-sm font-medium ${isSelected ? "text-th-text-primary" : "text-th-text-secondary"}`}
-												>
-													{info.label}
-												</div>
-												<div className="text-xs text-th-text-muted">
-													{info.description}
-												</div>
-											</div>
-											<div
-												className="h-4 w-4 rounded-full"
-												style={{
-													backgroundColor: isDarkMode
-														? info.accentDark
-														: info.accentLight,
-												}}
-											/>
-										</div>
+										{option.icon}
+										<span>{option.label}</span>
 									</button>
-								);
-							})}
+								))}
+							</div>
+						</div>
+
+						{/* Theme Selection */}
+						<div>
+							<div className="mb-2 text-xs font-medium uppercase tracking-wider text-th-text-muted">
+								Theme
+							</div>
+							<div className="grid grid-cols-1 gap-2">
+								{THEME_NAMES.map((name) => {
+									const info = THEME_INFO[name];
+									const isSelected = theme === name;
+									return (
+										<button
+											key={name}
+											type="button"
+											onClick={() => setTheme(name)}
+											className={`group overflow-hidden rounded-lg border text-left transition-all active:scale-[0.98] ${
+												isSelected
+													? "border-th-accent ring-1 ring-th-accent"
+													: "border-th-border hover:border-th-text-muted"
+											}`}
+										>
+											<ThemePreview
+												themeName={name}
+												isSelected={isSelected}
+												isDarkMode={isDarkMode}
+											/>
+											<div className="flex min-h-12 items-center justify-between bg-th-bg-secondary px-3 py-2">
+												<div>
+													<div
+														className={`text-sm font-medium ${isSelected ? "text-th-text-primary" : "text-th-text-secondary"}`}
+													>
+														{info.label}
+													</div>
+													<div className="text-xs text-th-text-muted">
+														{info.description}
+													</div>
+												</div>
+												<div
+													className="h-4 w-4 rounded-full"
+													style={{
+														backgroundColor: isDarkMode
+															? info.accentDark
+															: info.accentLight,
+													}}
+												/>
+											</div>
+										</button>
+									);
+								})}
+							</div>
 						</div>
 					</div>
-				</div>
+				</>
 			)}
 		</div>
 	);
