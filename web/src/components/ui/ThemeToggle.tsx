@@ -249,86 +249,89 @@ function ThemeToggle() {
 					/>
 					<div
 						ref={panelRef}
-						className="fixed inset-x-0 bottom-0 z-50 max-h-[80dvh] overflow-y-auto rounded-t-2xl border-t border-th-border bg-th-bg-primary p-4 pb-[max(2rem,env(safe-area-inset-bottom))] shadow-xl sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 sm:w-72 sm:rounded-xl sm:border sm:pb-4"
+						className="fixed inset-x-0 bottom-0 z-50 flex max-h-[80dvh] flex-col rounded-t-2xl border-t border-th-border bg-th-bg-primary pt-3 shadow-xl sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 sm:w-72 sm:rounded-xl sm:border sm:pt-4"
 						role="dialog"
 						aria-label="Theme settings"
 					>
-						{/* Drag handle for mobile */}
-						<div className="mb-4 flex justify-center sm:hidden">
+						{/* Drag handle for mobile - stays fixed at top */}
+						<div className="mb-3 flex shrink-0 justify-center sm:hidden">
 							<div className="h-1 w-10 rounded-full bg-th-text-muted/30" />
 						</div>
-						{/* Mode Selection */}
-						<div className="mb-4">
-							<div className="mb-2 text-xs font-medium uppercase tracking-wider text-th-text-muted">
-								Appearance
-							</div>
-							<div className="flex gap-1 rounded-lg bg-th-bg-secondary p-1">
-								{MODE_OPTIONS.map((option) => (
-									<button
-										key={option.value}
-										type="button"
-										onClick={() => setMode(option.value)}
-										className={`flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-2 text-sm transition-all active:scale-95 ${
-											mode === option.value
-												? "bg-th-bg-primary text-th-text-primary shadow-sm"
-												: "text-th-text-muted hover:text-th-text-secondary"
-										}`}
-									>
-										{option.icon}
-										<span>{option.label}</span>
-									</button>
-								))}
-							</div>
-						</div>
-
-						{/* Theme Selection */}
-						<div>
-							<div className="mb-2 text-xs font-medium uppercase tracking-wider text-th-text-muted">
-								Theme
-							</div>
-							<div className="grid grid-cols-1 gap-2">
-								{THEME_NAMES.map((name) => {
-									const info = THEME_INFO[name];
-									const isSelected = theme === name;
-									return (
+						{/* Scrollable content area */}
+						<div className="overflow-y-auto px-4 pb-[max(2rem,env(safe-area-inset-bottom))] sm:pb-4">
+							{/* Mode Selection */}
+							<div className="mb-4">
+								<div className="mb-2 text-xs font-medium uppercase tracking-wider text-th-text-muted">
+									Appearance
+								</div>
+								<div className="flex gap-1 rounded-lg bg-th-bg-secondary p-1">
+									{MODE_OPTIONS.map((option) => (
 										<button
-											key={name}
+											key={option.value}
 											type="button"
-											onClick={() => setTheme(name)}
-											className={`group overflow-hidden rounded-lg border text-left transition-all active:scale-[0.98] ${
-												isSelected
-													? "border-th-accent ring-1 ring-th-accent"
-													: "border-th-border hover:border-th-text-muted"
+											onClick={() => setMode(option.value)}
+											className={`flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-2 text-sm transition-all active:scale-95 ${
+												mode === option.value
+													? "bg-th-bg-primary text-th-text-primary shadow-sm"
+													: "text-th-text-muted hover:text-th-text-secondary"
 											}`}
 										>
-											<ThemePreview
-												themeName={name}
-												isSelected={isSelected}
-												isDarkMode={isDarkMode}
-											/>
-											<div className="flex min-h-12 items-center justify-between bg-th-bg-secondary px-3 py-2">
-												<div>
-													<div
-														className={`text-sm font-medium ${isSelected ? "text-th-text-primary" : "text-th-text-secondary"}`}
-													>
-														{info.label}
-													</div>
-													<div className="text-xs text-th-text-muted">
-														{info.description}
-													</div>
-												</div>
-												<div
-													className="h-4 w-4 rounded-full"
-													style={{
-														backgroundColor: isDarkMode
-															? info.accentDark
-															: info.accentLight,
-													}}
-												/>
-											</div>
+											{option.icon}
+											<span>{option.label}</span>
 										</button>
-									);
-								})}
+									))}
+								</div>
+							</div>
+
+							{/* Theme Selection */}
+							<div>
+								<div className="mb-2 text-xs font-medium uppercase tracking-wider text-th-text-muted">
+									Theme
+								</div>
+								<div className="grid grid-cols-1 gap-2">
+									{THEME_NAMES.map((name) => {
+										const info = THEME_INFO[name];
+										const isSelected = theme === name;
+										return (
+											<button
+												key={name}
+												type="button"
+												onClick={() => setTheme(name)}
+												className={`group overflow-hidden rounded-lg border text-left transition-all active:scale-[0.98] ${
+													isSelected
+														? "border-th-accent ring-1 ring-th-accent"
+														: "border-th-border hover:border-th-text-muted"
+												}`}
+											>
+												<ThemePreview
+													themeName={name}
+													isSelected={isSelected}
+													isDarkMode={isDarkMode}
+												/>
+												<div className="flex min-h-12 items-center justify-between bg-th-bg-secondary px-3 py-2">
+													<div>
+														<div
+															className={`text-sm font-medium ${isSelected ? "text-th-text-primary" : "text-th-text-secondary"}`}
+														>
+															{info.label}
+														</div>
+														<div className="text-xs text-th-text-muted">
+															{info.description}
+														</div>
+													</div>
+													<div
+														className="h-4 w-4 rounded-full"
+														style={{
+															backgroundColor: isDarkMode
+																? info.accentDark
+																: info.accentLight,
+														}}
+													/>
+												</div>
+											</button>
+										);
+									})}
+								</div>
 							</div>
 						</div>
 					</div>
