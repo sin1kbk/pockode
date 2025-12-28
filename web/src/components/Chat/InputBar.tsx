@@ -2,10 +2,10 @@ import {
 	type KeyboardEvent,
 	useCallback,
 	useEffect,
-	useMemo,
 	useRef,
 	useState,
 } from "react";
+import { isMobile } from "../../utils/breakpoints";
 
 interface Props {
 	onSend: (content: string) => void;
@@ -22,13 +22,6 @@ function InputBar({
 }: Props) {
 	const [input, setInput] = useState("");
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
-	const isMac = useMemo(
-		() =>
-			typeof navigator !== "undefined" &&
-			/Mac|iPhone|iPad|iPod/.test(navigator.userAgent),
-		[],
-	);
-	const shortcutHint = isMac ? "⌘↵" : "Ctrl↵";
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: intentionally re-run when input changes to adjust height
 	useEffect(() => {
@@ -49,7 +42,7 @@ function InputBar({
 
 	const handleKeyDown = useCallback(
 		(e: KeyboardEvent<HTMLTextAreaElement>) => {
-			if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+			if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
 				e.preventDefault();
 				handleSend();
 			}
@@ -65,7 +58,11 @@ function InputBar({
 					value={input}
 					onChange={(e) => setInput(e.target.value)}
 					onKeyDown={handleKeyDown}
-					placeholder="Type a message..."
+					placeholder={
+						isMobile()
+							? "Type a message..."
+							: "Type a message... (Shift+Enter for newline)"
+					}
 					disabled={disabled}
 					rows={1}
 					className="min-h-[44px] max-h-[40vh] flex-1 resize-none overflow-y-auto rounded-lg bg-th-bg-secondary px-3 py-2 text-th-text-primary placeholder:text-th-text-muted focus:outline-none focus:ring-2 focus:ring-th-border-focus disabled:opacity-50 sm:max-h-[200px] sm:px-4"
@@ -87,10 +84,6 @@ function InputBar({
 						className="min-h-[44px] rounded-lg bg-th-accent px-3 py-2 text-th-accent-text hover:bg-th-accent-hover disabled:cursor-not-allowed disabled:opacity-50 sm:px-4"
 					>
 						Send
-						<span className="hidden text-xs opacity-70 sm:inline">
-							{" "}
-							{shortcutHint}
-						</span>
 					</button>
 				)}
 			</div>

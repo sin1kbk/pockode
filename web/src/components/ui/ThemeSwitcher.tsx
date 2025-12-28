@@ -6,6 +6,7 @@ import {
 	type ThemeName,
 	useTheme,
 } from "../../hooks/useTheme";
+import { isMobile } from "../../utils/breakpoints";
 
 const MODE_OPTIONS: { value: ThemeMode; label: string; icon: ReactNode }[] = [
 	{
@@ -174,9 +175,7 @@ function ThemeSwitcher() {
 	useEffect(() => {
 		if (!isOpen) return;
 
-		// 639px = Tailwind sm breakpoint (640px) - 1, matching sm:hidden
-		const isMobile = window.matchMedia("(max-width: 639px)").matches;
-		if (!isMobile) return;
+		if (!isMobile()) return;
 
 		const originalOverflow = document.body.style.overflow;
 		document.body.style.overflow = "hidden";
