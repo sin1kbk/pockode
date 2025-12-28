@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { ContentPart, Message, ToolCall } from "../../types/message";
 import { Spinner } from "../ui";
+import { MarkdownContent } from "./MarkdownContent";
 
 interface ToolCallItemProps {
 	tool: ToolCall;
@@ -108,11 +109,7 @@ interface ContentPartItemProps {
 
 function ContentPartItem({ part }: ContentPartItemProps) {
 	if (part.type === "text") {
-		return (
-			<p className="whitespace-pre-wrap break-words text-gray-100">
-				{part.content}
-			</p>
-		);
+		return <MarkdownContent content={part.content} />;
 	}
 	if (part.type === "system") {
 		return <SystemItem content={part.content} />;
