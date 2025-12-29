@@ -228,7 +228,7 @@ func TestParseLine(t *testing.T) {
 			expected: nil,
 		},
 		{
-			name:     "control_response ignored",
+			name:     "control_response without pending interrupt ignored",
 			input:    `{"type":"control_response","response":{"subtype":"success","request_id":"abc123"}}`,
 			expected: nil,
 		},
@@ -243,6 +243,27 @@ func TestParseLine(t *testing.T) {
 				t.Errorf("expected %+v, got %+v", tt.expected, results)
 			}
 		})
+	}
+}
+
+func TestParseLine_ControlResponseWithPendingInterrupt(t *testing.T) {
+	pendingRequests := &sync.Map{}
+	requestID := "interrupt-123"
+
+	// Store interrupt marker (simulating what SendInterrupt does)
+	pendingRequests.Store(requestID, interruptMarker{})
+
+	input := `{"type":"control_response","response":{"subtype":"success","request_id":"interrupt-123"}}`
+	results := parseLine(testLogger(), []byte(input), pendingRequests)
+
+	expected := []agent.AgentEvent{{Type: agent.EventTypeInterrupted}}
+	if !reflect.DeepEqual(results, expected) {
+		t.Errorf("expected %+v, got %+v", expected, results)
+	}
+
+	// Verify marker was removed
+	if _, exists := pendingRequests.Load(requestID); exists {
+		t.Error("interrupt marker should be removed after processing")
 	}
 }
 

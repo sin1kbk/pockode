@@ -187,11 +187,21 @@ func (s *session) SendQuestionResponse(requestID string, answers map[string]stri
 	return s.sendQuestionControlResponse(req, answers)
 }
 
+// interruptMarker is stored in pendingRequests to identify interrupt requests.
+//
+// When Claude is actively processing a task, interrupts result in a "result" event
+// with "Request was aborted" error (handled by parseResultEvent). But when Claude
+// is idle, interrupts only return a control_response acknowledgment. We use this
+// marker to identify such responses and emit EventTypeInterrupted so the frontend
+// knows the interrupt succeeded and can accept new input.
+type interruptMarker struct{}
+
 // SendInterrupt sends an interrupt signal to stop the current task.
 func (s *session) SendInterrupt() error {
+	requestID := generateRequestID()
 	request := interruptRequest{
 		Type:      "control_request",
-		RequestID: generateRequestID(),
+		RequestID: requestID,
 		Request: interruptRequestData{
 			Subtype: "interrupt",
 		},
@@ -202,8 +212,15 @@ func (s *session) SendInterrupt() error {
 		return fmt.Errorf("failed to marshal interrupt request: %w", err)
 	}
 
+	// Store marker so parseControlResponse can identify interrupt responses.
+	s.pendingRequests.Store(requestID, interruptMarker{})
+
 	s.log.Info("sending interrupt signal")
-	return s.writeStdin(data)
+	if err := s.writeStdin(data); err != nil {
+		s.pendingRequests.Delete(requestID)
+		return err
+	}
+	return nil
 }
 
 func generateRequestID() string {
@@ -497,8 +514,7 @@ func parseLine(log *slog.Logger, line []byte, pendingRequests *sync.Map) []agent
 	case "control_request":
 		return parseControlRequest(log, line, pendingRequests)
 	case "control_response":
-		// Ignore echoed responses from our own control messages
-		return nil
+		return parseControlResponse(log, line, pendingRequests)
 	default:
 		log.Warn("unknown event type from CLI", "type", event.Type)
 		return []agent.AgentEvent{{
@@ -558,6 +574,37 @@ func parseControlRequest(log *slog.Logger, line []byte, pendingRequests *sync.Ma
 		log.Debug("ignoring unknown subtype", "subtype", req.Request.Subtype)
 		return nil
 	}
+}
+
+// cliControlResponse represents a control_response from Claude CLI.
+type cliControlResponse struct {
+	Type     string `json:"type"`
+	Response struct {
+		Subtype   string `json:"subtype"`
+		RequestID string `json:"request_id"`
+	} `json:"response"`
+}
+
+func parseControlResponse(log *slog.Logger, line []byte, pendingRequests *sync.Map) []agent.AgentEvent {
+	var resp cliControlResponse
+	if err := json.Unmarshal(line, &resp); err != nil {
+		log.Warn("failed to parse control response from CLI", "error", err)
+		return nil
+	}
+
+	// Check if this response is for an interrupt request we sent.
+	requestID := resp.Response.RequestID
+	if pending, ok := pendingRequests.LoadAndDelete(requestID); ok {
+		if _, isInterrupt := pending.(interruptMarker); isInterrupt {
+			log.Info("interrupt acknowledged", "requestId", requestID)
+			return []agent.AgentEvent{{
+				Type: agent.EventTypeInterrupted,
+			}}
+		}
+	}
+
+	// Other control responses (permission, question) don't need client notification.
+	return nil
 }
 
 func parseAssistantEvent(log *slog.Logger, event cliEvent) []agent.AgentEvent {
