@@ -90,6 +90,19 @@ describe("messageReducer", () => {
 				],
 			});
 		});
+
+		it("normalizes permission_response event", () => {
+			const event = normalizeEvent({
+				type: "permission_response",
+				request_id: "req-1",
+				choice: "allow",
+			});
+			expect(event).toEqual({
+				type: "permission_response",
+				requestId: "req-1",
+				choice: "allow",
+			});
+		});
 	});
 
 	describe("applyEventToParts", () => {
@@ -168,24 +181,6 @@ describe("messageReducer", () => {
 				},
 			]);
 		});
-
-		it("adds permission_request as denied during replay", () => {
-			const parts = applyEventToParts(
-				[],
-				{
-					type: "permission_request",
-					requestId: "req-1",
-					toolName: "Bash",
-					toolInput: { command: "ls" },
-					toolUseId: "tool-1",
-				},
-				true,
-			);
-			expect(parts[0]).toMatchObject({
-				type: "permission_request",
-				status: "denied",
-			});
-		});
 	});
 
 	describe("applyServerEvent", () => {
@@ -255,6 +250,132 @@ describe("messageReducer", () => {
 			expect(messages[0].status).toBe("complete");
 			const assistant = messages[0] as AssistantMessage;
 			expect(assistant.parts).toEqual([{ type: "system", content: "Welcome" }]);
+		});
+
+		it("updates permission_request status on permission_response allow", () => {
+			const initial: AssistantMessage = {
+				id: "msg-1",
+				role: "assistant",
+				parts: [
+					{
+						type: "permission_request",
+						request: {
+							requestId: "req-1",
+							toolName: "Bash",
+							toolInput: { command: "ls" },
+							toolUseId: "tool-1",
+						},
+						status: "pending",
+					},
+				],
+				status: "streaming",
+				createdAt: new Date(),
+			};
+			const messages = applyServerEvent([initial], {
+				type: "permission_response",
+				requestId: "req-1",
+				choice: "allow",
+			});
+			const assistant = messages[0] as AssistantMessage;
+			expect(assistant.parts[0]).toMatchObject({
+				type: "permission_request",
+				status: "allowed",
+			});
+		});
+
+		it("updates permission_request status on permission_response deny", () => {
+			const initial: AssistantMessage = {
+				id: "msg-1",
+				role: "assistant",
+				parts: [
+					{
+						type: "permission_request",
+						request: {
+							requestId: "req-1",
+							toolName: "Bash",
+							toolInput: { command: "rm -rf /" },
+							toolUseId: "tool-1",
+						},
+						status: "pending",
+					},
+				],
+				status: "streaming",
+				createdAt: new Date(),
+			};
+			const messages = applyServerEvent([initial], {
+				type: "permission_response",
+				requestId: "req-1",
+				choice: "deny",
+			});
+			const assistant = messages[0] as AssistantMessage;
+			expect(assistant.parts[0]).toMatchObject({
+				type: "permission_request",
+				status: "denied",
+			});
+		});
+
+		it("updates permission_request status on permission_response always_allow", () => {
+			const initial: AssistantMessage = {
+				id: "msg-1",
+				role: "assistant",
+				parts: [
+					{
+						type: "permission_request",
+						request: {
+							requestId: "req-1",
+							toolName: "Bash",
+							toolInput: { command: "ls" },
+							toolUseId: "tool-1",
+						},
+						status: "pending",
+					},
+				],
+				status: "streaming",
+				createdAt: new Date(),
+			};
+			const messages = applyServerEvent([initial], {
+				type: "permission_response",
+				requestId: "req-1",
+				choice: "always_allow",
+			});
+			const assistant = messages[0] as AssistantMessage;
+			expect(assistant.parts[0]).toMatchObject({
+				type: "permission_request",
+				status: "allowed",
+			});
+		});
+
+		it("does not modify message when requestId not found", () => {
+			const initial: AssistantMessage = {
+				id: "msg-1",
+				role: "assistant",
+				parts: [
+					{
+						type: "permission_request",
+						request: {
+							requestId: "req-1",
+							toolName: "Bash",
+							toolInput: { command: "ls" },
+							toolUseId: "tool-1",
+						},
+						status: "pending",
+					},
+				],
+				status: "streaming",
+				createdAt: new Date(),
+			};
+			const messages = applyServerEvent([initial], {
+				type: "permission_response",
+				requestId: "non-existent",
+				choice: "allow",
+			});
+			const assistant = messages[0] as AssistantMessage;
+			expect(assistant.parts[0]).toMatchObject({
+				type: "permission_request",
+				status: "pending",
+			});
+			// Verify same object reference (no unnecessary copy)
+			expect(messages[0]).toBe(initial);
 		});
 	});
 
@@ -363,7 +484,7 @@ describe("messageReducer", () => {
 			expect(messages[2].role).toBe("assistant");
 		});
 
-		it("replays completed permission_request as denied", () => {
+		it("replays permission_request with allow response as allowed", () => {
 			const history = [
 				{ type: "message", content: "Do something" },
 				{
@@ -373,8 +494,30 @@ describe("messageReducer", () => {
 					tool_input: { command: "ls" },
 					tool_use_id: "tool-1",
 				},
+				{ type: "permission_response", request_id: "req-1", choice: "allow" },
 				{ type: "text", content: "Continuing..." },
 				{ type: "done" },
+			];
+			const messages = replayHistory(history);
+			const assistant = messages[1] as AssistantMessage;
+			expect(assistant.parts[0]).toMatchObject({
+				type: "permission_request",
+				status: "allowed",
+			});
+		});
+
+		it("replays permission_request with deny response as denied", () => {
+			const history = [
+				{ type: "message", content: "Do something" },
+				{
+					type: "permission_request",
+					request_id: "req-1",
+					tool_name: "Bash",
+					tool_input: { command: "rm -rf /" },
+					tool_use_id: "tool-1",
+				},
+				{ type: "permission_response", request_id: "req-1", choice: "deny" },
+				{ type: "interrupted" },
 			];
 			const messages = replayHistory(history);
 			const assistant = messages[1] as AssistantMessage;
@@ -384,7 +527,7 @@ describe("messageReducer", () => {
 			});
 		});
 
-		it("restores pending status for last unfinished permission_request", () => {
+		it("keeps pending status for permission_request without response", () => {
 			const history = [
 				{ type: "message", content: "Do something" },
 				{

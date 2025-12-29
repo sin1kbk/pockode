@@ -31,6 +31,11 @@ export type NormalizedEvent =
 			toolInput: unknown;
 			toolUseId: string;
 			permissionSuggestions?: PermissionUpdate[];
+	  }
+	| {
+			type: "permission_response";
+			requestId: string;
+			choice: "deny" | "allow" | "always_allow";
 	  };
 
 // Convert snake_case server event to camelCase
@@ -79,6 +84,12 @@ export function normalizeEvent(
 					| PermissionUpdate[]
 					| undefined,
 			};
+		case "permission_response":
+			return {
+				type: "permission_response",
+				requestId: record.request_id as string,
+				choice: record.choice as "deny" | "allow" | "always_allow",
+			};
 		default:
 			// Fallback for unknown types - treat as text
 			return { type: "text", content: "" };
@@ -88,7 +99,6 @@ export function normalizeEvent(
 export function applyEventToParts(
 	parts: ContentPart[],
 	event: NormalizedEvent,
-	isReplay = false,
 ): ContentPart[] {
 	switch (event.type) {
 		case "text": {
@@ -131,7 +141,7 @@ export function applyEventToParts(
 						toolUseId: event.toolUseId,
 						permissionSuggestions: event.permissionSuggestions,
 					},
-					status: isReplay ? "denied" : "pending",
+					status: "pending",
 				},
 			];
 		default:
@@ -155,13 +165,18 @@ export function createAssistantMessage(
 export function applyServerEvent(
 	messages: Message[],
 	event: NormalizedEvent,
-	isReplay = false,
 ): Message[] {
 	// System messages are always standalone
 	if (event.type === "system") {
 		const systemMessage = createAssistantMessage("complete");
 		systemMessage.parts = [{ type: "system", content: event.content }];
 		return [...messages, systemMessage];
+	}
+
+	// Permission response updates existing permission_request across all messages
+	if (event.type === "permission_response") {
+		const newStatus = event.choice === "deny" ? "denied" : "allowed";
+		return updatePermissionRequestStatus(messages, event.requestId, newStatus);
 	}
 
 	// Find current assistant (sending or streaming)
@@ -187,7 +202,7 @@ export function applyServerEvent(
 
 	const message: AssistantMessage = {
 		...current,
-		parts: applyEventToParts(current.parts, event, isReplay),
+		parts: applyEventToParts(current.parts, event),
 	};
 
 	if (event.type === "text") {
@@ -205,6 +220,31 @@ export function applyServerEvent(
 
 	updated[index] = message;
 	return updated;
+}
+
+function updatePermissionRequestStatus(
+	messages: Message[],
+	requestId: string,
+	newStatus: "allowed" | "denied",
+): Message[] {
+	return messages.map((msg) => {
+		if (msg.role !== "assistant") return msg;
+
+		let changed = false;
+		const updatedParts = msg.parts.map((part) => {
+			if (
+				part.type === "permission_request" &&
+				part.request.requestId === requestId
+			) {
+				changed = true;
+				return { ...part, status: newStatus };
+			}
+			return part;
+		});
+
+		if (!changed) return msg;
+		return { ...msg, parts: updatedParts };
+	});
 }
 
 // Finalizes any streaming assistant before adding new user message
@@ -242,30 +282,7 @@ export function replayHistory(records: unknown[]): Message[] {
 		if (event.type === "message" && event.content) {
 			messages = applyUserMessage(messages, event.content);
 		} else {
-			messages = applyServerEvent(messages, event, true);
-		}
-	}
-
-	// Check if the last permission_request might still be pending
-	// A permission_request is considered pending if:
-	// 1. It's at the end of the last assistant message
-	// 2. The message wasn't finalized (no done/error/interrupted after it)
-	const lastMessage = messages.at(-1);
-	if (
-		lastMessage?.role === "assistant" &&
-		(lastMessage.status === "streaming" || lastMessage.status === "sending")
-	) {
-		const lastPart = lastMessage.parts.at(-1);
-		// Only the very last permission_request could be pending
-		if (
-			lastPart?.type === "permission_request" &&
-			lastPart.status === "denied"
-		) {
-			const updatedParts = [
-				...lastMessage.parts.slice(0, -1),
-				{ ...lastPart, status: "pending" as const },
-			];
-			messages[messages.length - 1] = { ...lastMessage, parts: updatedParts };
+			messages = applyServerEvent(messages, event);
 		}
 	}
 

@@ -116,7 +116,7 @@ func (h *Handler) handleConnection(ctx context.Context, conn *websocket.Conn) {
 			}
 
 		case "permission_response":
-			if err := h.handlePermissionResponse(msg, state); err != nil {
+			if err := h.handlePermissionResponse(ctx, msg, state); err != nil {
 				log.Error("permission response error", "error", err)
 				h.sendError(ctx, conn, err.Error())
 			}
@@ -200,10 +200,14 @@ func (h *Handler) handleInterrupt(log *slog.Logger, msg ClientMessage, state *co
 	return nil
 }
 
-func (h *Handler) handlePermissionResponse(msg ClientMessage, state *connectionState) error {
+func (h *Handler) handlePermissionResponse(ctx context.Context, msg ClientMessage, state *connectionState) error {
 	entry, exists := state.attached[msg.SessionID]
 	if !exists {
 		return fmt.Errorf("session not attached: %s", msg.SessionID)
+	}
+
+	if err := h.sessionStore.AppendToHistory(ctx, msg.SessionID, msg); err != nil {
+		slog.Error("failed to append permission_response to history", "error", err)
 	}
 
 	choice := parsePermissionChoice(msg.Choice)
