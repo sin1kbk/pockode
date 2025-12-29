@@ -71,7 +71,8 @@ func (m *Manager) GetOrCreate(ctx context.Context, sessionID string, resume bool
 		return entry, false, nil
 	}
 
-	sess, err := m.agent.Start(ctx, m.workDir, sessionID, resume)
+	// Use manager's context for process lifecycle, not request context
+	sess, err := m.agent.Start(m.ctx, m.workDir, sessionID, resume)
 	if err != nil {
 		return nil, false, err
 	}
@@ -85,7 +86,11 @@ func (m *Manager) GetOrCreate(ctx context.Context, sessionID string, resume bool
 	}
 	m.entries[sessionID] = entry
 
-	go entry.streamEvents(m.ctx)
+	go func() {
+		entry.streamEvents(m.ctx)
+		m.remove(sessionID)
+		slog.Info("session process ended", "sessionId", sessionID)
+	}()
 
 	slog.Info("created session process", "sessionId", sessionID, "resume", resume)
 	return entry, true, nil
