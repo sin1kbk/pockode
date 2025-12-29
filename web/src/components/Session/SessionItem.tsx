@@ -26,19 +26,11 @@ function SessionItem({ session, isActive, onSelect, onDelete }: Props) {
 					{new Date(session.created_at).toLocaleDateString()}
 				</div>
 			</div>
-			<div
-				role="button"
-				tabIndex={0}
+			<button
+				type="button"
 				onClick={(e) => {
 					e.stopPropagation();
 					onDelete();
-				}}
-				onKeyDown={(e) => {
-					if (e.key === "Enter" || e.key === " ") {
-						e.preventDefault();
-						e.stopPropagation();
-						onDelete();
-					}
 				}}
 				className={`ml-2 rounded p-1 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 ${
 					isActive ? "hover:bg-th-accent-hover" : "hover:bg-th-bg-secondary"
@@ -59,7 +51,7 @@ function SessionItem({ session, isActive, onSelect, onDelete }: Props) {
 						d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
 					/>
 				</svg>
-			</div>
+			</button>
 		</button>
 	);
 }
