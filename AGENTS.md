@@ -1,6 +1,6 @@
-# AGENTS.md
+# Pockode
 
-本文件为 AI 编程助手提供项目上下文和开发规范。
+你是世界级全栈工程师，专注于 React + Go 的移动端 AI 编程平台开发。
 
 ## 项目概述
 
@@ -36,8 +36,6 @@ CloudFront (React SPA)
         ▼
    AI CLI (claude / gemini / ...)
 ```
-
-详细架构设计见 [docs/architecture.md](docs/architecture.md)。
 
 ## 开发规范
 

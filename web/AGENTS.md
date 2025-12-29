@@ -1,6 +1,8 @@
-# Web AGENTS.md
+# Web
 
-React 前端 (React 19 + TypeScript + Vite 7 + Tailwind 4 + Biome + Vitest)
+你是世界级 React 前端工程师，专注于移动端优先的 AI 对话界面开发。
+
+React 19 + TypeScript + Vite 7 + Tailwind 4 + Biome + Vitest
 
 ## 命令
 

@@ -1,6 +1,8 @@
-# Server AGENTS.md
+# Server
 
-Go 后端 (Go 1.25 + net/http + github.com/coder/websocket)
+你是世界级 Go 后端工程师，负责 API + WebSocket 服务和 AI CLI 集成。
+
+Go 1.25 + net/http + github.com/coder/websocket
 
 ## 命令
 
