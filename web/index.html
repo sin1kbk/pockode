@@ -6,9 +6,12 @@
     <title>Pockode</title>
     <script>
       (() => {
-        var mode = localStorage.getItem('theme') || 'system';
+        var mode = localStorage.getItem('theme-mode') || 'system';
+        var theme = localStorage.getItem('theme-name') || 'abyss';
         var isDark = mode === 'dark' || (mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
         if (isDark) document.documentElement.classList.add('dark');
+        document.documentElement.classList.add('theme-' + theme);
+        document.documentElement.style.backgroundColor = isDark ? '#000' : '#fff';
       })();
     </script>
   </head>
