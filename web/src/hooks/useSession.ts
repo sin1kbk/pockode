@@ -36,18 +36,10 @@ export function useSession({ enabled = true }: UseSessionOptions = {}) {
 		data: sessions = [],
 		isLoading,
 		isSuccess,
-		error,
 	} = useQuery({
 		queryKey: ["sessions"],
 		queryFn: listSessions,
 		enabled,
-		retry: (failureCount, error) => {
-			// Don't retry on auth errors
-			if (error instanceof Error && error.name === "AuthError") {
-				return false;
-			}
-			return failureCount < 3;
-		},
 	});
 
 	const createMutation = useMutation({
@@ -145,7 +137,6 @@ export function useSession({ enabled = true }: UseSessionOptions = {}) {
 		currentSessionId,
 		currentSession,
 		isLoading,
-		error,
 		loadSessions: () =>
 			queryClient.invalidateQueries({ queryKey: ["sessions"] }),
 		createSession: () => createMutation.mutateAsync(),

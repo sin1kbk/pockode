@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { WSClientMessage, WSServerMessage } from "../types/message";
-import { getToken, getWebSocketUrl } from "../utils/config";
+import { getWebSocketUrl } from "../utils/config";
+import { authActions } from "./authStore";
 
 export type ConnectionStatus =
 	| "connecting"
@@ -31,7 +32,7 @@ export const useWSStore = create<WSState>((set, get) => ({
 	status: "disconnected",
 
 	connect: () => {
-		const token = getToken();
+		const token = authActions.getToken();
 		if (!token) {
 			set({ status: "error" });
 			return;

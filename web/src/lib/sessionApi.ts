@@ -1,34 +1,5 @@
 import type { SessionMeta } from "../types/message";
-import { getApiBaseUrl, getToken } from "../utils/config";
-
-export class AuthError extends Error {
-	constructor() {
-		super("Unauthorized");
-		this.name = "AuthError";
-	}
-}
-
-async function fetchWithAuth(path: string, options: RequestInit = {}) {
-	const token = getToken();
-	const response = await fetch(`${getApiBaseUrl()}${path}`, {
-		...options,
-		headers: {
-			...options.headers,
-			Authorization: `Bearer ${token}`,
-			"Content-Type": "application/json",
-		},
-	});
-
-	if (response.status === 401) {
-		throw new AuthError();
-	}
-
-	if (!response.ok) {
-		throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-	}
-
-	return response;
-}
+import { fetchWithAuth } from "./api";
 
 export async function listSessions(): Promise<SessionMeta[]> {
 	const response = await fetchWithAuth("/api/sessions");

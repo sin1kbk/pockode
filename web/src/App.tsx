@@ -1,14 +1,16 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import TokenInput from "./components/Auth/TokenInput";
 import { ChatPanel } from "./components/Chat";
 import { SessionSidebar } from "./components/Session";
 import { useSession } from "./hooks/useSession";
-import { AuthError } from "./lib/sessionApi";
-import { wsStore } from "./lib/wsStore";
-import { clearToken, getToken, saveToken } from "./utils/config";
+import {
+	authActions,
+	selectIsAuthenticated,
+	useAuthStore,
+} from "./lib/authStore";
 
 function App() {
-	const [hasToken, setHasToken] = useState(() => !!getToken());
+	const isAuthenticated = useAuthStore(selectIsAuthenticated);
 	const [sidebarOpen, setSidebarOpen] = useState(false);
 
 	const {
@@ -16,31 +18,16 @@ function App() {
 		currentSessionId,
 		currentSession,
 		isLoading,
-		error,
 		loadSessions,
 		createSession,
 		selectSession,
 		deleteSession,
 		updateTitle,
-	} = useSession({ enabled: hasToken });
+	} = useSession({ enabled: isAuthenticated });
 
 	const handleTokenSubmit = (token: string) => {
-		saveToken(token);
-		setHasToken(true);
+		authActions.login(token);
 	};
-
-	const handleLogout = useCallback(() => {
-		wsStore.disconnect();
-		clearToken();
-		setHasToken(false);
-	}, []);
-
-	// Auto logout on auth error
-	useEffect(() => {
-		if (error instanceof AuthError) {
-			handleLogout();
-		}
-	}, [error, handleLogout]);
 
 	const handleOpenSidebar = useCallback(() => {
 		setSidebarOpen(true);
@@ -52,7 +39,7 @@ function App() {
 		setSidebarOpen(false);
 	}, [createSession]);
 
-	if (!hasToken) {
+	if (!isAuthenticated) {
 		return <TokenInput onSubmit={handleTokenSubmit} />;
 	}
 
@@ -70,7 +57,7 @@ function App() {
 				sessionId={currentSessionId}
 				sessionTitle={currentSession.title}
 				onUpdateTitle={(title) => updateTitle(currentSessionId, title)}
-				onLogout={handleLogout}
+				onLogout={authActions.logout}
 				onOpenSidebar={handleOpenSidebar}
 			/>
 			<SessionSidebar

@@ -2,8 +2,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock config module
 vi.mock("../utils/config", () => ({
-	getToken: vi.fn(() => "test-token"),
 	getWebSocketUrl: vi.fn(() => "ws://localhost/ws"),
+}));
+
+// Mock authStore
+vi.mock("./authStore", () => ({
+	authActions: {
+		getToken: vi.fn(() => "test-token"),
+	},
 }));
 
 // Track created WebSocket instances
@@ -109,8 +115,8 @@ describe("wsStore", () => {
 		});
 
 		it("sets status to error when no token", async () => {
-			const { getToken } = await import("../utils/config");
-			vi.mocked(getToken).mockReturnValueOnce("");
+			const { authActions } = await import("./authStore");
+			vi.mocked(authActions.getToken).mockReturnValueOnce("");
 
 			const wsStore = await getWsStore();
 			const useWSStore = await getUseWSStore();

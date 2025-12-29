@@ -10,15 +10,3 @@ export function getWebSocketUrl(): string {
 	const host = baseUrl.replace(/^https?:\/\//, "");
 	return `${wsProtocol}://${host}/ws`;
 }
-
-export function getToken(): string {
-	return localStorage.getItem("auth_token") ?? "";
-}
-
-export function saveToken(token: string): void {
-	localStorage.setItem("auth_token", token);
-}
-
-export function clearToken(): void {
-	localStorage.removeItem("auth_token");
-}

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { HttpError } from "./api";
 import {
-	AuthError,
 	createSession,
 	deleteSession,
 	getHistory,
@@ -11,7 +11,13 @@ import {
 // Mock config
 vi.mock("../utils/config", () => ({
 	getApiBaseUrl: vi.fn(() => "http://localhost:8080"),
-	getToken: vi.fn(() => "test-token"),
+}));
+
+// Mock authStore
+vi.mock("./authStore", () => ({
+	authActions: {
+		getToken: vi.fn(() => "test-token"),
+	},
 }));
 
 describe("sessionApi", () => {
@@ -58,14 +64,15 @@ describe("sessionApi", () => {
 			]);
 		});
 
-		it("throws AuthError on 401", async () => {
+		it("throws HttpError on 401", async () => {
 			vi.mocked(fetch).mockResolvedValueOnce({
 				ok: false,
 				status: 401,
-				statusText: "Unauthorized",
 			} as Response);
 
-			await expect(listSessions()).rejects.toThrow(AuthError);
+			const error = await listSessions().catch((e) => e);
+			expect(error).toBeInstanceOf(HttpError);
+			expect(error.status).toBe(401);
 		});
 	});
 
@@ -111,16 +118,15 @@ describe("sessionApi", () => {
 			);
 		});
 
-		it("throws on server error", async () => {
+		it("throws HttpError on server error", async () => {
 			vi.mocked(fetch).mockResolvedValueOnce({
 				ok: false,
 				status: 500,
-				statusText: "Internal Server Error",
 			} as Response);
 
-			await expect(deleteSession("123")).rejects.toThrow(
-				"HTTP 500: Internal Server Error",
-			);
+			const error = await deleteSession("123").catch((e) => e);
+			expect(error).toBeInstanceOf(HttpError);
+			expect(error.status).toBe(500);
 		});
 	});
 
