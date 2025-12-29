@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useStickToBottom } from "../../hooks/useStickToBottom";
 import type { Message } from "../../types/message";
 import MessageItem from "./MessageItem";
 
@@ -9,15 +10,8 @@ interface Props {
 
 function MessageList({ messages, sessionId }: Props) {
 	const containerRef = useRef<HTMLDivElement>(null);
-	const contentRef = useRef<HTMLDivElement>(null);
 	const [isScrolledUp, setIsScrolledUp] = useState(false);
-	const isScrolledUpRef = useRef(isScrolledUp);
 	const prevScrollHeightRef = useRef(0);
-
-	// Keep ref in sync with state for use in ResizeObserver callback
-	useEffect(() => {
-		isScrolledUpRef.current = isScrolledUp;
-	}, [isScrolledUp]);
 
 	// When switching sessions, reset scroll state so the messages effect will auto-scroll to bottom.
 	// Without this, if user scrolled up in Session A (isScrolledUp=true) and switches to Session B,
@@ -65,20 +59,8 @@ function MessageList({ messages, sessionId }: Props) {
 		}
 	}, [messages]);
 
-	// Watch for content height changes (e.g., code block expansion)
-	useEffect(() => {
-		const content = contentRef.current;
-		if (!content) return;
-
-		const observer = new ResizeObserver(() => {
-			if (!isScrolledUpRef.current) {
-				scrollToBottom();
-			}
-		});
-
-		observer.observe(content);
-		return () => observer.disconnect();
-	}, [scrollToBottom]);
+	// Keep scrolled to bottom when content height grows (e.g., code block rendering)
+	useStickToBottom(containerRef, messages.length > 0 && !isScrolledUp);
 
 	return (
 		<div className="relative min-h-0 flex-1">
@@ -92,7 +74,7 @@ function MessageList({ messages, sessionId }: Props) {
 					onScroll={handleScroll}
 					className="h-full overflow-y-auto p-3 sm:p-4"
 				>
-					<div ref={contentRef} className="space-y-3 sm:space-y-4">
+					<div className="space-y-3 sm:space-y-4">
 						{messages.map((message) => (
 							<MessageItem key={message.id} message={message} />
 						))}
