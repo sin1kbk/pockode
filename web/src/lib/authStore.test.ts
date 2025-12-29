@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("./wsStore", () => ({
-	wsStore: {
+	wsActions: {
 		disconnect: vi.fn(),
 	},
 }));
@@ -40,14 +40,14 @@ describe("authStore", () => {
 			expect(useAuthStore.getState().token).toBe("new-token");
 		});
 
-		it("logout disconnects wsStore, clears token from storage and state", async () => {
-			const { wsStore } = await import("./wsStore");
+		it("logout disconnects WebSocket, clears token from storage and state", async () => {
+			const { wsActions } = await import("./wsStore");
 			const { useAuthStore, authActions } = await import("./authStore");
 
 			authActions.login("token");
 			authActions.logout();
 
-			expect(wsStore.disconnect).toHaveBeenCalled();
+			expect(wsActions.disconnect).toHaveBeenCalled();
 			expect(localStorage.getItem("auth_token")).toBeNull();
 			expect(useAuthStore.getState().token).toBeNull();
 		});

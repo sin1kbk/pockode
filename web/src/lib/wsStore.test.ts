@@ -79,10 +79,10 @@ afterEach(async () => {
 	globalThis.WebSocket = OriginalWebSocket;
 });
 
-// Helper to get wsStore
-async function getWsStore() {
+// Helper to get wsActions
+async function getWsActions() {
 	const module = await import("./wsStore");
-	return module.wsStore;
+	return module.wsActions;
 }
 
 // Helper to get useWSStore for direct state access
@@ -99,7 +99,7 @@ function getMockWs() {
 describe("wsStore", () => {
 	describe("connect", () => {
 		it("sets status to connecting then connected on open", async () => {
-			const wsStore = await getWsStore();
+			const wsActions = await getWsActions();
 			const useWSStore = await getUseWSStore();
 			const statusChanges: string[] = [];
 
@@ -107,7 +107,7 @@ describe("wsStore", () => {
 				statusChanges.push(state.status);
 			});
 
-			wsStore.connect();
+			wsActions.connect();
 			expect(statusChanges).toContain("connecting");
 
 			getMockWs()?.simulateOpen();
@@ -118,30 +118,30 @@ describe("wsStore", () => {
 			const { authActions } = await import("./authStore");
 			vi.mocked(authActions.getToken).mockReturnValueOnce("");
 
-			const wsStore = await getWsStore();
+			const wsActions = await getWsActions();
 			const useWSStore = await getUseWSStore();
 
-			wsStore.connect();
+			wsActions.connect();
 
 			expect(useWSStore.getState().status).toBe("error");
 		});
 
 		it("closes existing connection before creating new one", async () => {
-			const wsStore = await getWsStore();
+			const wsActions = await getWsActions();
 
-			wsStore.connect();
+			wsActions.connect();
 			const firstWs = getMockWs();
 			getMockWs()?.simulateOpen();
 
-			wsStore.connect();
+			wsActions.connect();
 			expect(firstWs?.close).toHaveBeenCalled();
 		});
 
 		it("resets reconnect attempts on successful connection", async () => {
-			const wsStore = await getWsStore();
+			const wsActions = await getWsActions();
 
 			// First connection closes
-			wsStore.connect();
+			wsActions.connect();
 			getMockWs()?.simulateOpen();
 			getMockWs()?.simulateClose();
 
@@ -158,28 +158,28 @@ describe("wsStore", () => {
 
 	describe("disconnect", () => {
 		it("closes WebSocket and sets status to disconnected", async () => {
-			const wsStore = await getWsStore();
+			const wsActions = await getWsActions();
 			const useWSStore = await getUseWSStore();
 
-			wsStore.connect();
+			wsActions.connect();
 			getMockWs()?.simulateOpen();
 			const ws = getMockWs();
 
-			wsStore.disconnect();
+			wsActions.disconnect();
 
 			expect(ws?.close).toHaveBeenCalled();
 			expect(useWSStore.getState().status).toBe("disconnected");
 		});
 
 		it("cancels pending reconnect", async () => {
-			const wsStore = await getWsStore();
+			const wsActions = await getWsActions();
 
-			wsStore.connect();
+			wsActions.connect();
 			getMockWs()?.simulateOpen();
 			getMockWs()?.simulateClose();
 
 			// Reconnect scheduled but not yet executed
-			wsStore.disconnect();
+			wsActions.disconnect();
 			vi.advanceTimersByTime(3000);
 
 			// Should not have reconnected
@@ -189,12 +189,12 @@ describe("wsStore", () => {
 
 	describe("send", () => {
 		it("sends JSON message when connected", async () => {
-			const wsStore = await getWsStore();
+			const wsActions = await getWsActions();
 
-			wsStore.connect();
+			wsActions.connect();
 			getMockWs()?.simulateOpen();
 
-			const result = wsStore.send({
+			const result = wsActions.send({
 				type: "message",
 				content: "hello",
 				session_id: "test-session",
@@ -211,9 +211,9 @@ describe("wsStore", () => {
 		});
 
 		it("returns false when not connected", async () => {
-			const wsStore = await getWsStore();
+			const wsActions = await getWsActions();
 
-			const result = wsStore.send({
+			const result = wsActions.send({
 				type: "message",
 				content: "hello",
 				session_id: "test-session",
@@ -223,16 +223,16 @@ describe("wsStore", () => {
 		});
 
 		it("returns false when WebSocket not open", async () => {
-			const wsStore = await getWsStore();
+			const wsActions = await getWsActions();
 
-			wsStore.connect();
+			wsActions.connect();
 			const ws = getMockWs();
 			// Don't call simulateOpen - stays in connecting state
 			if (ws) {
 				ws.readyState = MockWebSocket.CLOSED;
 			}
 
-			const result = wsStore.send({
+			const result = wsActions.send({
 				type: "message",
 				content: "hello",
 				session_id: "test-session",
@@ -244,11 +244,11 @@ describe("wsStore", () => {
 
 	describe("message handling", () => {
 		it("notifies message listeners on valid JSON", async () => {
-			const wsStore = await getWsStore();
+			const wsActions = await getWsActions();
 			const listener = vi.fn();
-			wsStore.subscribeMessage(listener);
+			wsActions.subscribeMessage(listener);
 
-			wsStore.connect();
+			wsActions.connect();
 			getMockWs()?.simulateOpen();
 			getMockWs()?.simulateMessage({ type: "text", content: "hello" });
 
@@ -256,11 +256,11 @@ describe("wsStore", () => {
 		});
 
 		it("handles invalid JSON gracefully", async () => {
-			const wsStore = await getWsStore();
+			const wsActions = await getWsActions();
 			const listener = vi.fn();
-			wsStore.subscribeMessage(listener);
+			wsActions.subscribeMessage(listener);
 
-			wsStore.connect();
+			wsActions.connect();
 			getMockWs()?.simulateOpen();
 
 			// Send raw invalid JSON
@@ -273,11 +273,11 @@ describe("wsStore", () => {
 	describe("subscriptions", () => {
 		it("unsubscribe removes listener", async () => {
 			const useWSStore = await getUseWSStore();
-			const wsStore = await getWsStore();
+			const wsActions = await getWsActions();
 			const listener = vi.fn();
 
 			const unsubscribe = useWSStore.subscribe(listener);
-			wsStore.connect();
+			wsActions.connect();
 			expect(listener).toHaveBeenCalled();
 
 			listener.mockClear();
@@ -289,14 +289,14 @@ describe("wsStore", () => {
 
 		it("multiple listeners all receive updates", async () => {
 			const useWSStore = await getUseWSStore();
-			const wsStore = await getWsStore();
+			const wsActions = await getWsActions();
 			const listener1 = vi.fn();
 			const listener2 = vi.fn();
 
 			useWSStore.subscribe(listener1);
 			useWSStore.subscribe(listener2);
 
-			wsStore.connect();
+			wsActions.connect();
 
 			expect(listener1).toHaveBeenCalled();
 			expect(listener2).toHaveBeenCalled();
@@ -305,9 +305,9 @@ describe("wsStore", () => {
 
 	describe("auto-reconnect", () => {
 		it("reconnects up to 5 times on close", async () => {
-			const wsStore = await getWsStore();
+			const wsActions = await getWsActions();
 
-			wsStore.connect();
+			wsActions.connect();
 			getMockWs()?.simulateOpen();
 
 			// Trigger 5 reconnects
@@ -326,10 +326,10 @@ describe("wsStore", () => {
 		});
 
 		it("sets status to error on socket error", async () => {
-			const wsStore = await getWsStore();
+			const wsActions = await getWsActions();
 			const useWSStore = await getUseWSStore();
 
-			wsStore.connect();
+			wsActions.connect();
 			getMockWs()?.simulateError();
 
 			expect(useWSStore.getState().status).toBe("error");

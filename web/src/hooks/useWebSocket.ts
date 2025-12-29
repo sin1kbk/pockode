@@ -14,6 +14,10 @@ interface UseWebSocketReturn {
 
 export type { ConnectionStatus };
 
+// Actions are stable references - get once at module level
+const { connect, disconnect, send, subscribeMessage } =
+	useWSStore.getState().actions;
+
 export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
 	const { onMessage } = options;
 
@@ -22,13 +26,12 @@ export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
 
 	// Subscribe to messages
 	useEffect(() => {
-		const { subscribeMessage } = useWSStore.getState();
 		return subscribeMessage(onMessage);
 	}, [onMessage]);
 
 	// Connect on mount (only once per app lifecycle)
 	useEffect(() => {
-		const { status: currentStatus, connect } = useWSStore.getState();
+		const currentStatus = useWSStore.getState().status;
 		if (currentStatus === "disconnected") {
 			connect();
 		}
@@ -36,7 +39,7 @@ export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
 
 	return {
 		status,
-		send: useWSStore.getState().send,
-		disconnect: useWSStore.getState().disconnect,
+		send,
+		disconnect,
 	};
 }

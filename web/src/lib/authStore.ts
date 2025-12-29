@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { wsStore } from "./wsStore";
+import { wsActions } from "./wsStore";
 
 const TOKEN_KEY = "auth_token";
 
@@ -19,7 +19,7 @@ export const authActions = {
 		useAuthStore.setState({ token });
 	},
 	logout: () => {
-		wsStore.disconnect();
+		wsActions.disconnect();
 		localStorage.removeItem(TOKEN_KEY);
 		useAuthStore.setState({ token: null });
 	},
