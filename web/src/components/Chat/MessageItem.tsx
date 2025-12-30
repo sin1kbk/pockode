@@ -309,10 +309,17 @@ function ContentPartItem({ part, onPermissionRespond }: ContentPartItemProps) {
 
 interface Props {
 	message: Message;
+	isLast?: boolean;
+	isProcessRunning?: boolean;
 	onPermissionRespond?: (requestId: string, choice: PermissionChoice) => void;
 }
 
-function MessageItem({ message, onPermissionRespond }: Props) {
+function MessageItem({
+	message,
+	isLast,
+	isProcessRunning,
+	onPermissionRespond,
+}: Props) {
 	if (message.role === "user") {
 		return (
 			<div className="flex justify-end">
@@ -348,9 +355,13 @@ function MessageItem({ message, onPermissionRespond }: Props) {
 				)}
 
 				{/* Status indicator */}
-				{(message.status === "sending" || message.status === "streaming") && (
-					<Spinner className="mt-2" />
-				)}
+				{message.status === "sending" && <Spinner className="mt-2" />}
+				{message.status === "streaming" &&
+					(isLast && isProcessRunning ? (
+						<Spinner className="mt-2" />
+					) : (
+						<p className="mt-2 text-sm text-th-warning">Process ended</p>
+					))}
 				{message.status === "error" && (
 					<p className="mt-2 text-sm text-th-error">{message.error}</p>
 				)}

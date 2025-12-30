@@ -179,8 +179,8 @@ export function applyServerEvent(
 		return updatePermissionRequestStatus(messages, event.requestId, newStatus);
 	}
 
-	// Find current assistant (sending or streaming)
-	let index = messages.findIndex(
+	// Find current assistant (sending or streaming) - use last one to avoid appending to stale messages
+	let index = messages.findLastIndex(
 		(m) =>
 			m.role === "assistant" &&
 			(m.status === "sending" || m.status === "streaming"),

@@ -52,6 +52,7 @@ function ChatPanel({
 		messages,
 		isLoadingHistory,
 		isStreaming,
+		isProcessRunning,
 		status,
 		send,
 		sendUserMessage,
@@ -146,6 +147,7 @@ function ChatPanel({
 			<MessageList
 				messages={messages}
 				sessionId={sessionId}
+				isProcessRunning={isProcessRunning}
 				onPermissionRespond={handlePermissionRespond}
 			/>
 			<InputBar

@@ -6,10 +6,16 @@ import MessageItem, { type PermissionChoice } from "./MessageItem";
 interface Props {
 	messages: Message[];
 	sessionId: string;
+	isProcessRunning: boolean;
 	onPermissionRespond?: (requestId: string, choice: PermissionChoice) => void;
 }
 
-function MessageList({ messages, sessionId, onPermissionRespond }: Props) {
+function MessageList({
+	messages,
+	sessionId,
+	isProcessRunning,
+	onPermissionRespond,
+}: Props) {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const [isScrolledUp, setIsScrolledUp] = useState(false);
 	const prevScrollHeightRef = useRef(0);
@@ -77,10 +83,12 @@ function MessageList({ messages, sessionId, onPermissionRespond }: Props) {
 				>
 					<div className="flex-1" />
 					<div className="space-y-3 sm:space-y-4">
-						{messages.map((message) => (
+						{messages.map((message, index) => (
 							<MessageItem
 								key={message.id}
 								message={message}
+								isLast={index === messages.length - 1}
+								isProcessRunning={isProcessRunning}
 								onPermissionRespond={onPermissionRespond}
 							/>
 						))}

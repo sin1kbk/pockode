@@ -40,8 +40,35 @@ describe("MessageItem", () => {
 			createdAt: new Date(),
 		};
 
+		// sending always shows spinner, regardless of isProcessRunning
 		render(<MessageItem message={message} />);
 		expect(screen.getByRole("status")).toBeInTheDocument();
+	});
+
+	it("shows spinner for streaming status when process is running", () => {
+		const message: Message = {
+			id: "3",
+			role: "assistant",
+			parts: [],
+			status: "streaming",
+			createdAt: new Date(),
+		};
+
+		render(<MessageItem message={message} isLast isProcessRunning />);
+		expect(screen.getByRole("status")).toBeInTheDocument();
+	});
+
+	it("shows process ended for streaming status when process is not running", () => {
+		const message: Message = {
+			id: "3",
+			role: "assistant",
+			parts: [],
+			status: "streaming",
+			createdAt: new Date(),
+		};
+
+		render(<MessageItem message={message} isLast isProcessRunning={false} />);
+		expect(screen.getByText("Process ended")).toBeInTheDocument();
 	});
 
 	it("shows error message for error status", () => {

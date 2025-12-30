@@ -105,26 +105,6 @@ export function useChatMessages({
 		loadHistory();
 	}, [sessionId]);
 
-	// Finalize the last message if it's streaming and process is not running
-	useEffect(() => {
-		if (!isLoadingHistory && !isProcessRunning) {
-			setMessages((prev) => {
-				const last = prev[prev.length - 1];
-				if (
-					!last ||
-					last.role !== "assistant" ||
-					(last.status !== "sending" && last.status !== "streaming")
-				) {
-					return prev;
-				}
-				return [
-					...prev.slice(0, -1),
-					{ ...last, status: "process_ended" } as Message,
-				];
-			});
-		}
-	}, [isLoadingHistory, isProcessRunning]);
-
 	const sendUserMessage = useCallback(
 		(content: string): boolean => {
 			const userMessageId = generateUUID();
@@ -194,12 +174,14 @@ export function useChatMessages({
 		[],
 	);
 
-	// isStreaming controls input: only block when process is actually running
+	// isStreaming controls input blocking
+	// - sending: always block (waiting for server response)
+	// - streaming: only block when process is running
 	const last = messages[messages.length - 1];
+	const lastIsSending = last?.role === "assistant" && last.status === "sending";
 	const lastIsStreaming =
-		last?.role === "assistant" &&
-		(last.status === "sending" || last.status === "streaming");
-	const isStreaming = lastIsStreaming && isProcessRunning;
+		last?.role === "assistant" && last.status === "streaming";
+	const isStreaming = lastIsSending || (lastIsStreaming && isProcessRunning);
 
 	return {
 		messages,
