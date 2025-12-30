@@ -1,5 +1,4 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
 import {
 	createSession,
 	deleteSession,
@@ -10,7 +9,7 @@ import type { SessionMeta } from "../types/message";
 
 interface UseSessionOptions {
 	enabled?: boolean;
-	/** Session ID from router - takes precedence over internal state */
+	/** Session ID from URL */
 	routeSessionId?: string | null;
 }
 
@@ -19,12 +18,6 @@ export function useSession({
 	routeSessionId,
 }: UseSessionOptions = {}) {
 	const queryClient = useQueryClient();
-	const [internalSessionId, setInternalSessionId] = useState<string | null>(
-		null,
-	);
-
-	// Route session ID takes precedence over internal state
-	const currentSessionId = routeSessionId ?? internalSessionId;
 
 	const {
 		data: sessions = [],
@@ -43,7 +36,6 @@ export function useSession({
 				newSession,
 				...old,
 			]);
-			setInternalSessionId(newSession.id);
 		},
 	});
 
@@ -69,54 +61,31 @@ export function useSession({
 		},
 	});
 
-	const isCreating = createMutation.isPending;
-	const createNewSession = createMutation.mutate;
+	const currentSessionId = routeSessionId ?? null;
+	const currentSession = sessions.find((s) => s.id === currentSessionId);
 
-	useEffect(() => {
-		if (!isSuccess || isCreating) return;
-
-		if (currentSessionId) {
-			const exists = sessions.some((s) => s.id === currentSessionId);
-			if (exists) return;
-			// Invalid session ID - fall through to select first or create new
-		}
-
-		if (sessions.length > 0) {
-			setInternalSessionId(sessions[0].id);
-		} else {
-			createNewSession();
-		}
-	}, [isSuccess, sessions, currentSessionId, isCreating, createNewSession]);
-
-	const handleDelete = async (id: string) => {
-		const remaining = sessions.filter((s) => s.id !== id);
-
-		if (id === currentSessionId) {
-			if (remaining.length > 0) {
-				setInternalSessionId(remaining[0].id);
-				deleteMutation.mutate(id);
-			} else {
-				// Must create before delete to ensure we always have a session
-				await createMutation.mutateAsync();
-				deleteMutation.mutate(id);
-			}
-		} else {
-			deleteMutation.mutate(id);
-		}
+	const getRedirectSessionId = (): string | null => {
+		if (!isSuccess) return null;
+		if (currentSessionId && currentSession) return null;
+		if (sessions.length > 0) return sessions[0].id;
+		return null;
 	};
 
-	const currentSession = sessions.find((s) => s.id === currentSessionId);
+	const redirectSessionId = getRedirectSessionId();
+	const needsNewSession = isSuccess && sessions.length === 0;
 
 	return {
 		sessions,
 		currentSessionId,
 		currentSession,
 		isLoading,
+		isSuccess,
+		redirectSessionId,
+		needsNewSession,
 		loadSessions: () =>
 			queryClient.invalidateQueries({ queryKey: ["sessions"] }),
 		createSession: () => createMutation.mutateAsync(),
-		selectSession: setInternalSessionId,
-		deleteSession: handleDelete,
+		deleteSession: (id: string) => deleteMutation.mutateAsync(id),
 		updateTitle: (id: string, title: string) =>
 			updateTitleMutation.mutate({ id, title }),
 	};

@@ -1,5 +1,5 @@
 import { useMatch, useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSession } from "../hooks/useSession";
 import {
 	authActions,
@@ -15,17 +15,12 @@ import { SessionSidebar } from "./Session";
 interface RouteInfo {
 	overlay: OverlayState;
 	sessionId: string | null;
-	isIndexRoute: boolean;
 }
 
 /**
  * Derives overlay and session state from the current route.
  */
 function useRouteState(): RouteInfo {
-	const indexMatch = useMatch({
-		from: "/",
-		shouldThrow: false,
-	});
 	const sessionMatch = useMatch({
 		from: "/s/$sessionId",
 		shouldThrow: false,
@@ -43,7 +38,6 @@ function useRouteState(): RouteInfo {
 		return {
 			overlay: null,
 			sessionId: sessionMatch.params.sessionId,
-			isIndexRoute: false,
 		};
 	}
 
@@ -56,7 +50,6 @@ function useRouteState(): RouteInfo {
 				staged: true,
 			},
 			sessionId: search.session ?? null,
-			isIndexRoute: false,
 		};
 	}
 
@@ -69,14 +62,12 @@ function useRouteState(): RouteInfo {
 				staged: false,
 			},
 			sessionId: search.session ?? null,
-			isIndexRoute: false,
 		};
 	}
 
 	return {
 		overlay: null,
 		sessionId: null,
-		isIndexRoute: !!indexMatch,
 	};
 }
 
@@ -84,30 +75,50 @@ function AppShell() {
 	const isAuthenticated = useAuthStore(selectIsAuthenticated);
 	const navigate = useNavigate();
 	const [sidebarOpen, setSidebarOpen] = useState(false);
+	const isCreatingSession = useRef(false);
 
-	const { overlay, sessionId: routeSessionId, isIndexRoute } = useRouteState();
+	const { overlay, sessionId: routeSessionId } = useRouteState();
 
 	const {
 		sessions,
 		currentSessionId,
 		currentSession,
 		isLoading,
+		redirectSessionId,
+		needsNewSession,
 		loadSessions,
 		createSession,
 		deleteSession,
 		updateTitle,
 	} = useSession({ enabled: isAuthenticated, routeSessionId });
 
-	// Redirect from index route to session route (replace to keep / out of history)
 	useEffect(() => {
-		if (isIndexRoute && currentSessionId) {
+		if (redirectSessionId) {
 			navigate({
 				to: "/s/$sessionId",
-				params: { sessionId: currentSessionId },
+				params: { sessionId: redirectSessionId },
 				replace: true,
 			});
 		}
-	}, [isIndexRoute, currentSessionId, navigate]);
+	}, [redirectSessionId, navigate]);
+
+	// TODO: Fails silently and retries; persistent errors (e.g. network down) show only Loading with no feedback
+	useEffect(() => {
+		if (needsNewSession && !isCreatingSession.current) {
+			isCreatingSession.current = true;
+			createSession()
+				.then((newSession) => {
+					navigate({
+						to: "/s/$sessionId",
+						params: { sessionId: newSession.id },
+						replace: true,
+					});
+				})
+				.finally(() => {
+					isCreatingSession.current = false;
+				});
+		}
+	}, [needsNewSession, createSession, navigate]);
 
 	const handleTokenSubmit = (token: string) => {
 		authActions.login(token);
@@ -120,7 +131,6 @@ function AppShell() {
 
 	const handleSelectSession = useCallback(
 		(id: string) => {
-			// routeSessionId will be set by the router, no need to call selectSession
 			navigate({ to: "/s/$sessionId", params: { sessionId: id } });
 			setSidebarOpen(false);
 		},
@@ -130,10 +140,26 @@ function AppShell() {
 	const handleCreateSession = useCallback(async () => {
 		const newSession = await createSession();
 		setSidebarOpen(false);
-		if (newSession) {
-			navigate({ to: "/s/$sessionId", params: { sessionId: newSession.id } });
-		}
+		navigate({ to: "/s/$sessionId", params: { sessionId: newSession.id } });
 	}, [createSession, navigate]);
+
+	const handleDeleteSession = useCallback(
+		async (id: string) => {
+			const isCurrentSession = id === currentSessionId;
+			const remaining = sessions.filter((s) => s.id !== id);
+
+			await deleteSession(id);
+
+			if (isCurrentSession && remaining.length > 0) {
+				navigate({
+					to: "/s/$sessionId",
+					params: { sessionId: remaining[0].id },
+					replace: true,
+				});
+			}
+		},
+		[currentSessionId, sessions, deleteSession, navigate],
+	);
 
 	const handleSelectDiffFile = useCallback(
 		(path: string, staged: boolean) => {
@@ -188,7 +214,7 @@ function AppShell() {
 				currentSessionId={currentSessionId}
 				onSelectSession={handleSelectSession}
 				onCreateSession={handleCreateSession}
-				onDeleteSession={deleteSession}
+				onDeleteSession={handleDeleteSession}
 				onSelectDiffFile={handleSelectDiffFile}
 				isLoading={isLoading}
 			/>

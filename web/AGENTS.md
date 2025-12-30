@@ -102,3 +102,8 @@ describe("MyComponent", () => {
 ⚠️ **Ask First**: 添加 npm 依赖 · 修改 Vite/TS 配置 · 新建全局 store
 
 🚫 **Never**: `any`（用 `unknown`） · `!` 非空断言 · 硬编码颜色/API 地址 · 提交 `console.log` · 编辑 `package-lock.json`
+
+## 注释
+
+- Write comments in English
+- Use TODO format: `// TODO: <description>`

@@ -5,7 +5,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SessionMeta } from "../types/message";
 import { useSession } from "./useSession";
 
-// Mock sessionApi
 vi.mock("../lib/sessionApi", () => ({
 	listSessions: vi.fn(),
 	createSession: vi.fn(),
@@ -52,7 +51,7 @@ describe("useSession", () => {
 	});
 
 	describe("initial load", () => {
-		it("loads sessions and selects first one", async () => {
+		it("loads sessions", async () => {
 			const sessions = [mockSession("1"), mockSession("2")];
 			vi.mocked(sessionApi.listSessions).mockResolvedValue(sessions);
 
@@ -63,25 +62,6 @@ describe("useSession", () => {
 			await waitFor(() => {
 				expect(result.current.sessions).toEqual(sessions);
 			});
-
-			expect(result.current.currentSessionId).toBe("1");
-		});
-
-		it("creates new session when list is empty", async () => {
-			vi.mocked(sessionApi.listSessions).mockResolvedValue([]);
-			vi.mocked(sessionApi.createSession).mockResolvedValue(
-				mockSession("new-id", "New Chat"),
-			);
-
-			const { result } = renderHook(() => useSession(), {
-				wrapper: createWrapper(queryClient),
-			});
-
-			await waitFor(() => {
-				expect(result.current.currentSessionId).toBe("new-id");
-			});
-
-			expect(sessionApi.createSession).toHaveBeenCalled();
 		});
 
 		it("does not load when disabled", async () => {
@@ -91,7 +71,6 @@ describe("useSession", () => {
 				wrapper: createWrapper(queryClient),
 			});
 
-			// Give it time to potentially make a call
 			await new Promise((r) => setTimeout(r, 50));
 
 			expect(result.current.isLoading).toBe(false);
@@ -99,8 +78,8 @@ describe("useSession", () => {
 		});
 	});
 
-	describe("selectSession", () => {
-		it("changes currentSessionId", async () => {
+	describe("redirectSessionId", () => {
+		it("redirects when no routeSessionId provided", async () => {
 			const sessions = [mockSession("1"), mockSession("2")];
 			vi.mocked(sessionApi.listSessions).mockResolvedValue(sessions);
 
@@ -109,25 +88,82 @@ describe("useSession", () => {
 			});
 
 			await waitFor(() => {
-				expect(result.current.currentSessionId).toBe("1");
+				expect(result.current.isSuccess).toBe(true);
 			});
 
-			act(() => {
-				result.current.selectSession("2");
+			expect(result.current.redirectSessionId).toBe("1");
+		});
+
+		it("redirects when routeSessionId is invalid", async () => {
+			const sessions = [mockSession("1"), mockSession("2")];
+			vi.mocked(sessionApi.listSessions).mockResolvedValue(sessions);
+
+			const { result } = renderHook(
+				() => useSession({ routeSessionId: "invalid-id" }),
+				{ wrapper: createWrapper(queryClient) },
+			);
+
+			await waitFor(() => {
+				expect(result.current.isSuccess).toBe(true);
 			});
 
-			expect(result.current.currentSessionId).toBe("2");
+			expect(result.current.redirectSessionId).toBe("1");
+		});
+
+		it("does not redirect when routeSessionId is valid", async () => {
+			const sessions = [mockSession("1"), mockSession("2")];
+			vi.mocked(sessionApi.listSessions).mockResolvedValue(sessions);
+
+			const { result } = renderHook(() => useSession({ routeSessionId: "2" }), {
+				wrapper: createWrapper(queryClient),
+			});
+
+			await waitFor(() => {
+				expect(result.current.isSuccess).toBe(true);
+			});
+
+			expect(result.current.redirectSessionId).toBeNull();
+		});
+	});
+
+	describe("needsNewSession", () => {
+		it("is true when session list is empty", async () => {
+			vi.mocked(sessionApi.listSessions).mockResolvedValue([]);
+
+			const { result } = renderHook(() => useSession(), {
+				wrapper: createWrapper(queryClient),
+			});
+
+			await waitFor(() => {
+				expect(result.current.isSuccess).toBe(true);
+			});
+
+			expect(result.current.needsNewSession).toBe(true);
+		});
+
+		it("is false when sessions exist", async () => {
+			vi.mocked(sessionApi.listSessions).mockResolvedValue([mockSession("1")]);
+
+			const { result } = renderHook(() => useSession(), {
+				wrapper: createWrapper(queryClient),
+			});
+
+			await waitFor(() => {
+				expect(result.current.isSuccess).toBe(true);
+			});
+
+			expect(result.current.needsNewSession).toBe(false);
 		});
 	});
 
 	describe("createSession", () => {
-		it("adds new session and sets as current", async () => {
+		it("adds new session to cache", async () => {
 			vi.mocked(sessionApi.listSessions).mockResolvedValue([mockSession("1")]);
 			vi.mocked(sessionApi.createSession).mockResolvedValue(
 				mockSession("new-id"),
 			);
 
-			const { result } = renderHook(() => useSession(), {
+			const { result } = renderHook(() => useSession({ routeSessionId: "1" }), {
 				wrapper: createWrapper(queryClient),
 			});
 
@@ -142,74 +178,32 @@ describe("useSession", () => {
 			await waitFor(() => {
 				expect(result.current.sessions.length).toBe(2);
 			});
-			expect(result.current.currentSessionId).toBe("new-id");
+			expect(result.current.sessions[0].id).toBe("new-id");
 		});
 	});
 
 	describe("deleteSession", () => {
-		it("deletes and switches to next session", async () => {
+		it("removes session from cache", async () => {
 			const sessions = [mockSession("1"), mockSession("2")];
 			vi.mocked(sessionApi.listSessions).mockResolvedValue(sessions);
 			vi.mocked(sessionApi.deleteSession).mockResolvedValue(undefined);
 
-			const { result } = renderHook(() => useSession(), {
+			const { result } = renderHook(() => useSession({ routeSessionId: "1" }), {
 				wrapper: createWrapper(queryClient),
 			});
 
 			await waitFor(() => {
-				expect(result.current.currentSessionId).toBe("1");
+				expect(result.current.sessions.length).toBe(2);
 			});
 
-			await result.current.deleteSession("1");
+			await act(async () => {
+				await result.current.deleteSession("2");
+			});
 
 			await waitFor(() => {
 				expect(result.current.sessions.length).toBe(1);
 			});
-			expect(result.current.currentSessionId).toBe("2");
-		});
-
-		it("creates new session when deleting last one", async () => {
-			vi.mocked(sessionApi.listSessions).mockResolvedValue([mockSession("1")]);
-			vi.mocked(sessionApi.deleteSession).mockResolvedValue(undefined);
-			vi.mocked(sessionApi.createSession).mockResolvedValue(
-				mockSession("new-id", "New Chat"),
-			);
-
-			const { result } = renderHook(() => useSession(), {
-				wrapper: createWrapper(queryClient),
-			});
-
-			await waitFor(() => {
-				expect(result.current.currentSessionId).toBe("1");
-			});
-
-			await result.current.deleteSession("1");
-
-			await waitFor(() => {
-				expect(result.current.currentSessionId).toBe("new-id");
-			});
-			expect(sessionApi.createSession).toHaveBeenCalled();
-		});
-
-		it("deletes non-current session without switching", async () => {
-			const sessions = [mockSession("1"), mockSession("2")];
-			vi.mocked(sessionApi.listSessions).mockResolvedValue(sessions);
-			vi.mocked(sessionApi.deleteSession).mockResolvedValue(undefined);
-
-			const { result } = renderHook(() => useSession(), {
-				wrapper: createWrapper(queryClient),
-			});
-
-			await waitFor(() => {
-				expect(result.current.currentSessionId).toBe("1");
-			});
-
-			await result.current.deleteSession("2");
-
-			await waitFor(() => {
-				expect(result.current.sessions.length).toBe(1);
-			});
-			expect(result.current.currentSessionId).toBe("1");
+			expect(result.current.sessions[0].id).toBe("1");
 		});
 	});
 
@@ -220,7 +214,7 @@ describe("useSession", () => {
 			]);
 			vi.mocked(sessionApi.updateSessionTitle).mockResolvedValue(undefined);
 
-			const { result } = renderHook(() => useSession(), {
+			const { result } = renderHook(() => useSession({ routeSessionId: "1" }), {
 				wrapper: createWrapper(queryClient),
 			});
 
@@ -243,7 +237,7 @@ describe("useSession", () => {
 				new Error("HTTP 404: Not Found"),
 			);
 
-			const { result } = renderHook(() => useSession(), {
+			const { result } = renderHook(() => useSession({ routeSessionId: "1" }), {
 				wrapper: createWrapper(queryClient),
 			});
 
@@ -251,7 +245,6 @@ describe("useSession", () => {
 				expect(result.current.sessions.length).toBe(1);
 			});
 
-			// Clear mock call count before updateTitle
 			vi.mocked(sessionApi.listSessions).mockClear();
 
 			result.current.updateTitle("1", "New Title");
@@ -263,29 +256,8 @@ describe("useSession", () => {
 	});
 
 	describe("currentSession", () => {
-		it("returns the current session object", async () => {
+		it("matches routeSessionId", async () => {
 			const sessions = [mockSession("1", "First"), mockSession("2", "Second")];
-			vi.mocked(sessionApi.listSessions).mockResolvedValue(sessions);
-
-			const { result } = renderHook(() => useSession(), {
-				wrapper: createWrapper(queryClient),
-			});
-
-			await waitFor(() => {
-				expect(result.current.currentSession?.title).toBe("First");
-			});
-
-			act(() => {
-				result.current.selectSession("2");
-			});
-
-			expect(result.current.currentSession?.title).toBe("Second");
-		});
-	});
-
-	describe("routeSessionId", () => {
-		it("uses routeSessionId when provided", async () => {
-			const sessions = [mockSession("1"), mockSession("2")];
 			vi.mocked(sessionApi.listSessions).mockResolvedValue(sessions);
 
 			const { result } = renderHook(() => useSession({ routeSessionId: "2" }), {
@@ -293,35 +265,27 @@ describe("useSession", () => {
 			});
 
 			await waitFor(() => {
-				expect(result.current.sessions.length).toBe(2);
+				expect(result.current.currentSession?.title).toBe("Second");
 			});
-
-			// Should use session from route, not first one
-			expect(result.current.currentSessionId).toBe("2");
 		});
 
-		it("keeps invalid routeSessionId (route layer should handle redirect)", async () => {
-			const sessions = [mockSession("1"), mockSession("2")];
+		it("is undefined when routeSessionId is invalid", async () => {
+			const sessions = [mockSession("1", "First")];
 			vi.mocked(sessionApi.listSessions).mockResolvedValue(sessions);
 
 			const { result } = renderHook(
-				() => useSession({ routeSessionId: "invalid-id" }),
-				{
-					wrapper: createWrapper(queryClient),
-				},
+				() => useSession({ routeSessionId: "invalid" }),
+				{ wrapper: createWrapper(queryClient) },
 			);
 
 			await waitFor(() => {
-				expect(result.current.sessions.length).toBe(2);
+				expect(result.current.isSuccess).toBe(true);
 			});
 
-			// routeSessionId takes precedence, even if invalid
-			// The route layer should handle redirecting to a valid session
-			expect(result.current.currentSessionId).toBe("invalid-id");
 			expect(result.current.currentSession).toBeUndefined();
 		});
 
-		it("routeSessionId takes precedence over internal state", async () => {
+		it("updates when route changes", async () => {
 			const sessions = [mockSession("1"), mockSession("2"), mockSession("3")];
 			vi.mocked(sessionApi.listSessions).mockResolvedValue(sessions);
 
@@ -337,7 +301,6 @@ describe("useSession", () => {
 				expect(result.current.currentSessionId).toBe("2");
 			});
 
-			// Simulate route change
 			rerender({ routeSessionId: "3" });
 
 			expect(result.current.currentSessionId).toBe("3");
