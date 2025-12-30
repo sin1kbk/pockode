@@ -510,3 +510,69 @@
 	--th-ai-bubble: #1c1c1f;
 	--th-ai-bubble-text: #fafafa;
 }
+
+/* =============================================================================
+ * DIFF VIEW STYLES (react-diff-view theme integration)
+ * ============================================================================= */
+
+.diff-view-wrapper {
+	font-family:
+		ui-monospace,
+		SFMono-Regular,
+		SF Mono,
+		Menlo,
+		Consolas,
+		monospace;
+	font-size: 0.75rem;
+	line-height: 1.5;
+}
+
+/* Override react-diff-view defaults with theme tokens */
+.diff-view-wrapper .diff {
+	background: var(--th-bg-primary);
+	color: var(--th-text-primary);
+	/* Critical: make the diff component expand to content width */
+	display: inline-block;
+	min-width: 100%;
+}
+
+.diff-view-wrapper .diff-gutter {
+	background: var(--th-bg-secondary);
+	color: var(--th-text-muted);
+	min-width: 3rem;
+	text-align: right;
+	padding: 0 0.5rem;
+	user-select: none;
+}
+
+.diff-view-wrapper .diff-code {
+	white-space: pre;
+	padding-left: 0.5rem;
+	/* Extend background color to the right edge */
+	width: 100%;
+}
+
+/* Addition lines */
+.diff-view-wrapper .diff-code-insert {
+	background: color-mix(in srgb, var(--th-success) 15%, transparent);
+}
+
+.diff-view-wrapper .diff-gutter-insert {
+	background: color-mix(in srgb, var(--th-success) 25%, transparent);
+}
+
+/* Deletion lines */
+.diff-view-wrapper .diff-code-delete {
+	background: color-mix(in srgb, var(--th-error) 15%, transparent);
+}
+
+.diff-view-wrapper .diff-gutter-delete {
+	background: color-mix(in srgb, var(--th-error) 25%, transparent);
+}
+
+/* Hunk header */
+.diff-view-wrapper .diff-hunk-header {
+	background: var(--th-bg-tertiary);
+	color: var(--th-text-muted);
+	padding: 0.25rem 0.5rem;
+}

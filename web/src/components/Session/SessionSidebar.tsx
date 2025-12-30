@@ -1,5 +1,7 @@
+import { useState } from "react";
 import type { SessionMeta } from "../../types/message";
-import Sidebar from "../Layout/Sidebar";
+import { DiffSidebarContent } from "../Git";
+import { Sidebar, SidebarTabs, type Tab } from "../Layout";
 import SessionSidebarContent from "./SessionSidebarContent";
 
 interface Props {
@@ -10,6 +12,7 @@ interface Props {
 	onSelectSession: (id: string) => void;
 	onCreateSession: () => void;
 	onDeleteSession: (id: string) => void;
+	onSelectDiffFile: (path: string, staged: boolean) => void;
 	isLoading: boolean;
 }
 
@@ -21,21 +24,37 @@ function SessionSidebar({
 	onSelectSession,
 	onCreateSession,
 	onDeleteSession,
+	onSelectDiffFile,
 	isLoading,
 }: Props) {
+	const [activeTab, setActiveTab] = useState<Tab>("sessions");
+
+	const handleSelectFile = (path: string, staged: boolean) => {
+		onSelectDiffFile(path, staged);
+		onClose();
+	};
+
 	return (
-		<Sidebar isOpen={isOpen} onClose={onClose} title="Conversations">
-			<SessionSidebarContent
-				sessions={sessions}
-				currentSessionId={currentSessionId}
-				onSelectSession={(id) => {
-					onSelectSession(id);
-					onClose();
-				}}
-				onCreateSession={onCreateSession}
-				onDeleteSession={onDeleteSession}
-				isLoading={isLoading}
-			/>
+		<Sidebar isOpen={isOpen} onClose={onClose} title="Pockode">
+			<SidebarTabs activeTab={activeTab} onTabChange={setActiveTab} />
+
+			{activeTab === "sessions" && (
+				<SessionSidebarContent
+					sessions={sessions}
+					currentSessionId={currentSessionId}
+					onSelectSession={(id) => {
+						onSelectSession(id);
+						onClose();
+					}}
+					onCreateSession={onCreateSession}
+					onDeleteSession={onDeleteSession}
+					isLoading={isLoading}
+				/>
+			)}
+
+			{activeTab === "diff" && (
+				<DiffSidebarContent onSelectFile={handleSelectFile} />
+			)}
 		</Sidebar>
 	);
 }

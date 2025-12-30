@@ -19,7 +19,7 @@ import (
 	"github.com/pockode/server/ws"
 )
 
-func newHandler(token string, manager *process.Manager, devMode bool, sessionStore session.Store) http.Handler {
+func newHandler(token string, manager *process.Manager, devMode bool, sessionStore session.Store, workDir string) http.Handler {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
@@ -35,6 +35,10 @@ func newHandler(token string, manager *process.Manager, devMode bool, sessionSto
 	// Session REST API
 	sessionHandler := api.NewSessionHandler(sessionStore)
 	sessionHandler.Register(mux)
+
+	// Git REST API
+	gitHandler := api.NewGitHandler(workDir)
+	gitHandler.Register(mux)
 
 	// WebSocket endpoint (handles its own auth via query param)
 	wsHandler := ws.NewHandler(token, manager, devMode, sessionStore)
@@ -107,7 +111,7 @@ func main() {
 	claudeAgent := claude.New()
 	manager := process.NewManager(claudeAgent, workDir, sessionStore, idleTimeout)
 
-	handler := newHandler(token, manager, devMode, sessionStore)
+	handler := newHandler(token, manager, devMode, sessionStore, workDir)
 
 	srv := &http.Server{
 		Addr:    ":" + port,

@@ -19,6 +19,7 @@
 		"@tailwindcss/vite": "^4.1.18",
 		"@tanstack/react-query": "^5.90.12",
 		"react": "^19.2.0",
+		"react-diff-view": "^3.3.2",
 		"react-dom": "^19.2.0",
 		"react-markdown": "^10.1.0",
 		"react-shiki": "^0.9.1",

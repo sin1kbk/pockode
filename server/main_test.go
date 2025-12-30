@@ -16,7 +16,7 @@ func TestHealthEndpoint(t *testing.T) {
 	manager := process.NewManager(claude.New(), "/tmp", store, 10*time.Minute)
 	defer manager.Shutdown()
 
-	handler := newHandler("test-token", manager, true, store)
+	handler := newHandler("test-token", manager, true, store, "/tmp")
 	req := httptest.NewRequest(http.MethodGet, "/health", nil)
 	rec := httptest.NewRecorder()
 
@@ -36,7 +36,7 @@ func TestPingEndpoint(t *testing.T) {
 	manager := process.NewManager(claude.New(), "/tmp", store, 10*time.Minute)
 	defer manager.Shutdown()
 
-	handler := newHandler(token, manager, true, store)
+	handler := newHandler(token, manager, true, store, "/tmp")
 
 	t.Run("returns pong with valid token", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/api/ping", nil)

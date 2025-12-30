@@ -7,10 +7,16 @@ import type {
 	AskUserQuestionRequest,
 	WSServerMessage,
 } from "../../types/message";
+import { DiffView } from "../Git";
 import MainContainer from "../Layout/MainContainer";
 import AskUserQuestionDialog from "./AskUserQuestionDialog";
 import InputBar from "./InputBar";
 import MessageList from "./MessageList";
+
+export interface DiffViewState {
+	path: string;
+	staged: boolean;
+}
 
 interface Props {
 	sessionId: string;
@@ -18,6 +24,8 @@ interface Props {
 	onUpdateTitle: (title: string) => void;
 	onLogout?: () => void;
 	onOpenSidebar?: () => void;
+	diffViewState?: DiffViewState | null;
+	onCloseDiffView?: () => void;
 }
 
 const STATUS_CONFIG: Record<ConnectionStatus, { text: string; color: string }> =
@@ -34,6 +42,8 @@ function ChatPanel({
 	onUpdateTitle,
 	onLogout,
 	onOpenSidebar,
+	diffViewState,
+	onCloseDiffView,
 }: Props) {
 	// Dialog state for ask_user_question (permission_request now in message flow)
 	const [questionRequest, setQuestionRequest] =
@@ -144,12 +154,20 @@ function ChatPanel({
 			onLogout={onLogout}
 			headerRight={statusIndicator}
 		>
-			<MessageList
-				messages={messages}
-				sessionId={sessionId}
-				isProcessRunning={isProcessRunning}
-				onPermissionRespond={handlePermissionRespond}
-			/>
+			{diffViewState && onCloseDiffView ? (
+				<DiffView
+					path={diffViewState.path}
+					staged={diffViewState.staged}
+					onBack={onCloseDiffView}
+				/>
+			) : (
+				<MessageList
+					messages={messages}
+					sessionId={sessionId}
+					isProcessRunning={isProcessRunning}
+					onPermissionRespond={handlePermissionRespond}
+				/>
+			)}
 			<InputBar
 				sessionId={sessionId}
 				onSend={handleSend}

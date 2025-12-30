@@ -1,4 +1,4 @@
-// Package git provides git repository initialization functionality.
+// Package git provides git repository operations including initialization, status, and diff.
 package git
 
 import (
@@ -211,6 +211,151 @@ func configUser(dir, name, email string) error {
 	}
 
 	return nil
+}
+
+// FileStatus represents a file's git status.
+type FileStatus struct {
+	Path   string `json:"path"`
+	Status string `json:"status"` // M=modified, A=added, D=deleted, R=renamed, ?=untracked
+}
+
+// GitStatus represents the overall git status.
+type GitStatus struct {
+	Staged   []FileStatus `json:"staged"`
+	Unstaged []FileStatus `json:"unstaged"`
+}
+
+// Status returns the current git status (staged and unstaged files).
+func Status(dir string) (*GitStatus, error) {
+	cmd := exec.Command("git", "status", "--porcelain=v1")
+	cmd.Dir = dir
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("git status failed: %w", err)
+	}
+
+	result := &GitStatus{
+		Staged:   []FileStatus{},
+		Unstaged: []FileStatus{},
+	}
+
+	lines := strings.Split(string(output), "\n")
+	for _, line := range lines {
+		if len(line) < 3 {
+			continue
+		}
+
+		// Porcelain v1 format: XY PATH
+		// X = staged status, Y = unstaged status
+		x := line[0] // staged
+		y := line[1] // unstaged
+		path := strings.TrimSpace(line[3:])
+
+		// Handle renamed files (format: "R  old -> new")
+		if strings.Contains(path, " -> ") {
+			parts := strings.Split(path, " -> ")
+			path = parts[len(parts)-1]
+		}
+
+		// Staged changes (index vs HEAD)
+		if x != ' ' && x != '?' {
+			result.Staged = append(result.Staged, FileStatus{
+				Path:   path,
+				Status: string(x),
+			})
+		}
+
+		// Unstaged changes (worktree vs index) or untracked
+		if y != ' ' {
+			result.Unstaged = append(result.Unstaged, FileStatus{
+				Path:   path,
+				Status: string(y),
+			})
+		}
+	}
+
+	return result, nil
+}
+
+// Diff returns the unified diff for a specific file.
+// If staged is true, returns diff of staged changes (index vs HEAD).
+// If staged is false, returns diff of unstaged changes (worktree vs index).
+func Diff(dir, path string, staged bool) (string, error) {
+	var args []string
+	if staged {
+		args = []string{"diff", "--cached", "--", path}
+	} else {
+		args = []string{"diff", "--", path}
+	}
+
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		// Check if file exists - if not, it's a real error
+		fullPath := filepath.Join(dir, path)
+		if _, statErr := os.Stat(fullPath); os.IsNotExist(statErr) {
+			return "", fmt.Errorf("file not found: %s", path)
+		}
+		// For unstaged, try showing as untracked file
+		if !staged {
+			untrackedDiff, untrackedErr := showUntrackedFile(dir, path)
+			if untrackedErr == nil {
+				return untrackedDiff, nil
+			}
+		}
+		return "", fmt.Errorf("git diff failed: %w (output: %s)", err, string(output))
+	}
+
+	// Empty output means no diff (file might be untracked)
+	if len(output) == 0 && !staged {
+		return showUntrackedFile(dir, path)
+	}
+
+	return string(output), nil
+}
+
+// showUntrackedFile generates a diff-like output for untracked files.
+func showUntrackedFile(dir, path string) (string, error) {
+	fullPath := filepath.Join(dir, path)
+	content, err := os.ReadFile(fullPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read file: %w", err)
+	}
+
+	// Handle empty file (Git doesn't output ---/+++ for empty files)
+	if len(content) == 0 {
+		var result strings.Builder
+		result.WriteString(fmt.Sprintf("diff --git a/%s b/%s\n", path, path))
+		result.WriteString("new file mode 100644\n")
+		return result.String(), nil
+	}
+
+	// Split content into lines, preserving trailing newline information
+	text := string(content)
+	hasTrailingNewline := strings.HasSuffix(text, "\n")
+	if hasTrailingNewline {
+		text = text[:len(text)-1]
+	}
+
+	lines := strings.Split(text, "\n")
+	var result strings.Builder
+
+	result.WriteString(fmt.Sprintf("diff --git a/%s b/%s\n", path, path))
+	result.WriteString("new file mode 100644\n")
+	result.WriteString("--- /dev/null\n")
+	result.WriteString(fmt.Sprintf("+++ b/%s\n", path))
+	result.WriteString(fmt.Sprintf("@@ -0,0 +1,%d @@\n", len(lines)))
+
+	for _, line := range lines {
+		result.WriteString("+" + line + "\n")
+	}
+
+	if !hasTrailingNewline {
+		result.WriteString("\\ No newline at end of file\n")
+	}
+
+	return result.String(), nil
 }
 
 // extractHost extracts the host from a git URL.

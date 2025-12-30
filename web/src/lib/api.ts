@@ -3,11 +3,13 @@ import { authActions } from "./authStore";
 
 export class HttpError extends Error {
 	readonly status: number;
+	readonly body: string;
 
-	constructor(status: number) {
-		super(`HTTP ${status}`);
+	constructor(status: number, body = "") {
+		super(body ? `HTTP ${status}: ${body}` : `HTTP ${status}`);
 		this.name = "HttpError";
 		this.status = status;
+		this.body = body;
 	}
 }
 
@@ -26,7 +28,8 @@ export async function fetchWithAuth(
 	});
 
 	if (!response.ok) {
-		throw new HttpError(response.status);
+		const body = await response.text().catch(() => "");
+		throw new HttpError(response.status, body);
 	}
 
 	return response;

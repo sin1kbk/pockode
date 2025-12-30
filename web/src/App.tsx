@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import TokenInput from "./components/Auth/TokenInput";
-import { ChatPanel } from "./components/Chat";
+import { ChatPanel, type DiffViewState } from "./components/Chat";
 import { SessionSidebar } from "./components/Session";
 import { useSession } from "./hooks/useSession";
 import {
@@ -12,6 +12,9 @@ import {
 function App() {
 	const isAuthenticated = useAuthStore(selectIsAuthenticated);
 	const [sidebarOpen, setSidebarOpen] = useState(false);
+	const [diffViewState, setDiffViewState] = useState<DiffViewState | null>(
+		null,
+	);
 
 	const {
 		sessions,
@@ -39,6 +42,14 @@ function App() {
 		setSidebarOpen(false);
 	}, [createSession]);
 
+	const handleSelectDiffFile = useCallback((path: string, staged: boolean) => {
+		setDiffViewState({ path, staged });
+	}, []);
+
+	const handleCloseDiffView = useCallback(() => {
+		setDiffViewState(null);
+	}, []);
+
 	if (!isAuthenticated) {
 		return <TokenInput onSubmit={handleTokenSubmit} />;
 	}
@@ -59,6 +70,8 @@ function App() {
 				onUpdateTitle={(title) => updateTitle(currentSessionId, title)}
 				onLogout={authActions.logout}
 				onOpenSidebar={handleOpenSidebar}
+				diffViewState={diffViewState}
+				onCloseDiffView={handleCloseDiffView}
 			/>
 			<SessionSidebar
 				isOpen={sidebarOpen}
@@ -68,6 +81,7 @@ function App() {
 				onSelectSession={selectSession}
 				onCreateSession={handleCreateSession}
 				onDeleteSession={deleteSession}
+				onSelectDiffFile={handleSelectDiffFile}
 				isLoading={isLoading}
 			/>
 		</>
