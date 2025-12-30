@@ -238,6 +238,15 @@ describe("ChatPanel", () => {
 			const textarea = screen.getByRole("textbox");
 			await user.type(textarea, "Hi");
 			await user.click(screen.getByRole("button", { name: /Send/ }));
+
+			// Simulate receiving text to set isProcessRunning=true (which enables isStreaming)
+			act(() => {
+				mockState.onMessage?.({
+					type: "text",
+					session_id: "test-session",
+					content: "Hello",
+				});
+			});
 			mockState.send.mockClear();
 
 			await user.click(screen.getByRole("button", { name: /Stop/ }));
@@ -256,6 +265,15 @@ describe("ChatPanel", () => {
 			const textarea = screen.getByRole("textbox");
 			await user.type(textarea, "Hi");
 			await user.click(screen.getByRole("button", { name: /Send/ }));
+
+			// Simulate receiving text to set isProcessRunning=true (which enables isStreaming)
+			act(() => {
+				mockState.onMessage?.({
+					type: "text",
+					session_id: "test-session",
+					content: "Hello",
+				});
+			});
 			mockState.send.mockClear();
 
 			// Press Escape while streaming

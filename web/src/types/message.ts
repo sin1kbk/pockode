@@ -197,4 +197,8 @@ export type WSServerMessage =
 			request_id: string;
 			questions: AskUserQuestion[];
 	  })
-	| (WSServerMessageBase & { type: "system"; content: string });
+	| (WSServerMessageBase & { type: "system"; content: string })
+	| (WSServerMessageBase & {
+			type: "attach_response";
+			process_running: boolean;
+	  });

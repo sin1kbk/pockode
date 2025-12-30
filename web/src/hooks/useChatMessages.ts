@@ -27,6 +27,7 @@ interface UseChatMessagesReturn {
 	messages: Message[];
 	isLoadingHistory: boolean;
 	isStreaming: boolean;
+	isProcessRunning: boolean;
 	status: ConnectionStatus;
 	send: (msg: WSClientMessage) => boolean;
 	sendUserMessage: (content: string) => boolean;
@@ -39,11 +40,25 @@ export function useChatMessages({
 }: UseChatMessagesOptions): UseChatMessagesReturn {
 	const [messages, setMessages] = useState<Message[]>([]);
 	const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+	const [isProcessRunning, setIsProcessRunning] = useState(false);
 
 	const handleServerMessage = useCallback(
 		(serverMsg: WSServerMessage) => {
 			if (serverMsg.session_id && serverMsg.session_id !== sessionId) {
 				return;
+			}
+
+			if (serverMsg.type === "attach_response") {
+				setIsProcessRunning(serverMsg.process_running);
+				return;
+			}
+
+			// Update process running state
+			if (serverMsg.type === "process_ended") {
+				setIsProcessRunning(false);
+			} else {
+				// Any event from process means it's running
+				setIsProcessRunning(true);
 			}
 
 			// Delegate ask_user_question to parent (keeps dialog pattern)
@@ -72,6 +87,7 @@ export function useChatMessages({
 
 	useEffect(() => {
 		setMessages([]);
+		setIsProcessRunning(false);
 
 		async function loadHistory() {
 			setIsLoadingHistory(true);
@@ -88,6 +104,26 @@ export function useChatMessages({
 
 		loadHistory();
 	}, [sessionId]);
+
+	// Finalize the last message if it's streaming and process is not running
+	useEffect(() => {
+		if (!isLoadingHistory && !isProcessRunning) {
+			setMessages((prev) => {
+				const last = prev[prev.length - 1];
+				if (
+					!last ||
+					last.role !== "assistant" ||
+					(last.status !== "sending" && last.status !== "streaming")
+				) {
+					return prev;
+				}
+				return [
+					...prev.slice(0, -1),
+					{ ...last, status: "process_ended" } as Message,
+				];
+			});
+		}
+	}, [isLoadingHistory, isProcessRunning]);
 
 	const sendUserMessage = useCallback(
 		(content: string): boolean => {
@@ -158,14 +194,18 @@ export function useChatMessages({
 		[],
 	);
 
-	const isStreaming = messages.some(
-		(m) => m.status === "sending" || m.status === "streaming",
-	);
+	// isStreaming controls input: only block when process is actually running
+	const last = messages[messages.length - 1];
+	const lastIsStreaming =
+		last?.role === "assistant" &&
+		(last.status === "sending" || last.status === "streaming");
+	const isStreaming = lastIsStreaming && isProcessRunning;
 
 	return {
 		messages,
 		isLoadingHistory,
 		isStreaming,
+		isProcessRunning,
 		status,
 		send,
 		sendUserMessage,
