@@ -524,6 +524,29 @@ describe("messageReducer", () => {
 			});
 			expect(messages[0]).toBe(initial);
 		});
+
+		it.each([
+			{ type: "interrupted" as const },
+			{ type: "process_ended" as const },
+			{ type: "done" as const },
+			{ type: "error" as const, error: "err" },
+		])("ignores $type event when no active message exists", (event) => {
+			const completed: AssistantMessage = {
+				id: "msg-1",
+				role: "assistant",
+				parts: [{ type: "text", content: "Response" }],
+				status: "complete",
+				createdAt: new Date(),
+			};
+			const messages = applyServerEvent([completed], event);
+			expect(messages).toHaveLength(1);
+			expect(messages[0]).toBe(completed); // Same reference, not modified
+		});
+
+		it("ignores terminal events when no assistant message exists", () => {
+			const messages = applyServerEvent([], { type: "interrupted" });
+			expect(messages).toHaveLength(0);
+		});
 	});
 
 	describe("applyUserMessage", () => {

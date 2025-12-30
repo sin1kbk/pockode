@@ -234,9 +234,20 @@ export function applyServerEvent(
 			(m.status === "sending" || m.status === "streaming"),
 	);
 
-	// No current assistant? Create one to hold the orphan event
+	// Terminal events only make sense for active (sending/streaming) messages
+	const isTerminalEvent =
+		event.type === "interrupted" ||
+		event.type === "process_ended" ||
+		event.type === "done" ||
+		event.type === "error";
+
 	let updated: Message[];
 	if (index === -1) {
+		if (isTerminalEvent) {
+			// No active message to terminate - ignore orphan terminal event
+			return messages;
+		}
+		// For content events, create new assistant message to hold orphan event
 		updated = [...messages, createAssistantMessage()];
 		index = updated.length - 1;
 	} else {
