@@ -1,5 +1,5 @@
 import { useMatch, useNavigate } from "@tanstack/react-router";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSession } from "../hooks/useSession";
 import {
 	authActions,
@@ -12,15 +12,20 @@ import TokenInput from "./Auth/TokenInput";
 import { ChatPanel } from "./Chat";
 import { SessionSidebar } from "./Session";
 
-interface RouteState {
+interface RouteInfo {
 	overlay: OverlayState;
 	sessionId: string | null;
+	isIndexRoute: boolean;
 }
 
 /**
  * Derives overlay and session state from the current route.
  */
-function useRouteState(): RouteState {
+function useRouteState(): RouteInfo {
+	const indexMatch = useMatch({
+		from: "/",
+		shouldThrow: false,
+	});
 	const sessionMatch = useMatch({
 		from: "/s/$sessionId",
 		shouldThrow: false,
@@ -38,6 +43,7 @@ function useRouteState(): RouteState {
 		return {
 			overlay: null,
 			sessionId: sessionMatch.params.sessionId,
+			isIndexRoute: false,
 		};
 	}
 
@@ -50,6 +56,7 @@ function useRouteState(): RouteState {
 				staged: true,
 			},
 			sessionId: search.session ?? null,
+			isIndexRoute: false,
 		};
 	}
 
@@ -62,12 +69,14 @@ function useRouteState(): RouteState {
 				staged: false,
 			},
 			sessionId: search.session ?? null,
+			isIndexRoute: false,
 		};
 	}
 
 	return {
 		overlay: null,
 		sessionId: null,
+		isIndexRoute: !!indexMatch,
 	};
 }
 
@@ -76,7 +85,7 @@ function AppShell() {
 	const navigate = useNavigate();
 	const [sidebarOpen, setSidebarOpen] = useState(false);
 
-	const { overlay, sessionId: routeSessionId } = useRouteState();
+	const { overlay, sessionId: routeSessionId, isIndexRoute } = useRouteState();
 
 	const {
 		sessions,
@@ -88,6 +97,17 @@ function AppShell() {
 		deleteSession,
 		updateTitle,
 	} = useSession({ enabled: isAuthenticated, routeSessionId });
+
+	// Redirect from index route to session route (replace to keep / out of history)
+	useEffect(() => {
+		if (isIndexRoute && currentSessionId) {
+			navigate({
+				to: "/s/$sessionId",
+				params: { sessionId: currentSessionId },
+				replace: true,
+			});
+		}
+	}, [isIndexRoute, currentSessionId, navigate]);
 
 	const handleTokenSubmit = (token: string) => {
 		authActions.login(token);
