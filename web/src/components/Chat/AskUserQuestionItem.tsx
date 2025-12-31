@@ -142,15 +142,15 @@ function AskUserQuestionItem({
 				onClick={() => setExpanded(!expanded)}
 				className="flex w-full items-center gap-1.5 rounded p-2 text-left hover:bg-th-overlay-hover"
 			>
-				<span className={`w-4 shrink-0 text-center ${color}`}>{icon}</span>
+				<span
+					className={`w-2.5 shrink-0 text-th-text-muted transition-transform ${expanded ? "rotate-90" : ""}`}
+				>
+					▶
+				</span>
+				<span className={`shrink-0 ${color}`}>{icon}</span>
 				<span className="shrink-0 text-th-accent">Question</span>
 				<span className="rounded bg-th-accent/20 px-1.5 py-0.5 text-th-accent">
 					{headerSummary}
-				</span>
-				<span
-					className={`ml-auto w-2.5 shrink-0 text-th-text-muted transition-transform ${expanded ? "rotate-90" : ""}`}
-				>
-					▶
 				</span>
 			</button>
 
