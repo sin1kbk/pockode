@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"sort"
 	"sync"
 	"time"
 )
@@ -88,9 +89,13 @@ func (s *FileStore) List() ([]SessionMeta, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	// Return a copy to prevent external mutation
 	result := make([]SessionMeta, len(s.sessions))
 	copy(result, s.sessions)
+
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].UpdatedAt.After(result[j].UpdatedAt)
+	})
+
 	return result, nil
 }
 
