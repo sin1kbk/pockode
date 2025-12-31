@@ -216,16 +216,16 @@ function PermissionRequestItem({
 				onClick={() => setExpanded(!expanded)}
 				className="flex w-full items-center gap-1.5 rounded p-2 text-left hover:bg-th-overlay-hover"
 			>
-				<span className={`w-4 shrink-0 text-center ${color}`}>{icon}</span>
+				<span
+					className={`w-2.5 shrink-0 text-th-text-muted transition-transform ${expanded ? "rotate-90" : ""}`}
+				>
+					▶
+				</span>
+				<span className={`shrink-0 ${color}`}>{icon}</span>
 				<span className="shrink-0 text-th-accent">{request.toolName}</span>
 				{summary && (
 					<span className="truncate text-th-text-muted">{summary}</span>
 				)}
-				<span
-					className={`ml-auto w-2.5 shrink-0 text-th-text-muted transition-transform ${expanded ? "rotate-90" : ""}`}
-				>
-					▶
-				</span>
 			</button>
 
 			{expanded && (
