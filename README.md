@@ -3,7 +3,7 @@
 [![Server](https://github.com/sijiaoh/pockode/actions/workflows/server.yml/badge.svg)](https://github.com/sijiaoh/pockode/actions/workflows/server.yml)
 [![Web](https://github.com/sijiaoh/pockode/actions/workflows/web.yml/badge.svg)](https://github.com/sijiaoh/pockode/actions/workflows/web.yml)
 
-Mobile coding, without the pain.
+Mobile coding with Claude Code, without the pain.
 
 ## Vision
 
