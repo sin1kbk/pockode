@@ -355,7 +355,7 @@ function MessageItem({
 		return (
 			<div className="flex justify-end">
 				<div className="max-w-[80%] min-w-0 overflow-hidden rounded-lg bg-th-user-bubble p-2.5 text-th-user-bubble-text sm:p-3">
-					<p className="whitespace-pre-wrap break-words">{message.content}</p>
+					<p className="whitespace-pre-wrap">{message.content}</p>
 				</div>
 			</div>
 		);

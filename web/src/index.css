@@ -13,6 +13,13 @@ button,
 	cursor: pointer;
 }
 
+/* CJK text wrapping: use phrase-based breaking where supported (Chrome 119+),
+   fall back to anywhere for older browsers to prevent overflow */
+:root {
+	overflow-wrap: anywhere;
+	word-break: auto-phrase;
+}
+
 /* =============================================================================
  * SEMANTIC THEME TOKENS
  *
