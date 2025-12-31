@@ -31,18 +31,15 @@ type Config struct {
 func Init(cfg Config) error {
 	gitDir := filepath.Join(cfg.WorkDir, ".git")
 
-	// Ensure work directory exists
 	if err := os.MkdirAll(cfg.WorkDir, 0755); err != nil {
 		return fmt.Errorf("failed to create work directory: %w", err)
 	}
 
-	// Check if already initialized
 	if _, err := os.Stat(gitDir); err == nil {
 		slog.Info("repository already exists, skipping initialization", "workDir", cfg.WorkDir)
 		return nil
 	}
 
-	// Extract host from URL for credential
 	host, err := extractHost(cfg.RepoURL)
 	if err != nil {
 		return fmt.Errorf("failed to extract host from URL: %w", err)
@@ -50,27 +47,18 @@ func Init(cfg Config) error {
 
 	slog.Info("initializing git repository", "workDir", cfg.WorkDir)
 
-	// 1. git init
 	if err := initRepo(cfg.WorkDir); err != nil {
 		return err
 	}
-
-	// 2 & 3. Setup local credential
 	if err := setupLocalCredential(cfg.WorkDir, host, cfg.RepoToken); err != nil {
 		return err
 	}
-
-	// 4. git remote add origin
 	if err := addRemote(cfg.WorkDir, cfg.RepoURL); err != nil {
 		return err
 	}
-
-	// 5. git fetch + checkout default branch
 	if err := fetchAndCheckout(cfg.WorkDir); err != nil {
 		return err
 	}
-
-	// 6. Configure user info
 	if err := configUser(cfg.WorkDir, cfg.UserName, cfg.UserEmail); err != nil {
 		return err
 	}
@@ -97,7 +85,6 @@ func setupLocalCredential(dir, host, token string) error {
 	gitDir := filepath.Join(dir, ".git")
 	credFile := filepath.Join(gitDir, ".git-credentials")
 
-	// Configure local credential helper to use .git/.git-credentials
 	cmd := exec.Command("git", "config", "--local", "credential.helper", fmt.Sprintf("store --file=%s", credFile))
 	cmd.Dir = dir
 	cmd.Stdout = os.Stdout
@@ -107,9 +94,7 @@ func setupLocalCredential(dir, host, token string) error {
 		return fmt.Errorf("failed to configure credential helper: %w", err)
 	}
 
-	// Write credentials file
-	// Format: https://username:password@host
-	// For GitHub PAT, use x-access-token as username
+	// x-access-token is GitHub's required username for PAT authentication
 	credContent := fmt.Sprintf("https://x-access-token:%s@%s\n", token, host)
 	if err := os.WriteFile(credFile, []byte(credContent), 0600); err != nil {
 		return fmt.Errorf("failed to write credentials file: %w", err)
@@ -134,7 +119,6 @@ func addRemote(dir, repoURL string) error {
 
 // fetchAndCheckout fetches from origin and checks out the default branch.
 func fetchAndCheckout(dir string) error {
-	// First, fetch all refs from origin
 	fetchCmd := exec.Command("git", "fetch", "origin")
 	fetchCmd.Dir = dir
 	fetchCmd.Stdout = os.Stdout
@@ -144,11 +128,8 @@ func fetchAndCheckout(dir string) error {
 		return fmt.Errorf("git fetch failed: %w", err)
 	}
 
-	// Get the default branch from origin/HEAD
-	// If origin/HEAD is not set, try common defaults
 	defaultBranch := getDefaultBranch(dir)
 
-	// Checkout the default branch
 	checkoutCmd := exec.Command("git", "checkout", "-t", fmt.Sprintf("origin/%s", defaultBranch))
 	checkoutCmd.Dir = dir
 	checkoutCmd.Stdout = os.Stdout
@@ -162,12 +143,10 @@ func fetchAndCheckout(dir string) error {
 
 // getDefaultBranch determines the default branch name.
 func getDefaultBranch(dir string) string {
-	// Try to get the default branch from remote HEAD
 	cmd := exec.Command("git", "symbolic-ref", "refs/remotes/origin/HEAD")
 	cmd.Dir = dir
 	output, err := cmd.Output()
 	if err == nil {
-		// Output is like "refs/remotes/origin/main"
 		ref := strings.TrimSpace(string(output))
 		parts := strings.Split(ref, "/")
 		if len(parts) > 0 {
@@ -175,7 +154,6 @@ func getDefaultBranch(dir string) string {
 		}
 	}
 
-	// Fallback: check if main or master exists
 	for _, branch := range []string{"main", "master"} {
 		cmd := exec.Command("git", "rev-parse", "--verify", fmt.Sprintf("origin/%s", branch))
 		cmd.Dir = dir
@@ -184,13 +162,11 @@ func getDefaultBranch(dir string) string {
 		}
 	}
 
-	// Last resort: use main
 	return "main"
 }
 
 // configUser sets the local git user name and email.
 func configUser(dir, name, email string) error {
-	// Set user.name
 	cmd := exec.Command("git", "config", "--local", "user.name", name)
 	cmd.Dir = dir
 	cmd.Stdout = os.Stdout
@@ -200,7 +176,6 @@ func configUser(dir, name, email string) error {
 		return fmt.Errorf("failed to set user.name: %w", err)
 	}
 
-	// Set user.email
 	cmd = exec.Command("git", "config", "--local", "user.email", email)
 	cmd.Dir = dir
 	cmd.Stdout = os.Stdout
@@ -227,7 +202,7 @@ type GitStatus struct {
 
 // Status returns the current git status (staged and unstaged files).
 func Status(dir string) (*GitStatus, error) {
-	cmd := exec.Command("git", "status", "--porcelain=v1")
+	cmd := exec.Command("git", "status", "--porcelain=v1", "-uall")
 	cmd.Dir = dir
 	output, err := cmd.Output()
 	if err != nil {
@@ -245,31 +220,27 @@ func Status(dir string) (*GitStatus, error) {
 			continue
 		}
 
-		// Porcelain v1 format: XY PATH
-		// X = staged status, Y = unstaged status
-		x := line[0] // staged
-		y := line[1] // unstaged
+		// Porcelain v1: XY PATH where X=staged, Y=unstaged
+		staged := line[0]
+		unstaged := line[1]
 		path := strings.TrimSpace(line[3:])
 
-		// Handle renamed files (format: "R  old -> new")
 		if strings.Contains(path, " -> ") {
 			parts := strings.Split(path, " -> ")
 			path = parts[len(parts)-1]
 		}
 
-		// Staged changes (index vs HEAD)
-		if x != ' ' && x != '?' {
+		if staged != ' ' && staged != '?' {
 			result.Staged = append(result.Staged, FileStatus{
 				Path:   path,
-				Status: string(x),
+				Status: string(staged),
 			})
 		}
 
-		// Unstaged changes (worktree vs index) or untracked
-		if y != ' ' {
+		if unstaged != ' ' {
 			result.Unstaged = append(result.Unstaged, FileStatus{
 				Path:   path,
-				Status: string(y),
+				Status: string(unstaged),
 			})
 		}
 	}
@@ -292,12 +263,10 @@ func Diff(dir, path string, staged bool) (string, error) {
 	cmd.Dir = dir
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		// Check if file exists - if not, it's a real error
 		fullPath := filepath.Join(dir, path)
 		if _, statErr := os.Stat(fullPath); os.IsNotExist(statErr) {
 			return "", fmt.Errorf("file not found: %s", path)
 		}
-		// For unstaged, try showing as untracked file
 		if !staged {
 			untrackedDiff, untrackedErr := showUntrackedFile(dir, path)
 			if untrackedErr == nil {
@@ -307,7 +276,6 @@ func Diff(dir, path string, staged bool) (string, error) {
 		return "", fmt.Errorf("git diff failed: %w (output: %s)", err, string(output))
 	}
 
-	// Empty output means no diff (file might be untracked)
 	if len(output) == 0 && !staged {
 		return showUntrackedFile(dir, path)
 	}
@@ -323,7 +291,6 @@ func showUntrackedFile(dir, path string) (string, error) {
 		return "", fmt.Errorf("failed to read file: %w", err)
 	}
 
-	// Handle empty file (Git doesn't output ---/+++ for empty files)
 	if len(content) == 0 {
 		var result strings.Builder
 		result.WriteString(fmt.Sprintf("diff --git a/%s b/%s\n", path, path))
@@ -331,7 +298,6 @@ func showUntrackedFile(dir, path string) (string, error) {
 		return result.String(), nil
 	}
 
-	// Split content into lines, preserving trailing newline information
 	text := string(content)
 	hasTrailingNewline := strings.HasSuffix(text, "\n")
 	if hasTrailingNewline {
@@ -358,10 +324,8 @@ func showUntrackedFile(dir, path string) (string, error) {
 	return result.String(), nil
 }
 
-// extractHost extracts the host from a git URL.
-// Supports both HTTPS and SSH URL formats.
+// extractHost extracts the host from a git URL (HTTPS or SSH format).
 func extractHost(repoURL string) (string, error) {
-	// Handle SSH format: git@github.com:user/repo.git
 	if strings.HasPrefix(repoURL, "git@") {
 		parts := strings.SplitN(repoURL, ":", 2)
 		if len(parts) < 2 {
@@ -371,7 +335,6 @@ func extractHost(repoURL string) (string, error) {
 		return host, nil
 	}
 
-	// Handle HTTPS format: https://github.com/user/repo.git
 	parsed, err := url.Parse(repoURL)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse URL: %w", err)
