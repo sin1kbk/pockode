@@ -1,2 +1,6 @@
 # Go binary
 server
+
+# Static files (frontend build output, except .keep)
+static/*
+!static/.keep

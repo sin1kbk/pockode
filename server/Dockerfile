@@ -1,19 +1,30 @@
-# Stage 1: Build
-FROM golang:1.25.4-alpine AS builder
+# Stage 1: Build frontend
+FROM node:22.13.0-alpine AS frontend-builder
+
+WORKDIR /app/web
+COPY web/package*.json ./
+RUN npm ci
+COPY web/ ./
+RUN npm run build
+
+# Stage 2: Build backend
+FROM golang:1.25.4-alpine AS backend-builder
 
 WORKDIR /app
 RUN apk add --no-cache git ca-certificates
 
-COPY go.mod go.sum ./
+COPY server/go.mod server/go.sum ./
 RUN go mod download
 
-COPY . ./
+COPY --from=frontend-builder /app/web/dist ./static/
+
+COPY server/ ./
 ARG TARGETARCH
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build \
     -ldflags="-w -s" \
     -o server .
 
-# Stage 2: Runtime
+# Stage 3: Runtime
 FROM ubuntu:24.04
 
 RUN apt-get update \
@@ -29,7 +40,7 @@ ENV HOME=/home/pockode
 RUN curl -fsSL https://claude.ai/install.sh | bash
 
 WORKDIR /workspace
-COPY --from=builder --chown=pockode:pockode /app/server /usr/local/bin/server
+COPY --from=backend-builder --chown=pockode:pockode /app/server /usr/local/bin/server
 
 ENV SERVER_PORT=8080
 ENV WORK_DIR=/workspace

@@ -12,8 +12,9 @@ export DEV_MODE="${DEV_MODE:-true}"
 export DEBUG="${DEBUG:-true}"
 export LOG_LEVEL="${LOG_LEVEL:-debug}"
 
-# Relay configuration (for local development)
+# Relay configuration (for local development, points to frontend)
 export RELAY_ENABLED="${RELAY_ENABLED:-false}"
+export RELAY_PORT="${RELAY_PORT:-$WEB_PORT}"
 export RELAY_CLOUD_URL="${RELAY_CLOUD_URL:-http://local.pockode.com}"
 
 # Cleanup on exit

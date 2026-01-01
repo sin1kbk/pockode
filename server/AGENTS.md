@@ -7,13 +7,18 @@ Go 1.25 + net/http + github.com/coder/websocket
 ## 命令
 
 ```bash
-go build -o server .           # 构建
-go test ./...                  # 测试全部
-go test -run TestXxx ./pkg     # 单测（优先）
-gofmt -w .                     # 格式化
-go vet ./...                   # 静态检查
-AUTH_TOKEN=xxx go run .        # 运行
-go test -tags=integration ./agent/claude -v  # 集成测试（消耗 token，仅修改解析逻辑后执行）
+# 开发
+AUTH_TOKEN=xxx DEV_MODE=true go run .   # 运行（开发模式，不 serve 静态文件）
+go test ./...                           # 测试
+gofmt -w .                              # 格式化
+go vet ./...                            # 静态检查
+
+# 构建（含前端）
+cd ../web && npm run build && cp -r dist ../server/static
+go build -o server .
+
+# 集成测试（消耗 token）
+go test -tags=integration ./agent/claude -v
 ```
 
 ## 结构
@@ -64,7 +69,8 @@ if err := json.Unmarshal(data, &parsed); err != nil {
 | `AUTH_TOKEN` | ✓ | — | API 认证令牌 |
 | `SERVER_PORT` | | `8080` | 服务端口 |
 | `WORK_DIR` | | `/workspace` | 工作目录 |
-| `DEV_MODE` | | `false` | 开发模式 |
+| `DEV_MODE` | | `false` | 开发模式（true 时不 serve 静态文件） |
+| `RELAY_PORT` | | `SERVER_PORT` | Relay 转发目标端口（开发时可设为前端端口） |
 | `LOG_FORMAT` | | `text` | `json` / `text` |
 | `LOG_LEVEL` | | `info` | `debug`/`info`/`warn`/`error` |
 | `GIT_ENABLED` | | `false` | 启用 git |

@@ -2,12 +2,15 @@ package main
 
 import (
 	"context"
+	"embed"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -21,6 +24,9 @@ import (
 	"github.com/pockode/server/session"
 	"github.com/pockode/server/ws"
 )
+
+//go:embed static/*
+var staticFS embed.FS
 
 func newHandler(token string, manager *process.Manager, devMode bool, sessionStore session.Store, workDir string) http.Handler {
 	mux := http.NewServeMux()
@@ -47,7 +53,43 @@ func newHandler(token string, manager *process.Manager, devMode bool, sessionSto
 	wsHandler := ws.NewHandler(token, manager, devMode, sessionStore)
 	mux.Handle("GET /ws", wsHandler)
 
-	return middleware.Auth(token)(mux)
+	authedMux := middleware.Auth(token)(mux)
+
+	if !devMode {
+		return newSPAHandler(authedMux)
+	}
+
+	return authedMux
+}
+
+// newSPAHandler wraps an API handler with embedded SPA static file serving.
+func newSPAHandler(apiHandler http.Handler) http.Handler {
+	subFS, err := fs.Sub(staticFS, "static")
+	if err != nil {
+		slog.Error("failed to create sub filesystem", "error", err)
+		return apiHandler
+	}
+	fileServer := http.FileServer(http.FS(subFS))
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+
+		if strings.HasPrefix(path, "/api") || path == "/ws" || path == "/health" {
+			apiHandler.ServeHTTP(w, r)
+			return
+		}
+
+		cleanPath := strings.TrimPrefix(path, "/")
+		if f, err := subFS.Open(cleanPath); err == nil {
+			f.Close()
+			fileServer.ServeHTTP(w, r)
+			return
+		}
+
+		// SPA fallback: serve index.html for client-side routing
+		r.URL.Path = "/"
+		fileServer.ServeHTTP(w, r)
+	})
 }
 
 func main() {
@@ -130,9 +172,13 @@ func main() {
 	// Initialize relay if enabled
 	var relayManager *relay.Manager
 	if os.Getenv("RELAY_ENABLED") == "true" {
-		portInt, err := strconv.Atoi(port)
+		relayPort := os.Getenv("RELAY_PORT")
+		if relayPort == "" {
+			relayPort = port // Default to SERVER_PORT
+		}
+		portInt, err := strconv.Atoi(relayPort)
 		if err != nil {
-			slog.Error("invalid SERVER_PORT for relay", "port", port, "error", err)
+			slog.Error("invalid RELAY_PORT", "port", relayPort, "error", err)
 			os.Exit(1)
 		}
 		cloudURL := os.Getenv("RELAY_CLOUD_URL")
