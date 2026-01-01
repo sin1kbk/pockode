@@ -1,5 +1,5 @@
 import { useNavigate, useSearch } from "@tanstack/react-router";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, MessageSquare } from "lucide-react";
 import { useMemo } from "react";
 import { useGitDiff } from "../../hooks/useGitDiff";
 import { useGitStatus } from "../../hooks/useGitStatus";
@@ -16,15 +16,11 @@ interface Props {
 
 function PathDisplay({ path, staged }: { path: string; staged: boolean }) {
 	const { fileName, directory } = splitPath(path);
+	const statusColor = staged ? "text-th-success" : "text-th-warning";
 	return (
 		<div className="min-w-0 flex-1">
-			<div className="flex items-center gap-2">
-				<span className="truncate text-sm font-medium text-th-text-primary">
-					{fileName}
-				</span>
-				<span className="shrink-0 text-xs text-th-text-muted">
-					({staged ? "Staged" : "Unstaged"})
-				</span>
+			<div className={`truncate text-sm font-medium ${statusColor}`}>
+				{fileName}
 			</div>
 			{directory && (
 				<div className="truncate text-xs text-th-text-muted">{directory}</div>
@@ -33,7 +29,6 @@ function PathDisplay({ path, staged }: { path: string; staged: boolean }) {
 	);
 }
 
-// DiffView replaces the message area, showing file path header and diff content
 function DiffView({ path, staged, onBack }: Props) {
 	const navigate = useNavigate();
 	const search = useSearch({ strict: false }) as DiffSearchParams;
@@ -67,7 +62,7 @@ function DiffView({ path, staged, onBack }: Props) {
 	};
 
 	const navButtonClass = (enabled: boolean) =>
-		`flex items-center justify-center rounded-md border border-th-border bg-th-bg-tertiary min-h-[44px] min-w-[44px] p-2.5 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-th-accent ${
+		`flex items-center justify-center rounded-md border border-th-border bg-th-bg-tertiary min-h-[44px] min-w-[44px] p-2 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-th-accent ${
 			enabled
 				? "text-th-text-secondary hover:border-th-border-focus hover:bg-th-bg-primary hover:text-th-text-primary active:scale-[0.97]"
 				: "cursor-not-allowed opacity-40"
@@ -75,18 +70,17 @@ function DiffView({ path, staged, onBack }: Props) {
 
 	return (
 		<div className="flex flex-1 flex-col overflow-hidden">
-			<div className="flex items-center gap-2 border-b border-th-border bg-th-bg-secondary px-3 py-2">
+			<div className="flex items-center gap-1.5 border-b border-th-border bg-th-bg-secondary px-2 py-2">
 				<button
 					type="button"
 					onClick={onBack}
-					className="flex min-h-[44px] items-center gap-1 rounded-md border border-th-border bg-th-bg-tertiary px-3 text-sm font-medium text-th-text-secondary transition-all hover:border-th-border-focus hover:bg-th-bg-primary hover:text-th-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-th-accent active:scale-[0.97]"
+					className={navButtonClass(true)}
 					aria-label="Back to chat"
 				>
-					<ChevronLeft className="h-5 w-5" aria-hidden="true" />
-					<span>Chat</span>
+					<MessageSquare className="h-5 w-5" aria-hidden="true" />
 				</button>
 
-				<div className="flex items-center gap-1">
+				<div className="flex items-center">
 					<button
 						type="button"
 						disabled={!prev}
