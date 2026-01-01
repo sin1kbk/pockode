@@ -27,6 +27,7 @@ interface WSState {
 let ws: WebSocket | null = null;
 let reconnectAttempts = 0;
 let reconnectTimeout: number | undefined;
+let authFailed = false;
 const messageListeners = new Set<MessageListener>();
 
 const MAX_RECONNECT_ATTEMPTS = 5;
@@ -50,18 +51,32 @@ export const useWSStore = create<WSState>((set, get) => ({
 			}
 
 			set({ status: "connecting" });
+			authFailed = false;
 
-			const url = `${getWebSocketUrl()}?token=${encodeURIComponent(token)}`;
+			const url = getWebSocketUrl();
 			const socket = new WebSocket(url);
 
 			socket.onopen = () => {
-				set({ status: "connected" });
-				reconnectAttempts = 0;
+				socket.send(JSON.stringify({ type: "auth", token }));
 			};
 
 			socket.onmessage = (event) => {
 				try {
 					const data = JSON.parse(event.data) as WSServerMessage;
+
+					if (data.type === "auth_response") {
+						if (data.success) {
+							set({ status: "connected" });
+							reconnectAttempts = 0;
+						} else {
+							console.error("WebSocket auth failed:", data.error);
+							authFailed = true;
+							set({ status: "error" });
+							socket.close();
+						}
+						return;
+					}
+
 					for (const listener of messageListeners) {
 						listener(data);
 					}
@@ -75,10 +90,14 @@ export const useWSStore = create<WSState>((set, get) => ({
 			};
 
 			socket.onclose = () => {
-				set({ status: "disconnected" });
 				ws = null;
 
-				// Auto reconnect
+				if (authFailed) {
+					return;
+				}
+
+				set({ status: "disconnected" });
+
 				if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
 					reconnectAttempts += 1;
 					reconnectTimeout = window.setTimeout(() => {
@@ -135,6 +154,7 @@ export function resetWSStore() {
 		reconnectTimeout = undefined;
 	}
 	reconnectAttempts = 0;
+	authFailed = false;
 	messageListeners.clear();
 	useWSStore.setState({ status: "disconnected" });
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -41,7 +40,7 @@ func newTestEnv(t *testing.T, mock *mockAgent) *testEnv {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 
-	wsURL := "ws" + strings.TrimPrefix(server.URL, "http") + "?token=test-token"
+	wsURL := "ws" + strings.TrimPrefix(server.URL, "http")
 	conn, _, err := websocket.Dial(ctx, wsURL, nil)
 	if err != nil {
 		cancel()
@@ -49,14 +48,7 @@ func newTestEnv(t *testing.T, mock *mockAgent) *testEnv {
 		t.Fatalf("failed to connect: %v", err)
 	}
 
-	t.Cleanup(func() {
-		conn.Close(websocket.StatusNormalClosure, "")
-		cancel()
-		server.Close()
-		manager.Shutdown()
-	})
-
-	return &testEnv{
+	env := &testEnv{
 		t:       t,
 		mock:    mock,
 		store:   store,
@@ -66,6 +58,24 @@ func newTestEnv(t *testing.T, mock *mockAgent) *testEnv {
 		ctx:     ctx,
 		cancel:  cancel,
 	}
+
+	env.send(ClientMessage{Type: "auth", Token: "test-token"})
+	resp := env.read()
+	if resp.Type != "auth_response" {
+		t.Fatalf("expected auth_response, got %s", resp.Type)
+	}
+	if !resp.Success {
+		t.Fatalf("auth failed: %s", resp.Error)
+	}
+
+	t.Cleanup(func() {
+		conn.Close(websocket.StatusNormalClosure, "")
+		cancel()
+		server.Close()
+		manager.Shutdown()
+	})
+
+	return env
 }
 
 func (e *testEnv) send(msg ClientMessage) {
@@ -112,39 +122,93 @@ func (e *testEnv) skipN(n int) {
 	}
 }
 
-func TestHandler_MissingToken(t *testing.T) {
+func TestHandler_Auth_InvalidToken(t *testing.T) {
 	store, _ := session.NewFileStore(t.TempDir())
 	manager := process.NewManager(&mockAgent{}, "/tmp", store, 10*time.Minute)
 	defer manager.Shutdown()
 
 	h := NewHandler("secret-token", manager, true, store)
+	server := httptest.NewServer(h)
+	defer server.Close()
 
-	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/ws", nil))
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
-	if rec.Code != http.StatusUnauthorized {
-		t.Errorf("expected status %d, got %d", http.StatusUnauthorized, rec.Code)
+	wsURL := "ws" + strings.TrimPrefix(server.URL, "http")
+	conn, _, err := websocket.Dial(ctx, wsURL, nil)
+	if err != nil {
+		t.Fatalf("failed to connect: %v", err)
 	}
-	if !strings.Contains(rec.Body.String(), "Missing token") {
-		t.Errorf("expected 'Missing token' in body, got %q", rec.Body.String())
+	defer conn.Close(websocket.StatusNormalClosure, "")
+
+	data, _ := json.Marshal(ClientMessage{Type: "auth", Token: "wrong-token"})
+	if err := conn.Write(ctx, websocket.MessageText, data); err != nil {
+		t.Fatalf("failed to send: %v", err)
+	}
+
+	_, respData, err := conn.Read(ctx)
+	if err != nil {
+		t.Fatalf("failed to read: %v", err)
+	}
+
+	var resp ServerMessage
+	if err := json.Unmarshal(respData, &resp); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	if resp.Type != "auth_response" {
+		t.Errorf("expected auth_response, got %s", resp.Type)
+	}
+	if resp.Success {
+		t.Error("expected auth to fail")
+	}
+	if !strings.Contains(resp.Error, "Invalid token") {
+		t.Errorf("expected 'Invalid token' error, got %q", resp.Error)
 	}
 }
 
-func TestHandler_InvalidToken(t *testing.T) {
+func TestHandler_Auth_FirstMessageMustBeAuth(t *testing.T) {
 	store, _ := session.NewFileStore(t.TempDir())
 	manager := process.NewManager(&mockAgent{}, "/tmp", store, 10*time.Minute)
 	defer manager.Shutdown()
 
-	h := NewHandler("secret-token", manager, true, store)
+	h := NewHandler("test-token", manager, true, store)
+	server := httptest.NewServer(h)
+	defer server.Close()
 
-	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/ws?token=wrong-token", nil))
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
-	if rec.Code != http.StatusUnauthorized {
-		t.Errorf("expected status %d, got %d", http.StatusUnauthorized, rec.Code)
+	wsURL := "ws" + strings.TrimPrefix(server.URL, "http")
+	conn, _, err := websocket.Dial(ctx, wsURL, nil)
+	if err != nil {
+		t.Fatalf("failed to connect: %v", err)
 	}
-	if !strings.Contains(rec.Body.String(), "Invalid token") {
-		t.Errorf("expected 'Invalid token' in body, got %q", rec.Body.String())
+	defer conn.Close(websocket.StatusNormalClosure, "")
+
+	data, _ := json.Marshal(ClientMessage{Type: "attach", SessionID: "sess"})
+	if err := conn.Write(ctx, websocket.MessageText, data); err != nil {
+		t.Fatalf("failed to send: %v", err)
+	}
+
+	_, respData, err := conn.Read(ctx)
+	if err != nil {
+		t.Fatalf("failed to read: %v", err)
+	}
+
+	var resp ServerMessage
+	if err := json.Unmarshal(respData, &resp); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	if resp.Type != "auth_response" {
+		t.Errorf("expected auth_response, got %s", resp.Type)
+	}
+	if resp.Success {
+		t.Error("expected auth to fail")
+	}
+	if !strings.Contains(resp.Error, "First message must be auth") {
+		t.Errorf("expected 'First message must be auth' error, got %q", resp.Error)
 	}
 }
 

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/coder/websocket"
 	"github.com/google/uuid"
@@ -32,17 +33,6 @@ func NewHandler(token string, manager *process.Manager, devMode bool, store sess
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	queryToken := r.URL.Query().Get("token")
-	if queryToken == "" {
-		http.Error(w, "Missing token", http.StatusUnauthorized)
-		return
-	}
-
-	if subtle.ConstantTimeCompare([]byte(queryToken), []byte(h.token)) != 1 {
-		http.Error(w, "Invalid token", http.StatusUnauthorized)
-		return
-	}
-
 	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
 		InsecureSkipVerify: h.devMode,
 	})
@@ -62,9 +52,15 @@ type connectionState struct {
 	subscribed map[string]struct{}
 }
 
+const authTimeout = 10 * time.Second
+
 func (h *Handler) handleConnection(ctx context.Context, conn *websocket.Conn) {
 	connLog := slog.With("connId", uuid.Must(uuid.NewV7()).String())
 	connLog.Info("new websocket connection")
+
+	if !h.waitForAuth(ctx, conn, connLog) {
+		return
+	}
 
 	state := &connectionState{
 		subscribed: make(map[string]struct{}),
@@ -132,6 +128,58 @@ func (h *Handler) handleConnection(ctx context.Context, conn *websocket.Conn) {
 			h.sendError(ctx, conn, "Unknown message type")
 		}
 	}
+}
+
+// waitForAuth waits for the first message to be an auth message with valid token.
+// Returns true if auth succeeded, false if connection should be closed.
+func (h *Handler) waitForAuth(ctx context.Context, conn *websocket.Conn, log *slog.Logger) bool {
+	authCtx, cancel := context.WithTimeout(ctx, authTimeout)
+	defer cancel()
+
+	_, data, err := conn.Read(authCtx)
+	if err != nil {
+		log.Debug("auth read error", "error", err)
+		return false
+	}
+
+	var msg ClientMessage
+	if err := json.Unmarshal(data, &msg); err != nil {
+		log.Error("failed to unmarshal auth message", "error", err)
+		h.sendAuthResponse(ctx, conn, false, "Invalid message format")
+		return false
+	}
+
+	if msg.Type != "auth" {
+		log.Warn("first message is not auth", "type", msg.Type)
+		h.sendAuthResponse(ctx, conn, false, "First message must be auth")
+		return false
+	}
+
+	if subtle.ConstantTimeCompare([]byte(msg.Token), []byte(h.token)) != 1 {
+		log.Warn("invalid auth token")
+		h.sendAuthResponse(ctx, conn, false, "Invalid token")
+		return false
+	}
+
+	if err := h.sendAuthResponse(ctx, conn, true, ""); err != nil {
+		log.Error("failed to send auth response", "error", err)
+		return false
+	}
+
+	log.Info("authenticated")
+	return true
+}
+
+func (h *Handler) sendAuthResponse(ctx context.Context, conn *websocket.Conn, success bool, errMsg string) error {
+	data, err := json.Marshal(ServerMessage{
+		Type:    "auth_response",
+		Success: success,
+		Error:   errMsg,
+	})
+	if err != nil {
+		return err
+	}
+	return conn.Write(ctx, websocket.MessageText, data)
 }
 
 // handleAttach subscribes this connection to a session's events.

@@ -146,6 +146,10 @@ export interface AskUserQuestionRequest {
 // WebSocket client message
 export type WSClientMessage =
 	| {
+			type: "auth";
+			token: string;
+	  }
+	| {
 			type: "attach";
 			session_id: string;
 	  }
@@ -216,4 +220,9 @@ export type WSServerMessage =
 	| (WSServerMessageBase & {
 			type: "attach_response";
 			process_running: boolean;
+	  })
+	| (WSServerMessageBase & {
+			type: "auth_response";
+			success: boolean;
+			error?: string;
 	  });

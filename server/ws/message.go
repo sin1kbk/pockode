@@ -8,7 +8,8 @@ import (
 
 // ClientMessage represents a message sent by the client.
 type ClientMessage struct {
-	Type      string            `json:"type"`                 // "attach", "message", "interrupt", "permission_response", or "question_response"
+	Type      string            `json:"type"`                 // "auth", "attach", "message", "interrupt", "permission_response", or "question_response"
+	Token     string            `json:"token,omitempty"`      // Auth token (for "auth" type)
 	Content   string            `json:"content"`              // User input (for "message" type)
 	SessionID string            `json:"session_id,omitempty"` // Session identifier
 	RequestID string            `json:"request_id,omitempty"` // Request ID (for permission_response and question_response)
@@ -35,4 +36,5 @@ type ServerMessage struct {
 	PermissionSuggestions []agent.PermissionUpdate `json:"permission_suggestions,omitempty"` // Permission suggestions (for permission_request)
 	Questions             []agent.AskUserQuestion  `json:"questions,omitempty"`              // Questions to ask (for ask_user_question)
 	ProcessRunning        bool                     `json:"process_running"`                  // Whether process is running (for attach_response)
+	Success               bool                     `json:"success,omitempty"`                // Auth result (for auth_response)
 }

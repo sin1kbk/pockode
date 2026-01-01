@@ -59,19 +59,16 @@ class MockWebSocket {
 	}
 }
 
-// Store original WebSocket
 const OriginalWebSocket = globalThis.WebSocket;
 
 beforeEach(() => {
 	vi.useFakeTimers();
 	mockWsInstances = [];
 	currentMockWs = null;
-	// Replace WebSocket with mock class
 	globalThis.WebSocket = MockWebSocket as unknown as typeof WebSocket;
 });
 
 afterEach(async () => {
-	// Reset wsStore state between tests
 	const { resetWSStore } = await import("./wsStore");
 	resetWSStore();
 
@@ -98,7 +95,7 @@ function getMockWs() {
 
 describe("wsStore", () => {
 	describe("connect", () => {
-		it("sets status to connecting then connected on open", async () => {
+		it("sets status to connecting then connected after auth", async () => {
 			const wsActions = await getWsActions();
 			const useWSStore = await getUseWSStore();
 			const statusChanges: string[] = [];
@@ -111,7 +108,38 @@ describe("wsStore", () => {
 			expect(statusChanges).toContain("connecting");
 
 			getMockWs()?.simulateOpen();
+			// After open, should still be connecting (waiting for auth_response)
+			expect(useWSStore.getState().status).toBe("connecting");
+
+			// Simulate auth_response
+			getMockWs()?.simulateMessage({ type: "auth_response", success: true });
 			expect(useWSStore.getState().status).toBe("connected");
+		});
+
+		it("sends auth message on open", async () => {
+			const wsActions = await getWsActions();
+
+			wsActions.connect();
+			getMockWs()?.simulateOpen();
+
+			expect(getMockWs()?.send).toHaveBeenCalledWith(
+				JSON.stringify({ type: "auth", token: "test-token" }),
+			);
+		});
+
+		it("sets status to error on auth failure", async () => {
+			const wsActions = await getWsActions();
+			const useWSStore = await getUseWSStore();
+
+			wsActions.connect();
+			getMockWs()?.simulateOpen();
+			getMockWs()?.simulateMessage({
+				type: "auth_response",
+				success: false,
+				error: "Invalid token",
+			});
+
+			expect(useWSStore.getState().status).toBe("error");
 		});
 
 		it("sets status to error when no token", async () => {
@@ -143,11 +171,13 @@ describe("wsStore", () => {
 			// First connection closes
 			wsActions.connect();
 			getMockWs()?.simulateOpen();
+			getMockWs()?.simulateMessage({ type: "auth_response", success: true });
 			getMockWs()?.simulateClose();
 
 			// Auto-reconnect triggers
 			vi.advanceTimersByTime(3000);
 			getMockWs()?.simulateOpen();
+			getMockWs()?.simulateMessage({ type: "auth_response", success: true });
 
 			// Should have reset attempts - can reconnect again if needed
 			getMockWs()?.simulateClose();
@@ -163,6 +193,7 @@ describe("wsStore", () => {
 
 			wsActions.connect();
 			getMockWs()?.simulateOpen();
+			getMockWs()?.simulateMessage({ type: "auth_response", success: true });
 			const ws = getMockWs();
 
 			wsActions.disconnect();
@@ -176,6 +207,7 @@ describe("wsStore", () => {
 
 			wsActions.connect();
 			getMockWs()?.simulateOpen();
+			getMockWs()?.simulateMessage({ type: "auth_response", success: true });
 			getMockWs()?.simulateClose();
 
 			// Reconnect scheduled but not yet executed
@@ -193,6 +225,7 @@ describe("wsStore", () => {
 
 			wsActions.connect();
 			getMockWs()?.simulateOpen();
+			getMockWs()?.simulateMessage({ type: "auth_response", success: true });
 
 			const result = wsActions.send({
 				type: "message",
@@ -250,6 +283,7 @@ describe("wsStore", () => {
 
 			wsActions.connect();
 			getMockWs()?.simulateOpen();
+			getMockWs()?.simulateMessage({ type: "auth_response", success: true });
 			getMockWs()?.simulateMessage({ type: "text", content: "hello" });
 
 			expect(listener).toHaveBeenCalledWith({ type: "text", content: "hello" });
@@ -262,6 +296,7 @@ describe("wsStore", () => {
 
 			wsActions.connect();
 			getMockWs()?.simulateOpen();
+			getMockWs()?.simulateMessage({ type: "auth_response", success: true });
 
 			// Send raw invalid JSON
 			getMockWs()?.onmessage?.({ data: "not json" });
@@ -284,6 +319,7 @@ describe("wsStore", () => {
 			unsubscribe();
 
 			getMockWs()?.simulateOpen();
+			getMockWs()?.simulateMessage({ type: "auth_response", success: true });
 			expect(listener).not.toHaveBeenCalled();
 		});
 
@@ -309,6 +345,7 @@ describe("wsStore", () => {
 
 			wsActions.connect();
 			getMockWs()?.simulateOpen();
+			getMockWs()?.simulateMessage({ type: "auth_response", success: true });
 
 			// Trigger 5 reconnects
 			for (let i = 0; i < 5; i++) {
