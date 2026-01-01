@@ -79,7 +79,6 @@ function DiffContent({ diff, fileName }: Props) {
 				diffViewMode={DiffModeEnum.Unified}
 				diffViewTheme={isDark ? "dark" : "light"}
 				diffViewHighlight
-				diffViewWrap
 			/>
 		</div>
 	);
