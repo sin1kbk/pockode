@@ -239,6 +239,20 @@ func TestFileStore_History(t *testing.T) {
 	}
 }
 
+func TestFileStore_AppendToHistory_UpdatesUpdatedAt(t *testing.T) {
+	store, _ := NewFileStore(t.TempDir())
+
+	sess, _ := store.Create(ctx, "test-session")
+	initialUpdatedAt := sess.UpdatedAt
+
+	store.AppendToHistory(ctx, sess.ID, map[string]string{"type": "message"})
+
+	sessions, _ := store.List()
+	if !sessions[0].UpdatedAt.After(initialUpdatedAt) {
+		t.Error("expected UpdatedAt to be updated after AppendToHistory")
+	}
+}
+
 func TestFileStore_Delete_RemovesHistory(t *testing.T) {
 	store, _ := NewFileStore(t.TempDir())
 

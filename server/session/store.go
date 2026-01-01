@@ -267,6 +267,17 @@ func (s *FileStore) AppendToHistory(ctx context.Context, sessionID string, recor
 	}
 
 	data = append(data, '\n')
-	_, err = file.Write(data)
-	return err
+	if _, err = file.Write(data); err != nil {
+		return err
+	}
+
+	now := time.Now()
+	for i, sess := range s.sessions {
+		if sess.ID == sessionID {
+			s.sessions[i].UpdatedAt = now
+			return s.persistIndex()
+		}
+	}
+
+	return nil
 }
