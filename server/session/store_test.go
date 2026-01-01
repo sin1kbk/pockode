@@ -202,9 +202,9 @@ func TestFileStore_Persistence(t *testing.T) {
 func TestFileStore_History(t *testing.T) {
 	store, _ := NewFileStore(t.TempDir())
 
-	sessionID := "test-session"
+	sess, _ := store.Create(ctx, "test-session")
 
-	history, err := store.GetHistory(ctx, sessionID)
+	history, err := store.GetHistory(ctx, sess.ID)
 	if err != nil {
 		t.Fatalf("GetHistory failed: %v", err)
 	}
@@ -215,14 +215,14 @@ func TestFileStore_History(t *testing.T) {
 	record1 := map[string]string{"type": "message", "content": "hello"}
 	record2 := map[string]string{"type": "text", "content": "world"}
 
-	if err := store.AppendToHistory(ctx, sessionID, record1); err != nil {
+	if err := store.AppendToHistory(ctx, sess.ID, record1); err != nil {
 		t.Fatalf("AppendToHistory failed: %v", err)
 	}
-	if err := store.AppendToHistory(ctx, sessionID, record2); err != nil {
+	if err := store.AppendToHistory(ctx, sess.ID, record2); err != nil {
 		t.Fatalf("AppendToHistory failed: %v", err)
 	}
 
-	history, err = store.GetHistory(ctx, sessionID)
+	history, err = store.GetHistory(ctx, sess.ID)
 	if err != nil {
 		t.Fatalf("GetHistory failed: %v", err)
 	}
@@ -250,6 +250,15 @@ func TestFileStore_AppendToHistory_UpdatesUpdatedAt(t *testing.T) {
 	sessions, _ := store.List()
 	if !sessions[0].UpdatedAt.After(initialUpdatedAt) {
 		t.Error("expected UpdatedAt to be updated after AppendToHistory")
+	}
+}
+
+func TestFileStore_AppendToHistory_NonExistent(t *testing.T) {
+	store, _ := NewFileStore(t.TempDir())
+
+	err := store.AppendToHistory(ctx, "non-existent", map[string]string{"type": "message"})
+	if err != ErrSessionNotFound {
+		t.Errorf("expected ErrSessionNotFound, got %v", err)
 	}
 }
 

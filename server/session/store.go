@@ -249,6 +249,17 @@ func (s *FileStore) AppendToHistory(ctx context.Context, sessionID string, recor
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	idx := -1
+	for i, sess := range s.sessions {
+		if sess.ID == sessionID {
+			idx = i
+			break
+		}
+	}
+	if idx < 0 {
+		return ErrSessionNotFound
+	}
+
 	path := s.historyPath(sessionID)
 
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
@@ -271,13 +282,6 @@ func (s *FileStore) AppendToHistory(ctx context.Context, sessionID string, recor
 		return err
 	}
 
-	now := time.Now()
-	for i, sess := range s.sessions {
-		if sess.ID == sessionID {
-			s.sessions[i].UpdatedAt = now
-			return s.persistIndex()
-		}
-	}
-
-	return nil
+	s.sessions[idx].UpdatedAt = time.Now()
+	return s.persistIndex()
 }
