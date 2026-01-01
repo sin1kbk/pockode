@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
 	applyServerEvent,
 	normalizeEvent,
@@ -45,6 +45,7 @@ export function useChatMessages({
 	const [messages, setMessages] = useState<Message[]>([]);
 	const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 	const [isProcessRunning, setIsProcessRunning] = useState(false);
+	const hasConnectedOnceRef = useRef(false);
 
 	const handleServerMessage = useCallback(
 		(serverMsg: WSServerMessage) => {
@@ -76,16 +77,10 @@ export function useChatMessages({
 		onMessage: handleServerMessage,
 	});
 
-	// Attach to session when connected (enables receiving events without sending a message)
-	useEffect(() => {
-		if (status === "connected") {
-			send({ type: "attach", session_id: sessionId });
-		}
-	}, [status, sessionId, send]);
-
 	useEffect(() => {
 		setMessages([]);
 		setIsProcessRunning(false);
+		hasConnectedOnceRef.current = false;
 
 		async function loadHistory() {
 			setIsLoadingHistory(true);
@@ -102,6 +97,21 @@ export function useChatMessages({
 
 		loadHistory();
 	}, [sessionId]);
+
+	// Attach to session when connected (enables receiving events without sending a message)
+	useEffect(() => {
+		if (status === "connected") {
+			send({ type: "attach", session_id: sessionId });
+
+			// On reconnect, reload history to sync messages missed during disconnect
+			if (hasConnectedOnceRef.current) {
+				getHistory(sessionId)
+					.then((history) => setMessages(replayHistory(history)))
+					.catch((err) => console.error("History sync failed:", err));
+			}
+			hasConnectedOnceRef.current = true;
+		}
+	}, [status, sessionId, send]);
 
 	const sendUserMessage = useCallback(
 		(content: string): boolean => {
