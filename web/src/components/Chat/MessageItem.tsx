@@ -157,6 +157,14 @@ function formatInput(input: unknown): string {
 	}
 }
 
+/** Check if input is empty (null, undefined, or empty object) */
+function isEmptyInput(input: unknown): boolean {
+	if (input == null) return true;
+	if (typeof input === "object" && Object.keys(input as object).length === 0)
+		return true;
+	return false;
+}
+
 /** Format permission rule for display */
 function formatPermissionRule(rule: PermissionRuleValue): string {
 	if (rule.ruleContent) {
@@ -192,12 +200,26 @@ function PermissionRequestItem({
 	onRespond,
 }: PermissionRequestItemProps) {
 	const isPending = status === "pending";
-	const [expanded, setExpanded] = useState(isPending);
 	const summary = getInputSummary(request.toolName, request.toolInput);
 	const isExitPlanMode = request.toolName === "ExitPlanMode";
 	const planContent = isExitPlanMode
 		? extractPlanContent(request.toolInput)
 		: null;
+	const toolInputContent =
+		!planContent && !isEmptyInput(request.toolInput)
+			? formatInput(request.toolInput)
+			: null;
+	const permissionSuggestion =
+		isPending &&
+		request.permissionSuggestions &&
+		request.permissionSuggestions.length > 0 &&
+		hasRules(request.permissionSuggestions[0])
+			? request.permissionSuggestions[0]
+			: null;
+	const hasExpandableContent = Boolean(
+		planContent || toolInputContent || permissionSuggestion,
+	);
+	const [expanded, setExpanded] = useState(isPending && hasExpandableContent);
 
 	const statusConfig = {
 		pending: { icon: "?", color: "text-th-warning" },
@@ -213,13 +235,13 @@ function PermissionRequestItem({
 		>
 			<button
 				type="button"
-				onClick={() => setExpanded(!expanded)}
-				className="flex w-full items-center gap-1.5 rounded p-2 text-left hover:bg-th-overlay-hover"
+				onClick={() => hasExpandableContent && setExpanded(!expanded)}
+				className={`flex w-full items-center gap-1.5 rounded p-2 text-left ${hasExpandableContent ? "hover:bg-th-overlay-hover" : ""}`}
 			>
 				<span
 					className={`w-2.5 shrink-0 text-th-text-muted transition-transform ${expanded ? "rotate-90" : ""}`}
 				>
-					▶
+					{hasExpandableContent && "▶"}
 				</span>
 				<span className={`shrink-0 ${color}`}>{icon}</span>
 				<span className="shrink-0 text-th-accent">{request.toolName}</span>
@@ -230,37 +252,30 @@ function PermissionRequestItem({
 
 			{expanded && (
 				<ScrollableContent className="max-h-64 overflow-auto border-t border-th-border p-2">
-					{planContent ? (
-						<MarkdownContent content={planContent} />
-					) : (
+					{planContent && <MarkdownContent content={planContent} />}
+					{toolInputContent && (
 						<pre className="overflow-x-auto rounded bg-th-code-bg p-2 text-th-code-text">
-							{formatInput(request.toolInput)}
+							{toolInputContent}
 						</pre>
 					)}
-					{isPending &&
-						request.permissionSuggestions &&
-						request.permissionSuggestions.length > 0 &&
-						hasRules(request.permissionSuggestions[0]) && (
-							<div className="mt-2 rounded bg-th-bg-primary/50 p-2">
-								<p className="mb-1 text-th-text-muted">
-									"Always Allow" will add to{" "}
-									{getDestinationLabel(
-										request.permissionSuggestions[0].destination,
-									)}
-									:
-								</p>
-								<div className="flex flex-wrap gap-1">
-									{request.permissionSuggestions[0].rules.map((rule, idx) => (
-										<code
-											key={`${rule.toolName}-${idx}`}
-											className="rounded bg-th-success/20 px-1 py-0.5 text-th-success"
-										>
-											{formatPermissionRule(rule)}
-										</code>
-									))}
-								</div>
+					{permissionSuggestion && (
+						<div className="mt-2 rounded bg-th-bg-primary/50 p-2">
+							<p className="mb-1 text-th-text-muted">
+								"Always Allow" will add to{" "}
+								{getDestinationLabel(permissionSuggestion.destination)}:
+							</p>
+							<div className="flex flex-wrap gap-1">
+								{permissionSuggestion.rules.map((rule, idx) => (
+									<code
+										key={`${rule.toolName}-${idx}`}
+										className="rounded bg-th-success/20 px-1 py-0.5 text-th-success"
+									>
+										{formatPermissionRule(rule)}
+									</code>
+								))}
 							</div>
-						)}
+						</div>
+					)}
 				</ScrollableContent>
 			)}
 
