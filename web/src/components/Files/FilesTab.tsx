@@ -1,3 +1,5 @@
+import { useQueryClient } from "@tanstack/react-query";
+import { useCallback } from "react";
 import { useSidebarRefresh } from "../Layout";
 import FileTree from "./FileTree";
 
@@ -7,16 +9,18 @@ interface Props {
 }
 
 function FilesTab({ onSelectFile, activeFilePath }: Props) {
-	const { isActive, refreshSignal } = useSidebarRefresh("files");
+	const queryClient = useQueryClient();
+
+	const handleRefresh = useCallback(() => {
+		queryClient.invalidateQueries({ queryKey: ["contents"] });
+	}, [queryClient]);
+
+	const { isActive } = useSidebarRefresh("files", handleRefresh);
 
 	if (!isActive) return null;
 
 	return (
-		<FileTree
-			onSelectFile={onSelectFile}
-			activeFilePath={activeFilePath}
-			refreshSignal={refreshSignal}
-		/>
+		<FileTree onSelectFile={onSelectFile} activeFilePath={activeFilePath} />
 	);
 }
 

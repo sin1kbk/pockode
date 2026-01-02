@@ -9,24 +9,17 @@ interface Props {
 	depth: number;
 	onSelectFile: (path: string) => void;
 	activeFilePath: string | null;
-	refreshSignal: number;
 }
 
-function FileTreeNode({
-	entry,
-	depth,
-	onSelectFile,
-	activeFilePath,
-	refreshSignal,
-}: Props) {
+function FileTreeNode({ entry, depth, onSelectFile, activeFilePath }: Props) {
 	const [isExpanded, setIsExpanded] = useState(false);
 	const isDirectory = entry.type === "dir";
 	const isActive = entry.path === activeFilePath;
 
-	const { data, isLoading, error } = useContents(entry.path, {
-		enabled: isDirectory && isExpanded,
-		refreshSignal: isExpanded ? refreshSignal : undefined,
-	});
+	const { data, isLoading, error } = useContents(
+		entry.path,
+		isDirectory && isExpanded,
+	);
 
 	const handleClick = () => {
 		if (isDirectory) {
@@ -98,7 +91,6 @@ function FileTreeNode({
 								depth={depth + 1}
 								onSelectFile={onSelectFile}
 								activeFilePath={activeFilePath}
-								refreshSignal={refreshSignal}
 							/>
 						))
 					) : null}

@@ -24,5 +24,5 @@ export function useSidebarRefresh(tabId: string, onRefresh?: () => void) {
 		prevSignalRef.current = refreshSignal;
 	}, [refreshSignal, isActive]);
 
-	return { isActive, refreshSignal };
+	return { isActive };
 }
