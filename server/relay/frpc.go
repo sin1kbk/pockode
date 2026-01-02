@@ -49,7 +49,7 @@ type = "http"
 localIP = "localhost"
 localPort = %d
 customDomains = ["%s"]
-`, cfg.FrpServer, cfg.FrpPort, cfg.FrpToken, localPort, customDomain)
+`, customDomain, cfg.FrpPort, cfg.FrpToken, localPort, customDomain)
 
 	if err := os.MkdirAll(filepath.Dir(f.configPath), 0755); err != nil {
 		return err

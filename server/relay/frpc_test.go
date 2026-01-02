@@ -44,7 +44,7 @@ func TestFrpcRunner_GenerateConfig(t *testing.T) {
 			},
 			localPort: 8080,
 			wantParts: []string{
-				`serverAddr = "cloud.pockode.com"`,
+				`serverAddr = "abc123def456ghi789jkl0123.cloud.pockode.com"`,
 				`serverPort = 7000`,
 				`auth.token = "secret_token"`,
 				`type = "http"`,
@@ -63,8 +63,11 @@ func TestFrpcRunner_GenerateConfig(t *testing.T) {
 			},
 			localPort: 8080,
 			wantParts: []string{
-				`serverAddr = "local.pockode.com"`,
+				`serverAddr = "dev123.local.pockode.com"`,
 				`serverPort = 7000`,
+				`auth.token = "dev_token"`,
+				`type = "http"`,
+				`localPort = 8080`,
 				`customDomains = ["dev123.local.pockode.com"]`,
 			},
 		},
