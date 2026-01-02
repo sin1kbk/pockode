@@ -13,6 +13,7 @@ import type {
 import { ScrollableContent, Spinner } from "../ui";
 import AskUserQuestionItem from "./AskUserQuestionItem";
 import { MarkdownContent } from "./MarkdownContent";
+import ToolResultDisplay from "./ToolResultDisplay";
 
 interface ToolCallItemProps {
 	tool: ToolCall;
@@ -78,9 +79,13 @@ function ToolCallItem({ tool }: ToolCallItemProps) {
 				)}
 			</button>
 			{expanded && tool.result && (
-				<pre className="max-h-48 overflow-auto border-t border-th-border p-2 text-th-text-muted">
-					{tool.result}
-				</pre>
+				<div className="max-h-48 overflow-auto border-t border-th-border p-2">
+					<ToolResultDisplay
+						toolName={tool.name}
+						toolInput={tool.input}
+						result={tool.result}
+					/>
+				</div>
 			)}
 		</div>
 	);
