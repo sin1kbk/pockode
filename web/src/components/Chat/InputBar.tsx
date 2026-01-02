@@ -84,6 +84,7 @@ function InputBar({
 			if (e.nativeEvent.isComposing) return;
 
 			if (e.key === "Enter" && !e.shiftKey) {
+				if (isMobile()) return;
 				e.preventDefault();
 				handleSend();
 				return;
