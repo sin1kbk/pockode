@@ -190,29 +190,6 @@ describe("messageReducer", () => {
 			]);
 		});
 
-		it("updates tool_call with result", () => {
-			const parts = applyEventToParts(
-				[
-					{
-						type: "tool_call",
-						tool: { id: "tool-1", name: "Bash", input: { command: "ls" } },
-					},
-				],
-				{ type: "tool_result", toolUseId: "tool-1", toolResult: "file.txt" },
-			);
-			expect(parts).toEqual([
-				{
-					type: "tool_call",
-					tool: {
-						id: "tool-1",
-						name: "Bash",
-						input: { command: "ls" },
-						result: "file.txt",
-					},
-				},
-			]);
-		});
-
 		it("adds permission_request as pending", () => {
 			const parts = applyEventToParts([], {
 				type: "permission_request",
@@ -566,6 +543,49 @@ describe("messageReducer", () => {
 		it("ignores terminal events when no assistant message exists", () => {
 			const messages = applyServerEvent([], { type: "interrupted" });
 			expect(messages).toHaveLength(0);
+		});
+
+		it("updates tool_result in interrupted message", () => {
+			const interrupted: AssistantMessage = {
+				id: "msg-1",
+				role: "assistant",
+				parts: [
+					{
+						type: "tool_call",
+						tool: { id: "tool-1", name: "Bash", input: { command: "ls" } },
+					},
+				],
+				status: "interrupted",
+				createdAt: new Date(),
+			};
+			const messages = applyServerEvent([interrupted], {
+				type: "tool_result",
+				toolUseId: "tool-1",
+				toolResult: "file.txt",
+			});
+			expect(messages).toHaveLength(1);
+			const updated = messages[0] as AssistantMessage;
+			expect(updated.parts[0]).toMatchObject({
+				type: "tool_call",
+				tool: { id: "tool-1", result: "file.txt" },
+			});
+		});
+
+		it("ignores orphan tool_result with no matching tool_call", () => {
+			const completed: AssistantMessage = {
+				id: "msg-1",
+				role: "assistant",
+				parts: [{ type: "text", content: "Hello" }],
+				status: "complete",
+				createdAt: new Date(),
+			};
+			const messages = applyServerEvent([completed], {
+				type: "tool_result",
+				toolUseId: "nonexistent",
+				toolResult: "result",
+			});
+			expect(messages).toHaveLength(1);
+			expect(messages[0]).toBe(completed);
 		});
 	});
 

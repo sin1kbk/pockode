@@ -149,12 +149,6 @@ export function applyEventToParts(
 					},
 				},
 			];
-		case "tool_result":
-			return parts.map((part) =>
-				part.type === "tool_call" && part.tool.id === event.toolUseId
-					? { ...part, tool: { ...part.tool, result: event.toolResult } }
-					: part,
-			);
 		case "permission_request":
 			return [
 				...parts,
@@ -223,6 +217,11 @@ export function applyServerEvent(
 			newStatus,
 			event.answers,
 		);
+	}
+
+	// Tool result updates existing tool_call across all messages (may arrive after interrupt)
+	if (event.type === "tool_result") {
+		return updateToolResult(messages, event.toolUseId, event.toolResult);
 	}
 
 	// Find current assistant (sending or streaming) - use last one to avoid appending to stale messages
@@ -332,6 +331,33 @@ function updateQuestionStatus(
 		if (!changed) return msg;
 		return { ...msg, parts: updatedParts };
 	});
+}
+
+function updateToolResult(
+	messages: Message[],
+	toolUseId: string,
+	toolResult: string,
+): Message[] {
+	let found = false;
+	const updated = messages.map((msg) => {
+		if (msg.role !== "assistant") return msg;
+
+		let changed = false;
+		const updatedParts = msg.parts.map((part) => {
+			if (part.type === "tool_call" && part.tool.id === toolUseId) {
+				changed = true;
+				found = true;
+				return { ...part, tool: { ...part.tool, result: toolResult } };
+			}
+			return part;
+		});
+
+		if (!changed) return msg;
+		return { ...msg, parts: updatedParts };
+	});
+
+	// If no matching tool_call found, ignore the orphan result
+	return found ? updated : messages;
 }
 
 // Finalizes any streaming assistant before adding new user message
