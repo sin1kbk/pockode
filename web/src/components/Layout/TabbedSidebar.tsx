@@ -23,8 +23,8 @@ interface Props {
  * Generic tabbed sidebar container that manages refresh timing.
  *
  * Refresh signals are triggered when:
- * - Sidebar opens (for current active tab)
- * - Tab is switched (for newly active tab)
+ * - Sidebar opens
+ * - Tab is clicked (including the active tab)
  *
  * Tab content should use useSidebarRefresh() to subscribe to refresh signals.
  */
@@ -48,9 +48,10 @@ function TabbedSidebar({
 		prevOpenRef.current = isOpen;
 	}, [isOpen]);
 
-	const handleTabChange = (tabId: string) => {
-		if (tabId === activeTab) return;
-		setActiveTab(tabId);
+	const handleTabClick = (tabId: string) => {
+		if (tabId !== activeTab) {
+			setActiveTab(tabId);
+		}
 		setRefreshSignal((s) => s + 1);
 	};
 
@@ -75,7 +76,7 @@ function TabbedSidebar({
 							<button
 								key={tab.id}
 								type="button"
-								onClick={() => handleTabChange(tab.id)}
+								onClick={() => handleTabClick(tab.id)}
 								className={`flex flex-1 items-center justify-center gap-1.5 px-4 py-3 text-sm font-medium transition-colors ${
 									activeTab === tab.id
 										? "border-b-2 border-th-accent text-th-accent"
