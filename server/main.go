@@ -140,7 +140,7 @@ func main() {
 
 	devMode := *devModeFlag || os.Getenv("DEV_MODE") == "true"
 
-	dataDir := ".pockode"
+	dataDir := filepath.Join(workDir, ".pockode")
 	if envDataDir := os.Getenv("DATA_DIR"); envDataDir != "" {
 		dataDir = envDataDir
 	}
