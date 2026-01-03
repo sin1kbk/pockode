@@ -37,7 +37,12 @@ function SessionSidebar({
 
 	const tabs: TabConfig[] = useMemo(
 		() => [
-			{ id: "sessions", label: "Sessions", icon: MessageSquare, showBadge: hasAnyUnread },
+			{
+				id: "sessions",
+				label: "Sessions",
+				icon: MessageSquare,
+				showBadge: hasAnyUnread,
+			},
 			{ id: "files", label: "Files", icon: FolderOpen },
 			{ id: "diff", label: "Diff", icon: GitCompare },
 		],

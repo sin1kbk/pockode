@@ -633,8 +633,10 @@ body {
 }
 
 /* Mobile: Let line numbers scroll with content instead of staying fixed */
+/* biome-ignore lint/correctness/noUnknownFunction: Tailwind CSS v4 theme() function */
 @media (width < theme(--breakpoint-sm)) {
 	.diff-tailwindcss-wrapper .sticky {
+		/* biome-ignore lint/complexity/noImportantStyles: Override library's inline sticky positioning */
 		position: static !important;
 	}
 }
