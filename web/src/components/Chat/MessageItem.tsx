@@ -79,7 +79,7 @@ function ToolCallItem({ tool }: ToolCallItemProps) {
 				)}
 			</button>
 			{expanded && tool.result && (
-				<div className="max-h-[70vh] overflow-auto border-t border-th-border p-2">
+				<div className="max-h-[60vh] overflow-auto border-t border-th-border p-2">
 					<ToolResultDisplay
 						toolName={tool.name}
 						toolInput={tool.input}
@@ -124,7 +124,7 @@ function SystemItem({ content }: SystemItemProps) {
 				<span className="italic text-th-text-muted">{label}</span>
 			</button>
 			{expanded && (
-				<pre className="max-h-[70vh] overflow-auto border-t border-th-border p-2 text-th-text-muted">
+				<pre className="max-h-[60vh] overflow-auto border-t border-th-border p-2 text-th-text-muted">
 					{content}
 				</pre>
 			)}
@@ -256,7 +256,7 @@ function PermissionRequestItem({
 			</button>
 
 			{expanded && (
-				<ScrollableContent className="max-h-[70vh] overflow-auto border-t border-th-border p-2">
+				<ScrollableContent className="max-h-[60vh] overflow-auto border-t border-th-border p-2">
 					{planContent && <MarkdownContent content={planContent} />}
 					{toolInputContent && (
 						<pre className="overflow-x-auto rounded bg-th-code-bg p-2 text-th-code-text">
