@@ -1,6 +1,6 @@
 import { useGitStatus } from "../../hooks/useGitStatus";
 import { useSidebarRefresh } from "../Layout";
-import { Spinner } from "../ui";
+import { PullToRefresh, Spinner } from "../ui";
 import DiffFileList from "./DiffFileList";
 
 interface Props {
@@ -16,40 +16,42 @@ function DiffTab({ onSelectFile, activeFile }: Props) {
 		<div
 			className={isActive ? "flex flex-1 flex-col overflow-hidden" : "hidden"}
 		>
-			{isLoading ? (
-				<div className="flex items-center justify-center p-8">
-					<Spinner className="text-th-text-muted" />
-				</div>
-			) : error ? (
-				<div className="p-4 text-center text-th-error">
-					<div className="font-medium">Failed to load git status</div>
-					<div className="mt-1 text-sm text-th-text-muted">
-						{error instanceof Error ? error.message : String(error)}
+			<PullToRefresh onRefresh={refresh}>
+				{isLoading ? (
+					<div className="flex items-center justify-center p-8">
+						<Spinner className="text-th-text-muted" />
 					</div>
-				</div>
-			) : !status ||
-				(status.staged.length === 0 && status.unstaged.length === 0) ? (
-				<div className="p-4 text-center text-th-text-muted">
-					No changes to display
-				</div>
-			) : (
-				<div className="flex flex-1 flex-col gap-4 overflow-y-auto py-2">
-					<DiffFileList
-						title="Staged"
-						files={status.staged}
-						staged={true}
-						onSelectFile={onSelectFile}
-						activeFile={activeFile}
-					/>
-					<DiffFileList
-						title="Unstaged"
-						files={status.unstaged}
-						staged={false}
-						onSelectFile={onSelectFile}
-						activeFile={activeFile}
-					/>
-				</div>
-			)}
+				) : error ? (
+					<div className="p-4 text-center text-th-error">
+						<div className="font-medium">Failed to load git status</div>
+						<div className="mt-1 text-sm text-th-text-muted">
+							{error instanceof Error ? error.message : String(error)}
+						</div>
+					</div>
+				) : !status ||
+					(status.staged.length === 0 && status.unstaged.length === 0) ? (
+					<div className="p-4 text-center text-th-text-muted">
+						No changes to display
+					</div>
+				) : (
+					<div className="flex flex-1 flex-col gap-4 py-2">
+						<DiffFileList
+							title="Staged"
+							files={status.staged}
+							staged={true}
+							onSelectFile={onSelectFile}
+							activeFile={activeFile}
+						/>
+						<DiffFileList
+							title="Unstaged"
+							files={status.unstaged}
+							staged={false}
+							onSelectFile={onSelectFile}
+							activeFile={activeFile}
+						/>
+					</div>
+				)}
+			</PullToRefresh>
 		</div>
 	);
 }

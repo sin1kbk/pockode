@@ -1,6 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSidebarRefresh } from "../Layout";
+import { PullToRefresh } from "../ui";
 import FileTree from "./FileTree";
 
 interface Props {
@@ -31,11 +32,13 @@ function FilesTab({ onSelectFile, activeFilePath }: Props) {
 		<div
 			className={isActive ? "flex flex-1 flex-col overflow-hidden" : "hidden"}
 		>
-			<FileTree
-				onSelectFile={onSelectFile}
-				activeFilePath={activeFilePath}
-				expandSignal={expandSignal}
-			/>
+			<PullToRefresh onRefresh={handleRefresh}>
+				<FileTree
+					onSelectFile={onSelectFile}
+					activeFilePath={activeFilePath}
+					expandSignal={expandSignal}
+				/>
+			</PullToRefresh>
 		</div>
 	);
 }

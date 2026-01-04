@@ -1,5 +1,6 @@
 import { useSession } from "../../hooks/useSession";
 import { useSidebarRefresh } from "../Layout";
+import { PullToRefresh } from "../ui";
 import SessionSidebarContent from "./SessionSidebarContent";
 
 interface Props {
@@ -22,14 +23,16 @@ function SessionsTab({
 		<div
 			className={isActive ? "flex flex-1 flex-col overflow-hidden" : "hidden"}
 		>
-			<SessionSidebarContent
-				sessions={sessions}
-				currentSessionId={currentSessionId}
-				onSelectSession={onSelectSession}
-				onCreateSession={onCreateSession}
-				onDeleteSession={onDeleteSession}
-				isLoading={isLoading}
-			/>
+			<PullToRefresh onRefresh={refresh}>
+				<SessionSidebarContent
+					sessions={sessions}
+					currentSessionId={currentSessionId}
+					onSelectSession={onSelectSession}
+					onCreateSession={onCreateSession}
+					onDeleteSession={onDeleteSession}
+					isLoading={isLoading}
+				/>
+			</PullToRefresh>
 		</div>
 	);
 }
