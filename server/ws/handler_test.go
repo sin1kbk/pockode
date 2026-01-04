@@ -59,10 +59,10 @@ func newTestEnv(t *testing.T, mock *mockAgent) *testEnv {
 		cancel:  cancel,
 	}
 
-	env.send(ClientMessage{Type: "auth", Token: "test-token"})
+	env.send(ClientMessage{Type: ClientMessageAuth, Token: "test-token"})
 	resp := env.read()
-	if resp.Type != "auth_response" {
-		t.Fatalf("expected auth_response, got %s", resp.Type)
+	if resp.Type != ServerMessageAuthResponse {
+		t.Fatalf("expected %s, got %s", ServerMessageAuthResponse, resp.Type)
 	}
 	if !resp.Success {
 		t.Fatalf("auth failed: %s", resp.Error)
@@ -86,12 +86,12 @@ func (e *testEnv) send(msg ClientMessage) {
 }
 
 func (e *testEnv) attach(sessionID string) {
-	e.send(ClientMessage{Type: "attach", SessionID: sessionID})
+	e.send(ClientMessage{Type: ClientMessageAttach, SessionID: sessionID})
 	e.read() // consume attach_response
 }
 
 func (e *testEnv) sendMessage(sessionID, content string) {
-	e.send(ClientMessage{Type: "message", SessionID: sessionID, Content: content})
+	e.send(ClientMessage{Type: ClientMessageMessage, SessionID: sessionID, Content: content})
 }
 
 func (e *testEnv) read() agent.ServerMessage {
@@ -141,7 +141,7 @@ func TestHandler_Auth_InvalidToken(t *testing.T) {
 	}
 	defer conn.Close(websocket.StatusNormalClosure, "")
 
-	data, _ := json.Marshal(ClientMessage{Type: "auth", Token: "wrong-token"})
+	data, _ := json.Marshal(ClientMessage{Type: ClientMessageAuth, Token: "wrong-token"})
 	if err := conn.Write(ctx, websocket.MessageText, data); err != nil {
 		t.Fatalf("failed to send: %v", err)
 	}
@@ -156,8 +156,8 @@ func TestHandler_Auth_InvalidToken(t *testing.T) {
 		t.Fatalf("failed to unmarshal: %v", err)
 	}
 
-	if resp.Type != "auth_response" {
-		t.Errorf("expected auth_response, got %s", resp.Type)
+	if resp.Type != ServerMessageAuthResponse {
+		t.Errorf("expected %s, got %s", ServerMessageAuthResponse, resp.Type)
 	}
 	if resp.Success {
 		t.Error("expected auth to fail")
@@ -186,7 +186,7 @@ func TestHandler_Auth_FirstMessageMustBeAuth(t *testing.T) {
 	}
 	defer conn.Close(websocket.StatusNormalClosure, "")
 
-	data, _ := json.Marshal(ClientMessage{Type: "attach", SessionID: "sess"})
+	data, _ := json.Marshal(ClientMessage{Type: ClientMessageAttach, SessionID: "sess"})
 	if err := conn.Write(ctx, websocket.MessageText, data); err != nil {
 		t.Fatalf("failed to send: %v", err)
 	}
@@ -201,8 +201,8 @@ func TestHandler_Auth_FirstMessageMustBeAuth(t *testing.T) {
 		t.Fatalf("failed to unmarshal: %v", err)
 	}
 
-	if resp.Type != "auth_response" {
-		t.Errorf("expected auth_response, got %s", resp.Type)
+	if resp.Type != ServerMessageAuthResponse {
+		t.Errorf("expected %s, got %s", ServerMessageAuthResponse, resp.Type)
 	}
 	if resp.Success {
 		t.Error("expected auth to fail")
@@ -216,11 +216,11 @@ func TestHandler_Attach(t *testing.T) {
 	env := newTestEnv(t, &mockAgent{})
 	env.store.Create(bgCtx, "sess")
 
-	env.send(ClientMessage{Type: "attach", SessionID: "sess"})
+	env.send(ClientMessage{Type: ClientMessageAttach, SessionID: "sess"})
 	resp := env.read()
 
-	if resp.Type != "attach_response" {
-		t.Errorf("expected attach_response, got %s", resp.Type)
+	if resp.Type != ServerMessageAttachResponse {
+		t.Errorf("expected %s, got %s", ServerMessageAttachResponse, resp.Type)
 	}
 	if resp.SessionID != "sess" {
 		t.Errorf("expected session_id 'sess', got %q", resp.SessionID)
@@ -251,11 +251,11 @@ func TestHandler_Attach_ProcessRunning(t *testing.T) {
 	}
 
 	// New attach should show process_running=true
-	env.send(ClientMessage{Type: "attach", SessionID: "sess"})
+	env.send(ClientMessage{Type: ClientMessageAttach, SessionID: "sess"})
 	resp := env.read()
 
-	if resp.Type != "attach_response" {
-		t.Fatalf("expected attach_response, got %s", resp.Type)
+	if resp.Type != ServerMessageAttachResponse {
+		t.Fatalf("expected %s, got %s", ServerMessageAttachResponse, resp.Type)
 	}
 	if !resp.ProcessRunning {
 		t.Error("expected process_running=true after message")
@@ -265,10 +265,10 @@ func TestHandler_Attach_ProcessRunning(t *testing.T) {
 func TestHandler_Attach_InvalidSession(t *testing.T) {
 	env := newTestEnv(t, &mockAgent{})
 
-	env.send(ClientMessage{Type: "attach", SessionID: "non-existent"})
+	env.send(ClientMessage{Type: ClientMessageAttach, SessionID: "non-existent"})
 	resp := env.read()
 
-	if resp.Type != "error" || !strings.Contains(resp.Error, "session not found") {
+	if resp.Type != agent.EventTypeError || !strings.Contains(resp.Error, "session not found") {
 		t.Errorf("expected session not found error, got %+v", resp)
 	}
 }
@@ -287,10 +287,10 @@ func TestHandler_WebSocketConnection(t *testing.T) {
 	env.sendMessage("sess", "Hello AI")
 	responses := env.readN(2)
 
-	if responses[0].Type != "text" || responses[0].Content != "Hello" {
+	if responses[0].Type != agent.EventTypeText || responses[0].Content != "Hello" {
 		t.Errorf("unexpected first response: %+v", responses[0])
 	}
-	if responses[1].Type != "done" {
+	if responses[1].Type != agent.EventTypeDone {
 		t.Errorf("unexpected second response: %+v", responses[1])
 	}
 }
@@ -343,8 +343,8 @@ func TestHandler_PermissionRequest(t *testing.T) {
 	env.sendMessage("sess", "run ls")
 	resp := env.read()
 
-	if resp.Type != "permission_request" {
-		t.Errorf("expected permission_request, got %s", resp.Type)
+	if resp.Type != agent.EventTypePermissionRequest {
+		t.Errorf("expected %s, got %s", agent.EventTypePermissionRequest, resp.Type)
 	}
 	if resp.RequestID != "req-123" {
 		t.Errorf("expected request_id 'req-123', got %q", resp.RequestID)
@@ -364,7 +364,7 @@ func TestHandler_AgentStartError(t *testing.T) {
 	env.sendMessage("sess", "hello")
 	resp := env.read()
 
-	if resp.Type != "error" || !strings.Contains(resp.Error, "failed to start agent") {
+	if resp.Type != agent.EventTypeError || !strings.Contains(resp.Error, "failed to start agent") {
 		t.Errorf("expected agent start error, got %+v", resp)
 	}
 }
@@ -388,7 +388,7 @@ func TestHandler_Interrupt(t *testing.T) {
 		t.Fatal("session should exist")
 	}
 
-	env.send(ClientMessage{Type: "interrupt", SessionID: "sess"})
+	env.send(ClientMessage{Type: ClientMessageInterrupt, SessionID: "sess"})
 
 	select {
 	case <-sess.interruptCh:
@@ -400,10 +400,10 @@ func TestHandler_Interrupt(t *testing.T) {
 func TestHandler_Interrupt_InvalidSession(t *testing.T) {
 	env := newTestEnv(t, &mockAgent{})
 
-	env.send(ClientMessage{Type: "interrupt", SessionID: "non-existent"})
+	env.send(ClientMessage{Type: ClientMessageInterrupt, SessionID: "non-existent"})
 	resp := env.read()
 
-	if resp.Type != "error" || !strings.Contains(resp.Error, "session not found") {
+	if resp.Type != agent.EventTypeError || !strings.Contains(resp.Error, "session not found") {
 		t.Errorf("expected session not found error, got %+v", resp)
 	}
 }
@@ -478,8 +478,8 @@ func TestHandler_AskUserQuestion(t *testing.T) {
 	env.sendMessage("sess", "ask me")
 	resp := env.read()
 
-	if resp.Type != "ask_user_question" {
-		t.Errorf("expected ask_user_question, got %s", resp.Type)
+	if resp.Type != agent.EventTypeAskUserQuestion {
+		t.Errorf("expected %s, got %s", agent.EventTypeAskUserQuestion, resp.Type)
 	}
 	if resp.RequestID != "req-q-123" {
 		t.Errorf("expected request_id 'req-q-123', got %q", resp.RequestID)
@@ -500,7 +500,7 @@ func TestHandler_InvalidJSON(t *testing.T) {
 	}
 	resp := env.read()
 
-	if resp.Type != "error" || !strings.Contains(resp.Error, "Invalid message format") {
+	if resp.Type != agent.EventTypeError || !strings.Contains(resp.Error, "Invalid message format") {
 		t.Errorf("expected invalid format error, got %+v", resp)
 	}
 }
@@ -511,7 +511,7 @@ func TestHandler_UnknownMessageType(t *testing.T) {
 	env.send(ClientMessage{Type: "unknown_type", SessionID: "sess"})
 	resp := env.read()
 
-	if resp.Type != "error" || !strings.Contains(resp.Error, "Unknown message type") {
+	if resp.Type != agent.EventTypeError || !strings.Contains(resp.Error, "Unknown message type") {
 		t.Errorf("expected unknown message type error, got %+v", resp)
 	}
 }
@@ -523,7 +523,7 @@ func TestHandler_Message_SessionNotInStore(t *testing.T) {
 	env.sendMessage("non-existent-session", "hello")
 	resp := env.read()
 
-	if resp.Type != "error" || !strings.Contains(resp.Error, "session not found") {
+	if resp.Type != agent.EventTypeError || !strings.Contains(resp.Error, "session not found") {
 		t.Errorf("expected session not found error, got %+v", resp)
 	}
 }
