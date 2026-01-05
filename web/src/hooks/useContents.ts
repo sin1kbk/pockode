@@ -1,10 +1,21 @@
 import { useQuery } from "@tanstack/react-query";
-import { getContents } from "../lib/contentsApi";
+import { useWSStore } from "../lib/wsStore";
+import type { Entry, FileContent } from "../types/contents";
+
+type ContentsResponse = Entry[] | FileContent;
 
 export function useContents(path = "", enabled = true) {
-	return useQuery({
+	const getFile = useWSStore((state) => state.actions.getFile);
+
+	return useQuery<ContentsResponse>({
 		queryKey: ["contents", path],
-		queryFn: () => getContents(path),
+		queryFn: async () => {
+			const result = await getFile(path);
+			if (result.type === "directory") {
+				return result.entries ?? [];
+			}
+			return result.file as FileContent;
+		},
 		enabled,
 		staleTime: 0,
 	});

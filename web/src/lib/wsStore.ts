@@ -9,7 +9,11 @@ import { getWebSocketUrl } from "../utils/config";
 import {
 	type ChatActions,
 	createChatActions,
+	createFileActions,
+	createGitActions,
 	createSessionActions,
+	type FileActions,
+	type GitActions,
 	type SessionActions,
 } from "./rpc";
 import { unreadActions } from "./unreadStore";
@@ -39,7 +43,11 @@ interface ConnectionActions {
 	subscribeNotification: (listener: NotificationListener) => () => void;
 }
 
-type RPCActions = ConnectionActions & ChatActions & SessionActions;
+type RPCActions = ConnectionActions &
+	ChatActions &
+	SessionActions &
+	FileActions &
+	GitActions;
 
 interface WSState {
 	status: ConnectionStatus;
@@ -101,6 +109,8 @@ function handleNotification(method: string, params: unknown): void {
 // Create namespace-specific actions
 const chatActions = createChatActions(getClient);
 const sessionActions = createSessionActions(getClient);
+const fileActions = createFileActions(getClient);
+const gitActions = createGitActions(getClient);
 
 export const useWSStore = create<WSState>((set, get) => ({
 	status: "disconnected",
@@ -222,6 +232,8 @@ export const useWSStore = create<WSState>((set, get) => ({
 		// Spread namespace-specific actions
 		...chatActions,
 		...sessionActions,
+		...fileActions,
+		...gitActions,
 	},
 }));
 

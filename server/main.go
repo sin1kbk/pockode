@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"github.com/pockode/server/agent/claude"
-	"github.com/pockode/server/api"
 	"github.com/pockode/server/git"
 	"github.com/pockode/server/logger"
 	"github.com/pockode/server/middleware"
@@ -45,16 +44,8 @@ func newHandler(token string, manager *process.Manager, devMode bool, sessionSto
 		w.Write([]byte(`{"message":"pong"}`))
 	})
 
-	// Git REST API
-	gitHandler := api.NewGitHandler(workDir)
-	gitHandler.Register(mux)
-
-	// Contents REST API (file browser)
-	contentsHandler := api.NewContentsHandler(workDir)
-	contentsHandler.Register(mux)
-
 	// WebSocket JSON-RPC endpoint
-	wsHandler := ws.NewRPCHandler(token, manager, devMode, sessionStore)
+	wsHandler := ws.NewRPCHandler(token, manager, devMode, sessionStore, workDir)
 	mux.Handle("GET /ws", wsHandler)
 
 	authedMux := middleware.Auth(token)(mux)

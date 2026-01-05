@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http/httptest"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -38,7 +41,7 @@ func newTestEnv(t *testing.T, mock *mockAgent) *testEnv {
 	}
 
 	manager := process.NewManager(mock, "/tmp", store, 10*time.Minute)
-	h := NewRPCHandler("test-token", manager, true, store)
+	h := NewRPCHandler("test-token", manager, true, store, t.TempDir())
 	server := httptest.NewServer(h)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -168,7 +171,7 @@ func TestHandler_Auth_InvalidToken(t *testing.T) {
 	manager := process.NewManager(&mockAgent{}, "/tmp", store, 10*time.Minute)
 	defer manager.Shutdown()
 
-	h := NewRPCHandler("secret-token", manager, true, store)
+	h := NewRPCHandler("secret-token", manager, true, store, t.TempDir())
 	server := httptest.NewServer(h)
 	defer server.Close()
 
@@ -211,7 +214,7 @@ func TestHandler_Auth_FirstMessageMustBeAuth(t *testing.T) {
 	manager := process.NewManager(&mockAgent{}, "/tmp", store, 10*time.Minute)
 	defer manager.Shutdown()
 
-	h := NewRPCHandler("test-token", manager, true, store)
+	h := NewRPCHandler("test-token", manager, true, store, t.TempDir())
 	server := httptest.NewServer(h)
 	defer server.Close()
 
@@ -703,5 +706,319 @@ func TestHandler_SessionGetHistory(t *testing.T) {
 
 	if len(result.History) != 1 {
 		t.Errorf("expected 1 history record, got %d", len(result.History))
+	}
+}
+
+// File/Git RPC tests
+
+type workDirTestEnv struct {
+	*testEnv
+	workDir string
+}
+
+func newWorkDirTestEnv(t *testing.T, workDir string) *workDirTestEnv {
+	store, err := session.NewFileStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("failed to create store: %v", err)
+	}
+
+	manager := process.NewManager(&mockAgent{}, "/tmp", store, 10*time.Minute)
+	h := NewRPCHandler("test-token", manager, true, store, workDir)
+	server := httptest.NewServer(h)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+
+	wsURL := "ws" + strings.TrimPrefix(server.URL, "http")
+	conn, _, err := websocket.Dial(ctx, wsURL, nil)
+	if err != nil {
+		cancel()
+		server.Close()
+		t.Fatalf("failed to connect: %v", err)
+	}
+
+	env := &workDirTestEnv{
+		testEnv: &testEnv{
+			t:       t,
+			mock:    &mockAgent{},
+			store:   store,
+			manager: manager,
+			server:  server,
+			conn:    conn,
+			ctx:     ctx,
+			cancel:  cancel,
+			reqID:   0,
+		},
+		workDir: workDir,
+	}
+
+	resp := env.call("auth", rpc.AuthParams{Token: "test-token"})
+	if resp.Error != nil {
+		t.Fatalf("auth failed: %s", resp.Error.Message)
+	}
+
+	t.Cleanup(func() {
+		conn.Close(websocket.StatusNormalClosure, "")
+		cancel()
+		server.Close()
+		manager.Shutdown()
+	})
+
+	return env
+}
+
+func TestHandler_FileGet_ListRootDir(t *testing.T) {
+	workDir := t.TempDir()
+	env := newWorkDirTestEnv(t, workDir)
+	os.WriteFile(filepath.Join(workDir, "file.txt"), []byte("hello"), 0644)
+	os.Mkdir(filepath.Join(workDir, "subdir"), 0755)
+
+	resp := env.call("file.get", rpc.FileGetParams{Path: ""})
+
+	if resp.Error != nil {
+		t.Fatalf("unexpected error: %s", resp.Error.Message)
+	}
+
+	var result rpc.FileGetResult
+	if err := json.Unmarshal(resp.Result, &result); err != nil {
+		t.Fatalf("failed to unmarshal result: %v", err)
+	}
+
+	if result.Type != "directory" {
+		t.Errorf("expected type 'directory', got %q", result.Type)
+	}
+	if len(result.Entries) != 2 {
+		t.Fatalf("expected 2 entries, got %d", len(result.Entries))
+	}
+	if result.Entries[0].Name != "subdir" {
+		t.Errorf("expected first entry 'subdir', got %q", result.Entries[0].Name)
+	}
+	if result.Entries[1].Name != "file.txt" {
+		t.Errorf("expected second entry 'file.txt', got %q", result.Entries[1].Name)
+	}
+}
+
+func TestHandler_FileGet_ListSubDir(t *testing.T) {
+	workDir := t.TempDir()
+	env := newWorkDirTestEnv(t, workDir)
+	os.MkdirAll(filepath.Join(workDir, "src"), 0755)
+	os.WriteFile(filepath.Join(workDir, "src", "main.go"), []byte("package main"), 0644)
+
+	resp := env.call("file.get", rpc.FileGetParams{Path: "src"})
+
+	if resp.Error != nil {
+		t.Fatalf("unexpected error: %s", resp.Error.Message)
+	}
+
+	var result rpc.FileGetResult
+	json.Unmarshal(resp.Result, &result)
+
+	if result.Type != "directory" {
+		t.Errorf("expected type 'directory', got %q", result.Type)
+	}
+	if len(result.Entries) != 1 || result.Entries[0].Name != "main.go" {
+		t.Errorf("expected main.go, got %+v", result.Entries)
+	}
+}
+
+func TestHandler_FileGet_ReadFile(t *testing.T) {
+	workDir := t.TempDir()
+	env := newWorkDirTestEnv(t, workDir)
+	os.WriteFile(filepath.Join(workDir, "hello.txt"), []byte("world"), 0644)
+
+	resp := env.call("file.get", rpc.FileGetParams{Path: "hello.txt"})
+
+	if resp.Error != nil {
+		t.Fatalf("unexpected error: %s", resp.Error.Message)
+	}
+
+	var result rpc.FileGetResult
+	json.Unmarshal(resp.Result, &result)
+
+	if result.Type != "file" {
+		t.Errorf("expected type 'file', got %q", result.Type)
+	}
+	if result.File == nil {
+		t.Fatal("expected file content")
+	}
+	if result.File.Content != "world" {
+		t.Errorf("expected content 'world', got %q", result.File.Content)
+	}
+}
+
+func TestHandler_FileGet_NotFound(t *testing.T) {
+	env := newWorkDirTestEnv(t, t.TempDir())
+
+	resp := env.call("file.get", rpc.FileGetParams{Path: "nonexistent.txt"})
+
+	if resp.Error == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(resp.Error.Message, "not found") {
+		t.Errorf("expected 'not found' error, got %q", resp.Error.Message)
+	}
+}
+
+func TestHandler_FileGet_InvalidPath(t *testing.T) {
+	env := newWorkDirTestEnv(t, t.TempDir())
+
+	resp := env.call("file.get", rpc.FileGetParams{Path: "../etc/passwd"})
+
+	if resp.Error == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(resp.Error.Message, "invalid path") {
+		t.Errorf("expected 'invalid path' error, got %q", resp.Error.Message)
+	}
+}
+
+// Git RPC tests
+
+func setupGitRepo(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	runGitIn(t, dir, "init")
+	runGitIn(t, dir, "config", "user.email", "test@test.com")
+	runGitIn(t, dir, "config", "user.name", "Test")
+	runGitIn(t, dir, "config", "commit.gpgsign", "false")
+	return dir
+}
+
+func runGitIn(t *testing.T, dir string, args ...string) {
+	t.Helper()
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git %v failed: %v\n%s", args, err, out)
+	}
+}
+
+func TestHandler_GitStatus_Empty(t *testing.T) {
+	dir := setupGitRepo(t)
+	env := newWorkDirTestEnv(t, dir)
+
+	resp := env.call("git.status", nil)
+
+	if resp.Error != nil {
+		t.Fatalf("unexpected error: %s", resp.Error.Message)
+	}
+
+	var result rpc.GitStatusResult
+	if err := json.Unmarshal(resp.Result, &result); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	if len(result.Staged) != 0 || len(result.Unstaged) != 0 {
+		t.Errorf("expected empty status, got staged=%d unstaged=%d", len(result.Staged), len(result.Unstaged))
+	}
+}
+
+func TestHandler_GitStatus_UntrackedFile(t *testing.T) {
+	dir := setupGitRepo(t)
+	os.WriteFile(filepath.Join(dir, "test.txt"), []byte("hello"), 0644)
+	env := newWorkDirTestEnv(t, dir)
+
+	resp := env.call("git.status", nil)
+
+	if resp.Error != nil {
+		t.Fatalf("unexpected error: %s", resp.Error.Message)
+	}
+
+	var result rpc.GitStatusResult
+	json.Unmarshal(resp.Result, &result)
+
+	if len(result.Unstaged) != 1 {
+		t.Fatalf("expected 1 unstaged file, got %d", len(result.Unstaged))
+	}
+	if result.Unstaged[0].Path != "test.txt" {
+		t.Errorf("expected 'test.txt', got %q", result.Unstaged[0].Path)
+	}
+}
+
+func TestHandler_GitDiff_Unstaged(t *testing.T) {
+	dir := setupGitRepo(t)
+
+	// Create and commit a file
+	testFile := filepath.Join(dir, "test.txt")
+	os.WriteFile(testFile, []byte("original"), 0644)
+	runGitIn(t, dir, "add", "test.txt")
+	runGitIn(t, dir, "commit", "-m", "initial")
+
+	// Modify the file (unstaged change)
+	os.WriteFile(testFile, []byte("modified"), 0644)
+
+	env := newWorkDirTestEnv(t, dir)
+	resp := env.call("git.diff", rpc.GitDiffParams{Path: "test.txt", Staged: false})
+
+	if resp.Error != nil {
+		t.Fatalf("unexpected error: %s", resp.Error.Message)
+	}
+
+	var result rpc.GitDiffResult
+	json.Unmarshal(resp.Result, &result)
+
+	if result.OldContent != "original" {
+		t.Errorf("expected old content 'original', got %q", result.OldContent)
+	}
+	if result.NewContent != "modified" {
+		t.Errorf("expected new content 'modified', got %q", result.NewContent)
+	}
+}
+
+func TestHandler_GitDiff_Staged(t *testing.T) {
+	dir := setupGitRepo(t)
+
+	// Create and commit a file
+	testFile := filepath.Join(dir, "test.txt")
+	os.WriteFile(testFile, []byte("original"), 0644)
+	runGitIn(t, dir, "add", "test.txt")
+	runGitIn(t, dir, "commit", "-m", "initial")
+
+	// Stage a change
+	os.WriteFile(testFile, []byte("staged change"), 0644)
+	runGitIn(t, dir, "add", "test.txt")
+
+	env := newWorkDirTestEnv(t, dir)
+	resp := env.call("git.diff", rpc.GitDiffParams{Path: "test.txt", Staged: true})
+
+	if resp.Error != nil {
+		t.Fatalf("unexpected error: %s", resp.Error.Message)
+	}
+
+	var result rpc.GitDiffResult
+	json.Unmarshal(resp.Result, &result)
+
+	if result.OldContent != "original" {
+		t.Errorf("expected old content 'original', got %q", result.OldContent)
+	}
+	if result.NewContent != "staged change" {
+		t.Errorf("expected new content 'staged change', got %q", result.NewContent)
+	}
+}
+
+func TestHandler_GitDiff_PathRequired(t *testing.T) {
+	dir := setupGitRepo(t)
+	env := newWorkDirTestEnv(t, dir)
+
+	resp := env.call("git.diff", rpc.GitDiffParams{Path: "", Staged: false})
+
+	if resp.Error == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(resp.Error.Message, "path required") {
+		t.Errorf("expected 'path required' error, got %q", resp.Error.Message)
+	}
+}
+
+func TestHandler_GitDiff_InvalidPath(t *testing.T) {
+	dir := setupGitRepo(t)
+	env := newWorkDirTestEnv(t, dir)
+
+	resp := env.call("git.diff", rpc.GitDiffParams{Path: "../etc/passwd", Staged: false})
+
+	if resp.Error == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(resp.Error.Message, "invalid path") {
+		t.Errorf("expected 'invalid path' error, got %q", resp.Error.Message)
 	}
 }

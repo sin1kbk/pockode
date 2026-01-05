@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 
 	"github.com/pockode/server/agent"
+	"github.com/pockode/server/contents"
+	"github.com/pockode/server/git"
 )
 
 // Client → Server
@@ -60,6 +62,36 @@ type SessionUpdateTitleParams struct {
 
 type SessionGetHistoryParams struct {
 	SessionID string `json:"session_id"`
+}
+
+// File namespace
+
+type FileGetParams struct {
+	Path string `json:"path"`
+}
+
+type FileGetResult struct {
+	Type    string                `json:"type"` // "directory" or "file"
+	Entries []contents.Entry      `json:"entries,omitempty"`
+	File    *contents.FileContent `json:"file,omitempty"`
+}
+
+// Git namespace
+
+type GitStatusResult struct {
+	Staged   []git.FileStatus `json:"staged"`
+	Unstaged []git.FileStatus `json:"unstaged"`
+}
+
+type GitDiffParams struct {
+	Path   string `json:"path"`
+	Staged bool   `json:"staged"`
+}
+
+type GitDiffResult struct {
+	Diff       string `json:"diff"`
+	OldContent string `json:"old_content"`
+	NewContent string `json:"new_content"`
 }
 
 // Server → Client

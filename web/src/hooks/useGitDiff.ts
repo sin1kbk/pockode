@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { getGitDiff } from "../lib/gitApi";
+import { useWSStore } from "../lib/wsStore";
 
 interface UseGitDiffOptions {
 	path: string;
@@ -12,9 +12,11 @@ export function useGitDiff({
 	staged,
 	enabled = true,
 }: UseGitDiffOptions) {
+	const getDiff = useWSStore((state) => state.actions.getDiff);
+
 	return useQuery({
 		queryKey: ["git-diff", path, staged],
-		queryFn: () => getGitDiff(path, staged),
+		queryFn: () => getDiff(path, staged),
 		enabled: enabled && !!path,
 		staleTime: 0,
 	});

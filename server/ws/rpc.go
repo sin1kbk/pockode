@@ -22,14 +22,16 @@ type RPCHandler struct {
 	manager      *process.Manager
 	devMode      bool
 	sessionStore session.Store
+	workDir      string
 }
 
-func NewRPCHandler(token string, manager *process.Manager, devMode bool, store session.Store) *RPCHandler {
+func NewRPCHandler(token string, manager *process.Manager, devMode bool, store session.Store, workDir string) *RPCHandler {
 	return &RPCHandler{
 		token:        token,
 		manager:      manager,
 		devMode:      devMode,
 		sessionStore: store,
+		workDir:      workDir,
 	}
 }
 
@@ -160,6 +162,14 @@ func (h *rpcMethodHandler) Handle(ctx context.Context, conn *jsonrpc2.Conn, req 
 		h.handleSessionUpdateTitle(ctx, conn, req)
 	case "session.get_history":
 		h.handleSessionGetHistory(ctx, conn, req)
+	// file namespace
+	case "file.get":
+		h.handleFileGet(ctx, conn, req)
+	// git namespace
+	case "git.status":
+		h.handleGitStatus(ctx, conn, req)
+	case "git.diff":
+		h.handleGitDiff(ctx, conn, req)
 	default:
 		h.replyError(ctx, conn, req.ID, jsonrpc2.CodeMethodNotFound, "method not found: "+req.Method)
 	}
