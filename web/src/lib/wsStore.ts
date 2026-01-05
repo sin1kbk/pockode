@@ -70,13 +70,17 @@ function createRPCClient(socket: WebSocket): JSONRPCClient {
 	});
 }
 
-function handleNotification(method: string, params: unknown): void {
-	if (method !== "chat.event") {
-		return;
-	}
+function stripNamespace(method: string): string {
+	const dotIndex = method.indexOf(".");
+	return dotIndex >= 0 ? method.slice(dotIndex + 1) : method;
+}
 
-	const notification = params as ServerNotification;
-	const eventType = notification.type;
+function handleNotification(method: string, params: unknown): void {
+	const eventType = stripNamespace(method);
+	const notification = {
+		type: eventType,
+		...(params as object),
+	} as ServerNotification;
 
 	// Mark session as unread if not currently viewing it
 	const sessionId = notification.session_id;

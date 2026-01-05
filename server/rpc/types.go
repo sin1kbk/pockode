@@ -103,53 +103,39 @@ type SystemParams struct {
 	Content   string `json:"content"`
 }
 
-type EventParams struct {
-	Type                  string                   `json:"type"`
-	SessionID             string                   `json:"session_id"`
-	Content               string                   `json:"content,omitempty"`
-	Error                 string                   `json:"error,omitempty"`
-	ToolName              string                   `json:"tool_name,omitempty"`
-	ToolInput             json.RawMessage          `json:"tool_input,omitempty"`
-	ToolUseID             string                   `json:"tool_use_id,omitempty"`
-	ToolResult            string                   `json:"tool_result,omitempty"`
-	RequestID             string                   `json:"request_id,omitempty"`
-	PermissionSuggestions []agent.PermissionUpdate `json:"permission_suggestions,omitempty"`
-	Questions             []agent.AskUserQuestion  `json:"questions,omitempty"`
-}
-
-func NewEventParams(sessionID string, event agent.AgentEvent) EventParams {
-	params := EventParams{
-		Type:      string(event.EventType()),
-		SessionID: sessionID,
-	}
-
+// NewNotifyParams creates method-specific notification params from an AgentEvent.
+func NewNotifyParams(sessionID string, event agent.AgentEvent) interface{} {
 	switch e := event.(type) {
 	case agent.TextEvent:
-		params.Content = e.Content
+		return TextParams{SessionID: sessionID, Content: e.Content}
 	case agent.ToolCallEvent:
-		params.ToolName = e.ToolName
-		params.ToolInput = e.ToolInput
-		params.ToolUseID = e.ToolUseID
+		return ToolCallParams{SessionID: sessionID, ToolName: e.ToolName, ToolInput: e.ToolInput, ToolUseID: e.ToolUseID}
 	case agent.ToolResultEvent:
-		params.ToolUseID = e.ToolUseID
-		params.ToolResult = e.ToolResult
+		return ToolResultParams{SessionID: sessionID, ToolUseID: e.ToolUseID, ToolResult: e.ToolResult}
 	case agent.ErrorEvent:
-		params.Error = e.Error
+		return ErrorParams{SessionID: sessionID, Error: e.Error}
+	case agent.DoneEvent:
+		return SessionParams{SessionID: sessionID}
+	case agent.InterruptedEvent:
+		return SessionParams{SessionID: sessionID}
 	case agent.PermissionRequestEvent:
-		params.RequestID = e.RequestID
-		params.ToolName = e.ToolName
-		params.ToolInput = e.ToolInput
-		params.ToolUseID = e.ToolUseID
-		params.PermissionSuggestions = e.PermissionSuggestions
+		return PermissionRequestParams{
+			SessionID:             sessionID,
+			RequestID:             e.RequestID,
+			ToolName:              e.ToolName,
+			ToolInput:             e.ToolInput,
+			ToolUseID:             e.ToolUseID,
+			PermissionSuggestions: e.PermissionSuggestions,
+		}
 	case agent.RequestCancelledEvent:
-		params.RequestID = e.RequestID
+		return RequestCancelledParams{SessionID: sessionID, RequestID: e.RequestID}
 	case agent.AskUserQuestionEvent:
-		params.RequestID = e.RequestID
-		params.ToolUseID = e.ToolUseID
-		params.Questions = e.Questions
+		return AskUserQuestionParams{SessionID: sessionID, RequestID: e.RequestID, ToolUseID: e.ToolUseID, Questions: e.Questions}
 	case agent.SystemEvent:
-		params.Content = e.Content
+		return SystemParams{SessionID: sessionID, Content: e.Content}
+	case agent.ProcessEndedEvent:
+		return SessionParams{SessionID: sessionID}
+	default:
+		return SessionParams{SessionID: sessionID}
 	}
-
-	return params
 }

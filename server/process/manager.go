@@ -275,8 +275,8 @@ func (p *Process) streamEvents(ctx context.Context) {
 		}
 
 		// Send as JSON-RPC notification
-		params := rpc.NewEventParams(p.sessionID, event)
-		p.manager.Notify(ctx, p.sessionID, "chat.event", params)
+		params := rpc.NewNotifyParams(p.sessionID, event)
+		p.manager.Notify(ctx, p.sessionID, "chat."+string(eventType), params)
 	}
 
 	log.Info("event stream ended")

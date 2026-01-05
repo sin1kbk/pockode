@@ -309,8 +309,7 @@ describe("wsStore", () => {
 			wsActions.subscribeNotification(listener);
 
 			await connectAndAuth();
-			getMockWs()?.simulateNotification("chat.event", {
-				type: "text",
+			getMockWs()?.simulateNotification("chat.text", {
 				session_id: "test",
 				content: "hello",
 			});
