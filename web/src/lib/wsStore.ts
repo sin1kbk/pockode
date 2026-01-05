@@ -10,6 +10,12 @@ import type {
 	QuestionResponseParams,
 	ServerMethod,
 	ServerNotification,
+	SessionDeleteParams,
+	SessionGetHistoryParams,
+	SessionGetHistoryResult,
+	SessionListResult,
+	SessionMeta,
+	SessionUpdateTitleParams,
 } from "../types/message";
 import { getWebSocketUrl } from "../utils/config";
 import { authActions } from "./authStore";
@@ -42,6 +48,12 @@ interface RPCActions {
 	permissionResponse: (params: PermissionResponseParams) => Promise<void>;
 	questionResponse: (params: QuestionResponseParams) => Promise<void>;
 	subscribeNotification: (listener: NotificationListener) => () => void;
+	// Session management
+	listSessions: () => Promise<SessionMeta[]>;
+	createSession: () => Promise<SessionMeta>;
+	deleteSession: (sessionId: string) => Promise<void>;
+	updateSessionTitle: (sessionId: string, title: string) => Promise<void>;
+	getHistory: (sessionId: string) => Promise<unknown[]>;
 }
 
 interface WSState {
@@ -245,6 +257,60 @@ export const useWSStore = create<WSState>((set, get) => ({
 			return () => {
 				notificationListeners.delete(listener);
 			};
+		},
+
+		// Session management
+		listSessions: async (): Promise<SessionMeta[]> => {
+			if (!rpcClient) {
+				throw new Error("Not connected");
+			}
+			const result: SessionListResult = await rpcClient.request(
+				"session.list",
+				{},
+			);
+			return result.sessions;
+		},
+
+		createSession: async (): Promise<SessionMeta> => {
+			if (!rpcClient) {
+				throw new Error("Not connected");
+			}
+			return rpcClient.request("session.create", {});
+		},
+
+		deleteSession: async (sessionId: string): Promise<void> => {
+			if (!rpcClient) {
+				throw new Error("Not connected");
+			}
+			await rpcClient.request("session.delete", {
+				session_id: sessionId,
+			} as SessionDeleteParams);
+		},
+
+		updateSessionTitle: async (
+			sessionId: string,
+			title: string,
+		): Promise<void> => {
+			if (!rpcClient) {
+				throw new Error("Not connected");
+			}
+			await rpcClient.request("session.update_title", {
+				session_id: sessionId,
+				title,
+			} as SessionUpdateTitleParams);
+		},
+
+		getHistory: async (sessionId: string): Promise<unknown[]> => {
+			if (!rpcClient) {
+				throw new Error("Not connected");
+			}
+			const result: SessionGetHistoryResult = await rpcClient.request(
+				"session.get_history",
+				{
+					session_id: sessionId,
+				} as SessionGetHistoryParams,
+			);
+			return result.history;
 		},
 	},
 }));

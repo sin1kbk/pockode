@@ -1,5 +1,16 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { HttpError } from "./api";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+// Mock wsStore - must be defined before import
+vi.mock("./wsStore", () => ({
+	wsActions: {
+		listSessions: vi.fn(),
+		createSession: vi.fn(),
+		deleteSession: vi.fn(),
+		updateSessionTitle: vi.fn(),
+		getHistory: vi.fn(),
+	},
+}));
+
 import {
 	createSession,
 	deleteSession,
@@ -7,172 +18,84 @@ import {
 	listSessions,
 	updateSessionTitle,
 } from "./sessionApi";
-
-// Mock config
-vi.mock("../utils/config", () => ({
-	getApiBaseUrl: vi.fn(() => "http://localhost:8080"),
-}));
-
-// Mock authStore
-vi.mock("./authStore", () => ({
-	authActions: {
-		getToken: vi.fn(() => "test-token"),
-	},
-}));
+import { wsActions } from "./wsStore";
 
 describe("sessionApi", () => {
 	beforeEach(() => {
-		vi.stubGlobal(
-			"fetch",
-			vi.fn(() =>
-				Promise.resolve({
-					ok: true,
-					json: () => Promise.resolve({}),
-				}),
-			),
-		);
-	});
-
-	afterEach(() => {
-		vi.unstubAllGlobals();
+		vi.clearAllMocks();
 	});
 
 	describe("listSessions", () => {
-		it("fetches sessions with auth header", async () => {
-			vi.mocked(fetch).mockResolvedValueOnce({
-				ok: true,
-				json: () =>
-					Promise.resolve({
-						sessions: [
-							{ id: "1", title: "Test", created_at: "", updated_at: "" },
-						],
-					}),
-			} as Response);
-
-			const sessions = await listSessions();
-
-			expect(fetch).toHaveBeenCalledWith(
-				"http://localhost:8080/api/sessions",
-				expect.objectContaining({
-					headers: expect.objectContaining({
-						Authorization: "Bearer test-token",
-					}),
-				}),
-			);
-			expect(sessions).toEqual([
+		it("calls wsActions.listSessions", async () => {
+			const sessions = [
 				{ id: "1", title: "Test", created_at: "", updated_at: "" },
-			]);
+			];
+			vi.mocked(wsActions.listSessions).mockResolvedValue(sessions);
+
+			const result = await listSessions();
+
+			expect(wsActions.listSessions).toHaveBeenCalled();
+			expect(result).toEqual(sessions);
 		});
 
-		it("throws HttpError on 401", async () => {
-			vi.mocked(fetch).mockResolvedValueOnce({
-				ok: false,
-				status: 401,
-				text: () => Promise.resolve("Unauthorized"),
-			} as Response);
+		it("throws when not connected", async () => {
+			vi.mocked(wsActions.listSessions).mockRejectedValue(
+				new Error("Not connected"),
+			);
 
-			const error = await listSessions().catch((e) => e);
-			expect(error).toBeInstanceOf(HttpError);
-			expect(error.status).toBe(401);
+			await expect(listSessions()).rejects.toThrow("Not connected");
 		});
 	});
 
 	describe("createSession", () => {
-		it("creates session with POST method", async () => {
+		it("calls wsActions.createSession", async () => {
 			const newSession = {
 				id: "new-id",
 				title: "New Chat",
 				created_at: "",
 				updated_at: "",
 			};
-			vi.mocked(fetch).mockResolvedValueOnce({
-				ok: true,
-				json: () => Promise.resolve(newSession),
-			} as Response);
+			vi.mocked(wsActions.createSession).mockResolvedValue(newSession);
 
 			const result = await createSession();
 
-			expect(fetch).toHaveBeenCalledWith(
-				"http://localhost:8080/api/sessions",
-				expect.objectContaining({
-					method: "POST",
-				}),
-			);
+			expect(wsActions.createSession).toHaveBeenCalled();
 			expect(result).toEqual(newSession);
 		});
 	});
 
 	describe("deleteSession", () => {
-		it("deletes session with DELETE method", async () => {
-			vi.mocked(fetch).mockResolvedValueOnce({
-				ok: true,
-				json: () => Promise.resolve({}),
-			} as Response);
+		it("calls wsActions.deleteSession with sessionId", async () => {
+			vi.mocked(wsActions.deleteSession).mockResolvedValue(undefined);
 
 			await deleteSession("session-123");
 
-			expect(fetch).toHaveBeenCalledWith(
-				"http://localhost:8080/api/sessions/session-123",
-				expect.objectContaining({
-					method: "DELETE",
-				}),
-			);
-		});
-
-		it("throws HttpError on server error", async () => {
-			vi.mocked(fetch).mockResolvedValueOnce({
-				ok: false,
-				status: 500,
-				text: () => Promise.resolve("Internal Server Error"),
-			} as Response);
-
-			const error = await deleteSession("123").catch((e) => e);
-			expect(error).toBeInstanceOf(HttpError);
-			expect(error.status).toBe(500);
+			expect(wsActions.deleteSession).toHaveBeenCalledWith("session-123");
 		});
 	});
 
 	describe("updateSessionTitle", () => {
-		it("updates title with PATCH method", async () => {
-			vi.mocked(fetch).mockResolvedValueOnce({
-				ok: true,
-				json: () => Promise.resolve({}),
-			} as Response);
+		it("calls wsActions.updateSessionTitle with params", async () => {
+			vi.mocked(wsActions.updateSessionTitle).mockResolvedValue(undefined);
 
 			await updateSessionTitle("session-123", "New Title");
 
-			expect(fetch).toHaveBeenCalledWith(
-				"http://localhost:8080/api/sessions/session-123",
-				expect.objectContaining({
-					method: "PATCH",
-					body: JSON.stringify({ title: "New Title" }),
-				}),
+			expect(wsActions.updateSessionTitle).toHaveBeenCalledWith(
+				"session-123",
+				"New Title",
 			);
 		});
 	});
 
 	describe("getHistory", () => {
-		it("fetches history for session", async () => {
-			const mockHistory = [
-				{ type: "message", content: "hello" },
-				{ type: "text", content: "world" },
-			];
-			vi.mocked(fetch).mockResolvedValueOnce({
-				ok: true,
-				json: () => Promise.resolve({ history: mockHistory }),
-			} as Response);
+		it("calls wsActions.getHistory with sessionId", async () => {
+			const mockHistory = [{ type: "message", content: "hello" }];
+			vi.mocked(wsActions.getHistory).mockResolvedValue(mockHistory);
 
-			const history = await getHistory("session-123");
+			const result = await getHistory("session-123");
 
-			expect(fetch).toHaveBeenCalledWith(
-				"http://localhost:8080/api/sessions/session-123/history",
-				expect.objectContaining({
-					headers: expect.objectContaining({
-						Authorization: "Bearer test-token",
-					}),
-				}),
-			);
-			expect(history).toEqual(mockHistory);
+			expect(wsActions.getHistory).toHaveBeenCalledWith("session-123");
+			expect(result).toEqual(mockHistory);
 		});
 	});
 });

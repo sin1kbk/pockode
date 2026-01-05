@@ -12,7 +12,16 @@ vi.mock("../lib/sessionApi", () => ({
 	updateSessionTitle: vi.fn(),
 }));
 
+// Mock useWSStore to return connected status by default
+vi.mock("../lib/wsStore", () => ({
+	useWSStore: vi.fn((selector) => {
+		const state = { status: "connected" };
+		return selector(state);
+	}),
+}));
+
 import * as sessionApi from "../lib/sessionApi";
+import { useWSStore } from "../lib/wsStore";
 
 function createTestQueryClient() {
 	return new QueryClient({
@@ -44,6 +53,11 @@ describe("useSession", () => {
 	beforeEach(() => {
 		queryClient = createTestQueryClient();
 		vi.clearAllMocks();
+		// Reset useWSStore mock to connected status
+		vi.mocked(useWSStore).mockImplementation((selector) => {
+			const state = { status: "connected" };
+			return selector(state);
+		});
 	});
 
 	afterEach(() => {
@@ -68,6 +82,24 @@ describe("useSession", () => {
 			vi.mocked(sessionApi.listSessions).mockResolvedValue([]);
 
 			const { result } = renderHook(() => useSession({ enabled: false }), {
+				wrapper: createWrapper(queryClient),
+			});
+
+			await new Promise((r) => setTimeout(r, 50));
+
+			expect(result.current.isLoading).toBe(false);
+			expect(sessionApi.listSessions).not.toHaveBeenCalled();
+		});
+
+		it("does not load when WebSocket is disconnected", async () => {
+			vi.mocked(useWSStore).mockImplementation((selector) => {
+				const state = { status: "disconnected" };
+				return selector(state);
+			});
+
+			vi.mocked(sessionApi.listSessions).mockResolvedValue([]);
+
+			const { result } = renderHook(() => useSession(), {
 				wrapper: createWrapper(queryClient),
 			});
 

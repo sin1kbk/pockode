@@ -47,6 +47,21 @@ type QuestionResponseParams struct {
 	Answers   map[string]string `json:"answers"` // nil = cancel
 }
 
+// Session management
+
+type SessionDeleteParams struct {
+	SessionID string `json:"session_id"`
+}
+
+type SessionUpdateTitleParams struct {
+	SessionID string `json:"session_id"`
+	Title     string `json:"title"`
+}
+
+type SessionGetHistoryParams struct {
+	SessionID string `json:"session_id"`
+}
+
 // Server → Client
 
 // SessionParams is the params for done, interrupted, and process_ended notifications.

@@ -1,37 +1,25 @@
 import type { SessionMeta } from "../types/message";
-import { fetchWithAuth } from "./api";
+import { wsActions } from "./wsStore";
 
 export async function listSessions(): Promise<SessionMeta[]> {
-	const response = await fetchWithAuth("/api/sessions");
-	const data = await response.json();
-	return data.sessions;
+	return wsActions.listSessions();
 }
 
 export async function createSession(): Promise<SessionMeta> {
-	const response = await fetchWithAuth("/api/sessions", {
-		method: "POST",
-	});
-	return response.json();
+	return wsActions.createSession();
 }
 
 export async function deleteSession(sessionId: string): Promise<void> {
-	await fetchWithAuth(`/api/sessions/${sessionId}`, {
-		method: "DELETE",
-	});
+	return wsActions.deleteSession(sessionId);
 }
 
 export async function updateSessionTitle(
 	sessionId: string,
 	title: string,
 ): Promise<void> {
-	await fetchWithAuth(`/api/sessions/${sessionId}`, {
-		method: "PATCH",
-		body: JSON.stringify({ title }),
-	});
+	return wsActions.updateSessionTitle(sessionId, title);
 }
 
 export async function getHistory(sessionId: string): Promise<unknown[]> {
-	const response = await fetchWithAuth(`/api/sessions/${sessionId}/history`);
-	const data = await response.json();
-	return data.history;
+	return wsActions.getHistory(sessionId);
 }

@@ -182,6 +182,29 @@ export interface QuestionResponseParams {
 	answers: Record<string, string> | null; // null = cancel
 }
 
+// Session management RPC params
+
+export interface SessionDeleteParams {
+	session_id: string;
+}
+
+export interface SessionUpdateTitleParams {
+	session_id: string;
+	title: string;
+}
+
+export interface SessionGetHistoryParams {
+	session_id: string;
+}
+
+export interface SessionListResult {
+	sessions: SessionMeta[];
+}
+
+export interface SessionGetHistoryResult {
+	history: unknown[];
+}
+
 // JSON-RPC 2.0 Notification Params (Server → Client)
 
 export interface TextNotification {

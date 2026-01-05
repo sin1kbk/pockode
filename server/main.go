@@ -45,10 +45,6 @@ func newHandler(token string, manager *process.Manager, devMode bool, sessionSto
 		w.Write([]byte(`{"message":"pong"}`))
 	})
 
-	// Session REST API
-	sessionHandler := api.NewSessionHandler(sessionStore)
-	sessionHandler.Register(mux)
-
 	// Git REST API
 	gitHandler := api.NewGitHandler(workDir)
 	gitHandler.Register(mux)

@@ -6,6 +6,7 @@ import {
 	listSessions,
 	updateSessionTitle,
 } from "../lib/sessionApi";
+import { useWSStore } from "../lib/wsStore";
 import type { SessionMeta } from "../types/message";
 
 interface UseSessionOptions {
@@ -19,6 +20,10 @@ export function useSession({
 	routeSessionId,
 }: UseSessionOptions = {}) {
 	const queryClient = useQueryClient();
+	const wsStatus = useWSStore((state) => state.status);
+
+	// Only fetch sessions when WebSocket is connected
+	const isConnected = wsStatus === "connected";
 
 	const {
 		data: sessions = [],
@@ -27,7 +32,7 @@ export function useSession({
 	} = useQuery({
 		queryKey: ["sessions"],
 		queryFn: listSessions,
-		enabled,
+		enabled: enabled && isConnected,
 		staleTime: Number.POSITIVE_INFINITY,
 	});
 

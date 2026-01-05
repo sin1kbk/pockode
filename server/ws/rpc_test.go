@@ -570,3 +570,138 @@ func TestHandler_Message_SessionNotInStore(t *testing.T) {
 		t.Errorf("expected session not found error, got %+v", resp)
 	}
 }
+
+// Session management tests
+
+func TestHandler_SessionList(t *testing.T) {
+	env := newTestEnv(t, &mockAgent{})
+	env.store.Create(bgCtx, "session-1")
+	env.store.Create(bgCtx, "session-2")
+
+	resp := env.call("session.list", nil)
+
+	if resp.Error != nil {
+		t.Errorf("unexpected error: %s", resp.Error.Message)
+	}
+
+	var result struct {
+		Sessions []session.SessionMeta `json:"sessions"`
+	}
+	if err := json.Unmarshal(resp.Result, &result); err != nil {
+		t.Fatalf("failed to unmarshal result: %v", err)
+	}
+
+	if len(result.Sessions) != 2 {
+		t.Errorf("expected 2 sessions, got %d", len(result.Sessions))
+	}
+}
+
+func TestHandler_SessionCreate(t *testing.T) {
+	env := newTestEnv(t, &mockAgent{})
+
+	resp := env.call("session.create", nil)
+
+	if resp.Error != nil {
+		t.Errorf("unexpected error: %s", resp.Error.Message)
+	}
+
+	var result session.SessionMeta
+	if err := json.Unmarshal(resp.Result, &result); err != nil {
+		t.Fatalf("failed to unmarshal result: %v", err)
+	}
+
+	if result.ID == "" {
+		t.Error("expected non-empty session ID")
+	}
+	if result.Title != "New Chat" {
+		t.Errorf("expected title 'New Chat', got %q", result.Title)
+	}
+	if result.Activated {
+		t.Error("expected activated=false for new session")
+	}
+}
+
+func TestHandler_SessionDelete(t *testing.T) {
+	env := newTestEnv(t, &mockAgent{})
+	sess, _ := env.store.Create(bgCtx, "to-delete")
+
+	resp := env.call("session.delete", rpc.SessionDeleteParams{SessionID: sess.ID})
+
+	if resp.Error != nil {
+		t.Errorf("unexpected error: %s", resp.Error.Message)
+	}
+
+	sessions, _ := env.store.List()
+	if len(sessions) != 0 {
+		t.Errorf("expected 0 sessions after delete, got %d", len(sessions))
+	}
+}
+
+func TestHandler_SessionUpdateTitle(t *testing.T) {
+	env := newTestEnv(t, &mockAgent{})
+	sess, _ := env.store.Create(bgCtx, "to-update")
+
+	resp := env.call("session.update_title", rpc.SessionUpdateTitleParams{
+		SessionID: sess.ID,
+		Title:     "New Title",
+	})
+
+	if resp.Error != nil {
+		t.Errorf("unexpected error: %s", resp.Error.Message)
+	}
+
+	updated, _, _ := env.store.Get(sess.ID)
+	if updated.Title != "New Title" {
+		t.Errorf("expected title 'New Title', got %q", updated.Title)
+	}
+}
+
+func TestHandler_SessionUpdateTitle_EmptyTitle(t *testing.T) {
+	env := newTestEnv(t, &mockAgent{})
+	sess, _ := env.store.Create(bgCtx, "to-update")
+
+	resp := env.call("session.update_title", rpc.SessionUpdateTitleParams{
+		SessionID: sess.ID,
+		Title:     "",
+	})
+
+	if resp.Error == nil || !strings.Contains(resp.Error.Message, "title required") {
+		t.Errorf("expected title required error, got %+v", resp)
+	}
+}
+
+func TestHandler_SessionUpdateTitle_NotFound(t *testing.T) {
+	env := newTestEnv(t, &mockAgent{})
+
+	resp := env.call("session.update_title", rpc.SessionUpdateTitleParams{
+		SessionID: "non-existent",
+		Title:     "Title",
+	})
+
+	if resp.Error == nil || !strings.Contains(resp.Error.Message, "session not found") {
+		t.Errorf("expected session not found error, got %+v", resp)
+	}
+}
+
+func TestHandler_SessionGetHistory(t *testing.T) {
+	env := newTestEnv(t, &mockAgent{})
+	sess, _ := env.store.Create(bgCtx, "with-history")
+	env.store.AppendToHistory(bgCtx, sess.ID, map[string]string{"type": "message", "content": "hello"})
+
+	resp := env.call("session.get_history", rpc.SessionGetHistoryParams{SessionID: sess.ID})
+
+	if resp.Error != nil {
+		t.Errorf("unexpected error: %s", resp.Error.Message)
+	}
+
+	var result struct {
+		History []json.RawMessage `json:"history"`
+	}
+	if err := json.Unmarshal(resp.Result, &result); err != nil {
+		t.Fatalf("failed to unmarshal result: %v", err)
+	}
+
+	if len(result.History) != 1 {
+		t.Errorf("expected 1 history record, got %d", len(result.History))
+	}
+}
