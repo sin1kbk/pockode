@@ -12,7 +12,7 @@ Pockode 是一个移动端编程平台，核心理念是「AI 编辑为主，手
 | ------- | -------------------------- |
 | 前端    | React + Vite + Tailwind    |
 | 后端    | Go                         |
-| 通信    | WebSocket（流式输出）      |
+| 通信    | WebSocket JSON-RPC 2.0（[設計](docs/websocket-rpc-design.md)） |
 | AI 调用 | CLI 子进程（非 SDK 绑定）  |
 | 部署    | CloudFront (前端) + EC2 Docker (后端) |
 
