@@ -4,6 +4,18 @@ import { getWebSocketUrl } from "../utils/config";
 import { authActions } from "./authStore";
 import { unreadActions } from "./unreadStore";
 
+// Events that should NOT trigger unread notifications.
+// These are either streaming events (continuous output) or control messages.
+// Any new event type not listed here will trigger unread by default (safe fallback).
+const SILENT_EVENTS = new Set<WSServerMessage["type"]>([
+	"text",
+	"tool_call",
+	"tool_result",
+	"system",
+	"attach_response",
+	"auth_response",
+]);
+
 export type ConnectionStatus =
 	| "connecting"
 	| "connected"
@@ -83,7 +95,7 @@ export const useWSStore = create<WSState>((set, get) => ({
 					if (
 						messageSessionId &&
 						!unreadActions.isViewing(messageSessionId) &&
-						data.type !== "attach_response"
+						!SILENT_EVENTS.has(data.type)
 					) {
 						unreadActions.markUnread(messageSessionId);
 					}
