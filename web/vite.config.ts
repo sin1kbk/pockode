@@ -6,6 +6,7 @@ const serverPort = process.env.SERVER_PORT || "8080";
 
 // https://vite.dev/config/
 export default defineConfig({
+	clearScreen: false,
 	plugins: [react(), tailwindcss()],
 	server: {
 		allowedHosts: [".local.pockode.com", ".cloud.pockode.com"],
