@@ -41,13 +41,6 @@ pockode -relay -auth-token YOUR_PASSWORD
 
 Scan the QR code on your phone. That's it.
 
-## Roadmap
-
-- [ ] File browser
-- [ ] Manual editing
-- [ ] Voice input
-- [ ] Multi-model support
-
 ## Status
 
 Under active development. Things move fast, things might break. But that's part of the fun, right?
