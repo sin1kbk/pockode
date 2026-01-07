@@ -79,13 +79,13 @@ function ToolCallItem({ tool }: ToolCallItemProps) {
 				)}
 			</button>
 			{expanded && tool.result && (
-				<div className="max-h-[60vh] overflow-auto border-t border-th-border p-2">
+				<ScrollableContent className="max-h-[60vh] overflow-auto border-t border-th-border p-2">
 					<ToolResultDisplay
 						toolName={tool.name}
 						toolInput={tool.input}
 						result={tool.result}
 					/>
-				</div>
+				</ScrollableContent>
 			)}
 		</div>
 	);
@@ -124,9 +124,9 @@ function SystemItem({ content }: SystemItemProps) {
 				<span className="italic text-th-text-muted">{label}</span>
 			</button>
 			{expanded && (
-				<pre className="max-h-[60vh] overflow-auto border-t border-th-border p-2 text-th-text-muted">
-					{content}
-				</pre>
+				<ScrollableContent className="max-h-[60vh] overflow-auto border-t border-th-border p-2">
+					<pre className="text-th-text-muted">{content}</pre>
+				</ScrollableContent>
 			)}
 		</div>
 	);
