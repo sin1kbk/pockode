@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"sort"
@@ -224,6 +225,7 @@ func (s *FileStore) GetHistory(ctx context.Context, sessionID string) ([]json.Ra
 
 	var records []json.RawMessage
 	scanner := bufio.NewScanner(file)
+	scanner.Buffer(make([]byte, 1024*1024), 1024*1024) // Match CLI output buffer size
 	for scanner.Scan() {
 		line := scanner.Bytes()
 		if len(line) == 0 {
@@ -236,6 +238,17 @@ func (s *FileStore) GetHistory(ctx context.Context, sessionID string) ([]json.Ra
 	}
 
 	if err := scanner.Err(); err != nil {
+		if errors.Is(err, bufio.ErrTooLong) {
+			// Buffer overflow: append warning and return partial results
+			warning := map[string]string{
+				"type":    "warning",
+				"message": "Some history entries were too large to load",
+				"code":    "history_buffer_overflow",
+			}
+			warningJSON, _ := json.Marshal(warning)
+			records = append(records, warningJSON)
+			return records, nil
+		}
 		return nil, err
 	}
 
