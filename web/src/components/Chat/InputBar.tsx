@@ -47,16 +47,17 @@ function InputBar({
 	const isPaletteOpen = isSlashMode && !paletteDismissed;
 	const filter = isPaletteOpen ? input.slice(1) : "";
 
-	// Reset dismissed state when input no longer starts with "/"
+	// Reset dismissed state when input changes to exactly "/" (fresh slash command start)
+	// or when "/" is removed from input
 	useEffect(() => {
-		if (!input.startsWith("/")) {
+		if (input === "/" || !input.startsWith("/")) {
 			setPaletteDismissed(false);
 		}
 	}, [input]);
 
 	const filteredCommands = useFilteredCommands(commands, filter);
 
-	// Reset selection when filter changes
+	// biome-ignore lint/correctness/useExhaustiveDependencies: reset selection when filter changes
 	useEffect(() => {
 		setSelectedIndex(0);
 	}, [filter]);
@@ -142,7 +143,16 @@ function InputBar({
 				invalidateCommandCache();
 			}
 		}
-	}, [input, onSend, canSend, isStreaming, sessionId, saveToHistory, resetNavigation, invalidateCommandCache]);
+	}, [
+		input,
+		onSend,
+		canSend,
+		isStreaming,
+		sessionId,
+		saveToHistory,
+		resetNavigation,
+		invalidateCommandCache,
+	]);
 
 	const isAtFirstLine = useCallback(() => {
 		const textarea = textareaRef.current;
@@ -183,8 +193,9 @@ function InputBar({
 				if (e.key === "Tab" && filteredCommands.length > 0) {
 					e.preventDefault();
 					if (e.shiftKey) {
-						setSelectedIndex((i) =>
-							(i - 1 + filteredCommands.length) % filteredCommands.length,
+						setSelectedIndex(
+							(i) =>
+								(i - 1 + filteredCommands.length) % filteredCommands.length,
 						);
 					} else {
 						setSelectedIndex((i) => (i + 1) % filteredCommands.length);
@@ -194,7 +205,10 @@ function InputBar({
 
 				if (e.key === "Enter" && filteredCommands.length > 0) {
 					e.preventDefault();
-					const safeIndex = Math.min(selectedIndex, filteredCommands.length - 1);
+					const safeIndex = Math.min(
+						selectedIndex,
+						filteredCommands.length - 1,
+					);
 					handleCommandSelect(filteredCommands[safeIndex]);
 					return;
 				}
@@ -245,12 +259,16 @@ function InputBar({
 	);
 
 	return (
-		<div ref={containerRef} className="relative border-t border-th-border p-3 sm:p-4">
+		<div
+			ref={containerRef}
+			className="relative border-t border-th-border p-3 sm:p-4"
+		>
 			{isPaletteOpen && (
 				<CommandPalette
 					commands={filteredCommands}
 					selectedIndex={selectedIndex}
 					onSelect={handleCommandSelect}
+					filter={filter}
 				/>
 			)}
 			<div className="flex items-end gap-2">

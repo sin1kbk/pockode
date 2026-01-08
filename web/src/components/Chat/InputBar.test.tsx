@@ -286,9 +286,10 @@ describe("InputBar", () => {
 				expect(screen.getByRole("listbox")).toBeInTheDocument();
 			});
 
-			expect(screen.getByText("/model")).toBeInTheDocument();
-			expect(screen.getByText("/memory")).toBeInTheDocument();
-			expect(screen.queryByText("/help")).not.toBeInTheDocument();
+			const options = screen.getAllByRole("option");
+			expect(options).toHaveLength(2);
+			expect(options[0]).toHaveTextContent("/model");
+			expect(options[1]).toHaveTextContent("/memory");
 		});
 
 		it("shows (custom) badge for non-builtin commands", async () => {
@@ -298,9 +299,12 @@ describe("InputBar", () => {
 			fireEvent.change(textarea, { target: { value: "/my" } });
 
 			await waitFor(() => {
-				expect(screen.getByText("/my-custom")).toBeInTheDocument();
+				expect(screen.getByRole("listbox")).toBeInTheDocument();
 			});
-			expect(screen.getByText("(custom)")).toBeInTheDocument();
+
+			const option = screen.getByRole("option");
+			expect(option).toHaveTextContent("/my-custom");
+			expect(option).toHaveTextContent("(custom)");
 		});
 
 		it("navigates with Tab and Shift+Tab", async () => {
@@ -425,6 +429,23 @@ describe("InputBar", () => {
 
 			// Remove / and type it again
 			fireEvent.change(textarea, { target: { value: "" } });
+			fireEvent.change(textarea, { target: { value: "/" } });
+
+			await waitFor(() => {
+				expect(screen.getByRole("listbox")).toBeInTheDocument();
+			});
+		});
+
+		it("opens palette when replacing text with /", async () => {
+			render(<InputBar sessionId={TEST_SESSION_ID} onSend={() => {}} />);
+
+			const textarea = screen.getByRole("textbox");
+
+			// Type some text first
+			fireEvent.change(textarea, { target: { value: "hello world" } });
+			expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+
+			// Simulate select-all and type "/" (replaces entire text)
 			fireEvent.change(textarea, { target: { value: "/" } });
 
 			await waitFor(() => {
