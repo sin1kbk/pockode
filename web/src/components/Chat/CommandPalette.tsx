@@ -3,21 +3,13 @@ import type { Command } from "../../lib/rpc";
 
 interface Props {
 	commands: Command[];
-	filter: string;
 	selectedIndex: number;
 	onSelect: (command: Command) => void;
 }
 
-function CommandPalette({ commands, filter, selectedIndex, onSelect }: Props) {
+function CommandPalette({ commands, selectedIndex, onSelect }: Props) {
 	const selectedRef = useRef<HTMLButtonElement>(null);
 
-	const filtered = useMemo(() => {
-		if (!filter) return commands;
-		const lower = filter.toLowerCase();
-		return commands.filter((cmd) => cmd.name.toLowerCase().includes(lower));
-	}, [commands, filter]);
-
-	// Scroll selected item into view
 	useEffect(() => {
 		selectedRef.current?.scrollIntoView({ block: "nearest" });
 	}, [selectedIndex]);
@@ -27,10 +19,10 @@ function CommandPalette({ commands, filter, selectedIndex, onSelect }: Props) {
 			className="absolute bottom-full left-0 right-0 z-10 mx-3 mb-2 max-h-[40vh] overflow-y-auto rounded-xl border border-th-border bg-th-bg-secondary shadow-lg sm:mx-4"
 			role="listbox"
 		>
-			{filtered.length === 0 ? (
+			{commands.length === 0 ? (
 				<div className="px-4 py-3 text-th-text-muted">No matching commands</div>
 			) : (
-				filtered.map((cmd, index) => (
+				commands.map((cmd, index) => (
 					<button
 						key={cmd.name}
 						ref={index === selectedIndex ? selectedRef : null}
@@ -57,7 +49,10 @@ function CommandPalette({ commands, filter, selectedIndex, onSelect }: Props) {
 
 export default CommandPalette;
 
-export function useFilteredCommands(commands: Command[], filter: string): Command[] {
+export function useFilteredCommands(
+	commands: Command[],
+	filter: string,
+): Command[] {
 	return useMemo(() => {
 		if (!filter) return commands;
 		const lower = filter.toLowerCase();

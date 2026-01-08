@@ -39,14 +39,21 @@ function InputBar({
 
 	const [commands, setCommands] = useState<Command[]>([]);
 	const [selectedIndex, setSelectedIndex] = useState(0);
+	const [paletteDismissed, setPaletteDismissed] = useState(false);
 	const { listCommands, invalidateCommandCache } = useWSStore((s) => s.actions);
 
-	// Palette state derived from input
-	const isPaletteOpen =
-		input.startsWith("/") && !WHITESPACE_PATTERN.test(input);
+	// Palette shows when "/" is typed without whitespace, unless manually dismissed
+	const isSlashMode = input.startsWith("/") && !WHITESPACE_PATTERN.test(input);
+	const isPaletteOpen = isSlashMode && !paletteDismissed;
 	const filter = isPaletteOpen ? input.slice(1) : "";
 
-	// Get filtered commands for keyboard navigation
+	// Reset dismissed state when input no longer starts with "/"
+	useEffect(() => {
+		if (!input.startsWith("/")) {
+			setPaletteDismissed(false);
+		}
+	}, [input]);
+
 	const filteredCommands = useFilteredCommands(commands, filter);
 
 	// Reset selection when filter changes
@@ -60,7 +67,6 @@ function InputBar({
 		if (!isMobile()) textareaRef.current?.focus();
 	}, [sessionId]);
 
-	// Load commands when palette opens
 	useEffect(() => {
 		if (!isPaletteOpen) return;
 		listCommands()
@@ -74,12 +80,9 @@ function InputBar({
 	);
 
 	const closePalette = useCallback(() => {
-		// Remove leading "/" to close palette, keep rest of input
-		if (input.startsWith("/")) {
-			setInput(input.slice(1));
-		}
+		setPaletteDismissed(true);
 		textareaRef.current?.focus();
-	}, [input, setInput]);
+	}, []);
 
 	// Outside click detection
 	useEffect(() => {
@@ -108,12 +111,16 @@ function InputBar({
 	const handleTriggerClick = useCallback(() => {
 		if (isPaletteOpen) {
 			closePalette();
+		} else if (isSlashMode) {
+			// Already has "/", just reopen
+			setPaletteDismissed(false);
+			textareaRef.current?.focus();
 		} else {
 			// Prepend "/" to open palette
 			setInput(`/${input}`);
 			textareaRef.current?.focus();
 		}
-	}, [isPaletteOpen, input, setInput, closePalette]);
+	}, [isPaletteOpen, isSlashMode, input, setInput, closePalette]);
 
 	const handleCommandSelect = useCallback(
 		(cmd: Command) => {
@@ -187,7 +194,8 @@ function InputBar({
 
 				if (e.key === "Enter" && filteredCommands.length > 0) {
 					e.preventDefault();
-					handleCommandSelect(filteredCommands[selectedIndex]);
+					const safeIndex = Math.min(selectedIndex, filteredCommands.length - 1);
+					handleCommandSelect(filteredCommands[safeIndex]);
 					return;
 				}
 			}
@@ -240,8 +248,7 @@ function InputBar({
 		<div ref={containerRef} className="relative border-t border-th-border p-3 sm:p-4">
 			{isPaletteOpen && (
 				<CommandPalette
-					commands={commands}
-					filter={filter}
+					commands={filteredCommands}
 					selectedIndex={selectedIndex}
 					onSelect={handleCommandSelect}
 				/>

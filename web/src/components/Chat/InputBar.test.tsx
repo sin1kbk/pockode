@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useInputStore } from "../../lib/inputStore";
@@ -9,18 +9,45 @@ vi.mock("../../utils/breakpoints", () => ({
 	hasCoarsePointer: vi.fn(() => false),
 }));
 
+const mockListCommands = vi.fn();
+const mockInvalidateCommandCache = vi.fn();
+
+vi.mock("../../lib/wsStore", () => ({
+	useWSStore: vi.fn((selector) =>
+		selector({
+			actions: {
+				listCommands: mockListCommands,
+				invalidateCommandCache: mockInvalidateCommandCache,
+			},
+		}),
+	),
+}));
+
+// Mock scrollIntoView for JSDOM
+Element.prototype.scrollIntoView = vi.fn();
+
 const HISTORY_KEY = "input_history";
 
 const TEST_SESSION_ID = "test-session";
 
+const mockCommands = [
+	{ name: "help", isBuiltin: true },
+	{ name: "model", isBuiltin: true },
+	{ name: "memory", isBuiltin: true },
+	{ name: "my-custom", isBuiltin: false },
+];
+
 describe("InputBar", () => {
 	beforeEach(() => {
 		localStorage.clear();
+		mockListCommands.mockResolvedValue(mockCommands);
+		mockInvalidateCommandCache.mockClear();
 	});
 
 	afterEach(() => {
 		useInputStore.setState({ inputs: {} });
 		localStorage.clear();
+		vi.clearAllMocks();
 	});
 
 	it("disables send button when canSend is false", () => {
@@ -226,5 +253,278 @@ describe("InputBar", () => {
 		fireEvent.keyDown(textarea, { key: "ArrowDown" });
 
 		expect(textarea).toHaveValue("my draft");
+	});
+
+	describe("command palette", () => {
+		it("opens palette when typing /", async () => {
+			render(<InputBar sessionId={TEST_SESSION_ID} onSend={() => {}} />);
+
+			const textarea = screen.getByRole("textbox");
+			fireEvent.change(textarea, { target: { value: "/" } });
+
+			await waitFor(() => {
+				expect(screen.getByRole("listbox")).toBeInTheDocument();
+			});
+		});
+
+		it("does not open palette when / is followed by whitespace", async () => {
+			render(<InputBar sessionId={TEST_SESSION_ID} onSend={() => {}} />);
+
+			const textarea = screen.getByRole("textbox");
+			fireEvent.change(textarea, { target: { value: "/help " } });
+
+			expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+		});
+
+		it("filters commands by input", async () => {
+			render(<InputBar sessionId={TEST_SESSION_ID} onSend={() => {}} />);
+
+			const textarea = screen.getByRole("textbox");
+			fireEvent.change(textarea, { target: { value: "/mo" } });
+
+			await waitFor(() => {
+				expect(screen.getByRole("listbox")).toBeInTheDocument();
+			});
+
+			expect(screen.getByText("/model")).toBeInTheDocument();
+			expect(screen.getByText("/memory")).toBeInTheDocument();
+			expect(screen.queryByText("/help")).not.toBeInTheDocument();
+		});
+
+		it("shows (custom) badge for non-builtin commands", async () => {
+			render(<InputBar sessionId={TEST_SESSION_ID} onSend={() => {}} />);
+
+			const textarea = screen.getByRole("textbox");
+			fireEvent.change(textarea, { target: { value: "/my" } });
+
+			await waitFor(() => {
+				expect(screen.getByText("/my-custom")).toBeInTheDocument();
+			});
+			expect(screen.getByText("(custom)")).toBeInTheDocument();
+		});
+
+		it("navigates with Tab and Shift+Tab", async () => {
+			render(<InputBar sessionId={TEST_SESSION_ID} onSend={() => {}} />);
+
+			const textarea = screen.getByRole("textbox");
+			fireEvent.change(textarea, { target: { value: "/" } });
+
+			await waitFor(() => {
+				expect(screen.getByRole("listbox")).toBeInTheDocument();
+			});
+
+			const options = screen.getAllByRole("option");
+			expect(options[0]).toHaveAttribute("aria-selected", "true");
+
+			fireEvent.keyDown(textarea, { key: "Tab" });
+			expect(options[1]).toHaveAttribute("aria-selected", "true");
+
+			fireEvent.keyDown(textarea, { key: "Tab", shiftKey: true });
+			expect(options[0]).toHaveAttribute("aria-selected", "true");
+		});
+
+		it("wraps around when navigating past ends", async () => {
+			render(<InputBar sessionId={TEST_SESSION_ID} onSend={() => {}} />);
+
+			const textarea = screen.getByRole("textbox");
+			fireEvent.change(textarea, { target: { value: "/" } });
+
+			await waitFor(() => {
+				expect(screen.getByRole("listbox")).toBeInTheDocument();
+			});
+
+			const options = screen.getAllByRole("option");
+
+			// Navigate backwards from first item wraps to last
+			fireEvent.keyDown(textarea, { key: "Tab", shiftKey: true });
+			expect(options[options.length - 1]).toHaveAttribute(
+				"aria-selected",
+				"true",
+			);
+		});
+
+		it("selects command on Enter", async () => {
+			render(<InputBar sessionId={TEST_SESSION_ID} onSend={() => {}} />);
+
+			const textarea = screen.getByRole("textbox");
+			fireEvent.change(textarea, { target: { value: "/" } });
+
+			await waitFor(() => {
+				expect(screen.getByRole("listbox")).toBeInTheDocument();
+			});
+
+			fireEvent.keyDown(textarea, { key: "Enter" });
+
+			expect(textarea).toHaveValue("/help ");
+			expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+		});
+
+		it("selects command on click", async () => {
+			render(<InputBar sessionId={TEST_SESSION_ID} onSend={() => {}} />);
+
+			const textarea = screen.getByRole("textbox");
+			fireEvent.change(textarea, { target: { value: "/" } });
+
+			await waitFor(() => {
+				expect(screen.getByRole("listbox")).toBeInTheDocument();
+			});
+
+			fireEvent.click(screen.getByText("/model"));
+
+			expect(textarea).toHaveValue("/model ");
+		});
+
+		it("closes palette on Escape without removing /", async () => {
+			render(<InputBar sessionId={TEST_SESSION_ID} onSend={() => {}} />);
+
+			const textarea = screen.getByRole("textbox");
+			fireEvent.change(textarea, { target: { value: "/he" } });
+
+			await waitFor(() => {
+				expect(screen.getByRole("listbox")).toBeInTheDocument();
+			});
+
+			fireEvent.keyDown(textarea, { key: "Escape" });
+
+			expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+			expect(textarea).toHaveValue("/he");
+		});
+
+		it("reopens palette when clicking trigger button after dismiss", async () => {
+			render(<InputBar sessionId={TEST_SESSION_ID} onSend={() => {}} />);
+
+			const textarea = screen.getByRole("textbox");
+			fireEvent.change(textarea, { target: { value: "/" } });
+
+			await waitFor(() => {
+				expect(screen.getByRole("listbox")).toBeInTheDocument();
+			});
+
+			fireEvent.keyDown(textarea, { key: "Escape" });
+			expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+
+			fireEvent.click(screen.getByLabelText("Toggle commands"));
+
+			await waitFor(() => {
+				expect(screen.getByRole("listbox")).toBeInTheDocument();
+			});
+		});
+
+		it("resets dismissed state when / is removed from input", async () => {
+			render(<InputBar sessionId={TEST_SESSION_ID} onSend={() => {}} />);
+
+			const textarea = screen.getByRole("textbox");
+			fireEvent.change(textarea, { target: { value: "/" } });
+
+			await waitFor(() => {
+				expect(screen.getByRole("listbox")).toBeInTheDocument();
+			});
+
+			fireEvent.keyDown(textarea, { key: "Escape" });
+			expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+
+			// Remove / and type it again
+			fireEvent.change(textarea, { target: { value: "" } });
+			fireEvent.change(textarea, { target: { value: "/" } });
+
+			await waitFor(() => {
+				expect(screen.getByRole("listbox")).toBeInTheDocument();
+			});
+		});
+
+		it("shows no matching commands message when filter has no results", async () => {
+			render(<InputBar sessionId={TEST_SESSION_ID} onSend={() => {}} />);
+
+			const textarea = screen.getByRole("textbox");
+			fireEvent.change(textarea, { target: { value: "/xyz" } });
+
+			await waitFor(() => {
+				expect(screen.getByRole("listbox")).toBeInTheDocument();
+			});
+
+			expect(screen.getByText("No matching commands")).toBeInTheDocument();
+		});
+
+		it("does not send message when Enter selects a command", async () => {
+			const onSend = vi.fn();
+			render(<InputBar sessionId={TEST_SESSION_ID} onSend={onSend} />);
+
+			const textarea = screen.getByRole("textbox");
+			fireEvent.change(textarea, { target: { value: "/" } });
+
+			await waitFor(() => {
+				expect(screen.getByRole("listbox")).toBeInTheDocument();
+			});
+
+			fireEvent.keyDown(textarea, { key: "Enter" });
+
+			expect(onSend).not.toHaveBeenCalled();
+		});
+
+		it("invalidates command cache when slash command is sent", async () => {
+			const user = userEvent.setup();
+			render(<InputBar sessionId={TEST_SESSION_ID} onSend={() => {}} />);
+
+			await user.type(screen.getByRole("textbox"), "/help");
+			await user.click(screen.getByRole("button", { name: /Send/ }));
+
+			expect(mockInvalidateCommandCache).toHaveBeenCalled();
+		});
+
+		it("does not invalidate cache when regular message is sent", async () => {
+			const user = userEvent.setup();
+			render(<InputBar sessionId={TEST_SESSION_ID} onSend={() => {}} />);
+
+			await user.type(screen.getByRole("textbox"), "hello");
+			await user.click(screen.getByRole("button", { name: /Send/ }));
+
+			expect(mockInvalidateCommandCache).not.toHaveBeenCalled();
+		});
+
+		it("resets selection index when filter changes", async () => {
+			render(<InputBar sessionId={TEST_SESSION_ID} onSend={() => {}} />);
+
+			const textarea = screen.getByRole("textbox");
+			fireEvent.change(textarea, { target: { value: "/" } });
+
+			await waitFor(() => {
+				expect(screen.getByRole("listbox")).toBeInTheDocument();
+			});
+
+			// Navigate to second item
+			fireEvent.keyDown(textarea, { key: "Tab" });
+			const options = screen.getAllByRole("option");
+			expect(options[1]).toHaveAttribute("aria-selected", "true");
+
+			// Change filter - selection should reset to first
+			fireEvent.change(textarea, { target: { value: "/m" } });
+			const newOptions = screen.getAllByRole("option");
+			expect(newOptions[0]).toHaveAttribute("aria-selected", "true");
+		});
+
+		it("handles empty commands list gracefully", async () => {
+			mockListCommands.mockResolvedValue([]);
+			const onSend = vi.fn();
+			render(<InputBar sessionId={TEST_SESSION_ID} onSend={onSend} />);
+
+			const textarea = screen.getByRole("textbox");
+			fireEvent.change(textarea, { target: { value: "/" } });
+
+			await waitFor(() => {
+				expect(screen.getByRole("listbox")).toBeInTheDocument();
+			});
+
+			expect(screen.getByText("No matching commands")).toBeInTheDocument();
+
+			// Tab should not crash with empty list
+			fireEvent.keyDown(textarea, { key: "Tab" });
+
+			// With empty list, palette stays open and Tab does nothing
+			expect(screen.getByRole("listbox")).toBeInTheDocument();
+
+			// Enter with empty list falls through to normal send behavior
+			fireEvent.keyDown(textarea, { key: "Enter" });
+			expect(onSend).toHaveBeenCalledWith("/");
+		});
 	});
 });
