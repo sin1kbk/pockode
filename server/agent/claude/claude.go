@@ -496,6 +496,10 @@ func parseLine(log *slog.Logger, line []byte, pendingRequests *sync.Map) []agent
 		return parseControlResponse(log, line, pendingRequests)
 	case "control_cancel_request":
 		return parseControlCancelRequest(log, line)
+	case "progress":
+		// Undocumented event (e.g., bash_progress) not in official SDK docs.
+		// Other CLI wrappers also ignore it.
+		return nil
 	default:
 		log.Debug("unhandled event type from CLI", "type", event.Type)
 		return []agent.AgentEvent{agent.RawEvent{Content: string(line)}}

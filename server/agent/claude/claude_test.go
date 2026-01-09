@@ -147,9 +147,9 @@ func TestParseLine(t *testing.T) {
 			expected: []agent.AgentEvent{agent.TextEvent{Content: `"invalid message format"`}},
 		},
 		{
-			name:     "progress event returns RawEvent",
+			name:     "progress event is intentionally ignored",
 			input:    `{"type":"progress","data":{"type":"bash_progress","output":"","fullOutput":"","elapsedTimeSeconds":2,"totalLines":0},"toolUseID":"bash-progress-0"}`,
-			expected: []agent.AgentEvent{agent.RawEvent{Content: `{"type":"progress","data":{"type":"bash_progress","output":"","fullOutput":"","elapsedTimeSeconds":2,"totalLines":0},"toolUseID":"bash-progress-0"}`}},
+			expected: nil,
 		},
 		{
 			name:     "unknown event type returns RawEvent",
