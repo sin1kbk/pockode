@@ -5,8 +5,10 @@ import (
 	"embed"
 	"flag"
 	"fmt"
+	"io"
 	"io/fs"
 	"log/slog"
+	"mime"
 	"net/http"
 	"os"
 	"os/signal"
@@ -63,7 +65,6 @@ func newSPAHandler(apiHandler http.Handler) http.Handler {
 		slog.Error("failed to create sub filesystem", "error", err)
 		return apiHandler
 	}
-	fileServer := http.FileServer(http.FS(subFS))
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
@@ -74,16 +75,68 @@ func newSPAHandler(apiHandler http.Handler) http.Handler {
 		}
 
 		cleanPath := strings.TrimPrefix(path, "/")
-		if f, err := subFS.Open(cleanPath); err == nil {
-			f.Close()
-			fileServer.ServeHTTP(w, r)
-			return
+		if cleanPath == "" {
+			cleanPath = "index.html"
 		}
 
-		// SPA fallback: serve index.html for client-side routing
-		r.URL.Path = "/"
-		fileServer.ServeHTTP(w, r)
+		// Check if file exists (including .gz version), otherwise fall back to index.html for SPA routing
+		if !fileExists(subFS, cleanPath) && !fileExists(subFS, cleanPath+".gz") {
+			cleanPath = "index.html"
+		}
+
+		serveFileWithGzip(w, r, subFS, cleanPath)
 	})
+}
+
+func fileExists(fsys fs.FS, path string) bool {
+	f, err := fsys.Open(path)
+	if err != nil {
+		return false
+	}
+	f.Close()
+	return true
+}
+
+// serveFileWithGzip serves a file, using pre-compressed .gz version if available and client accepts gzip.
+func serveFileWithGzip(w http.ResponseWriter, r *http.Request, fsys fs.FS, filePath string) {
+	// Hashed assets (in /assets/) can be cached indefinitely
+	if strings.HasPrefix(filePath, "assets/") {
+		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	}
+
+	w.Header().Set("Vary", "Accept-Encoding")
+
+	acceptsGzip := strings.Contains(r.Header.Get("Accept-Encoding"), "gzip")
+	if acceptsGzip {
+		gzPath := filePath + ".gz"
+		if gzFile, err := fsys.Open(gzPath); err == nil {
+			defer gzFile.Close()
+
+			w.Header().Set("Content-Encoding", "gzip")
+			w.Header().Set("Content-Type", getContentType(filePath))
+			http.ServeContent(w, r, filePath, time.Time{}, gzFile.(io.ReadSeeker))
+			return
+		}
+	}
+
+	// Serve uncompressed file
+	file, err := fsys.Open(filePath)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	defer file.Close()
+
+	w.Header().Set("Content-Type", getContentType(filePath))
+	http.ServeContent(w, r, filePath, time.Time{}, file.(io.ReadSeeker))
+}
+
+func getContentType(filePath string) string {
+	ext := filepath.Ext(filePath)
+	if mimeType := mime.TypeByExtension(ext); mimeType != "" {
+		return mimeType
+	}
+	return "application/octet-stream"
 }
 
 func main() {
