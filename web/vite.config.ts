@@ -11,11 +11,11 @@ export default defineConfig({
 	plugins: [
 		react(),
 		tailwindcss(),
-		// Pre-compress JS/CSS for server-side gzip serving.
+		// Pre-compress JS/CSS for server-side brotli serving.
 		// deleteOriginFile reduces embed binary size; server falls back to index.html for SPA routes.
 		compression({
-			algorithm: "gzip",
-			ext: ".gz",
+			algorithm: "brotliCompress",
+			ext: ".br",
 			filter: /\.(js|css)$/i,
 			deleteOriginFile: true,
 		}),

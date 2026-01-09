@@ -79,12 +79,12 @@ func newSPAHandler(apiHandler http.Handler) http.Handler {
 			cleanPath = "index.html"
 		}
 
-		// Check if file exists (including .gz version), otherwise fall back to index.html for SPA routing
-		if !fileExists(subFS, cleanPath) && !fileExists(subFS, cleanPath+".gz") {
+		// Check if file exists (including .br version), otherwise fall back to index.html for SPA routing
+		if !fileExists(subFS, cleanPath) && !fileExists(subFS, cleanPath+".br") {
 			cleanPath = "index.html"
 		}
 
-		serveFileWithGzip(w, r, subFS, cleanPath)
+		serveFileWithBrotli(w, r, subFS, cleanPath)
 	})
 }
 
@@ -97,8 +97,8 @@ func fileExists(fsys fs.FS, path string) bool {
 	return true
 }
 
-// serveFileWithGzip serves a file, using pre-compressed .gz version if available and client accepts gzip.
-func serveFileWithGzip(w http.ResponseWriter, r *http.Request, fsys fs.FS, filePath string) {
+// serveFileWithBrotli serves a file, using pre-compressed .br version if available and client accepts brotli.
+func serveFileWithBrotli(w http.ResponseWriter, r *http.Request, fsys fs.FS, filePath string) {
 	// Hashed assets (in /assets/) can be cached indefinitely
 	if strings.HasPrefix(filePath, "assets/") {
 		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
@@ -106,15 +106,15 @@ func serveFileWithGzip(w http.ResponseWriter, r *http.Request, fsys fs.FS, fileP
 
 	w.Header().Set("Vary", "Accept-Encoding")
 
-	acceptsGzip := strings.Contains(r.Header.Get("Accept-Encoding"), "gzip")
-	if acceptsGzip {
-		gzPath := filePath + ".gz"
-		if gzFile, err := fsys.Open(gzPath); err == nil {
-			defer gzFile.Close()
+	acceptsBr := strings.Contains(r.Header.Get("Accept-Encoding"), "br")
+	if acceptsBr {
+		brPath := filePath + ".br"
+		if brFile, err := fsys.Open(brPath); err == nil {
+			defer brFile.Close()
 
-			w.Header().Set("Content-Encoding", "gzip")
+			w.Header().Set("Content-Encoding", "br")
 			w.Header().Set("Content-Type", getContentType(filePath))
-			http.ServeContent(w, r, filePath, time.Time{}, gzFile.(io.ReadSeeker))
+			http.ServeContent(w, r, filePath, time.Time{}, brFile.(io.ReadSeeker))
 			return
 		}
 	}
