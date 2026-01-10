@@ -4,6 +4,7 @@ import { defineConfig } from "vite";
 import compression from "vite-plugin-compression";
 
 const serverPort = process.env.SERVER_PORT || "8080";
+const webPort = Number(process.env.WEB_PORT) || 5173;
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -21,6 +22,7 @@ export default defineConfig({
 		}),
 	],
 	server: {
+		port: webPort,
 		allowedHosts: [".local.pockode.com", ".cloud.pockode.com"],
 		proxy: {
 			"/api": {

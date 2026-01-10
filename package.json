@@ -1,0 +1,13 @@
+{
+  "name": "pockode",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently --kill-others -n server,web -c blue,green \"npm:dev:server\" \"npm:dev:web\"",
+    "dev:server": "cd server && go run .",
+    "dev:web": "cd web && npm run dev"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

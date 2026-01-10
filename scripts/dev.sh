@@ -18,40 +18,10 @@ export RELAY_ENABLED="${RELAY_ENABLED:-false}"
 export CLOUD_URL="${CLOUD_URL:-http://local.pockode.com}"
 export RELAY_FRONTEND_PORT="${RELAY_FRONTEND_PORT:-$WEB_PORT}"
 
-# Cleanup on exit
-cleanup() {
-    echo ""
-    echo "Stopping services..."
-    kill "$SERVER_PID" "$WEB_PID" 2>/dev/null || true
-    wait "$SERVER_PID" "$WEB_PID" 2>/dev/null || true
-}
-trap cleanup EXIT INT TERM
-
-# Start backend
-echo "Starting backend (port $SERVER_PORT, workDir: $WORK_DIR)..."
-(cd "$PROJECT_DIR/server" && go run .) &
-SERVER_PID=$!
-
-# Wait for backend to be ready
-echo "Waiting for backend..."
-for _ in {1..30}; do
-    if curl -s "http://localhost:$SERVER_PORT/health" > /dev/null 2>&1; then
-        echo "Backend ready."
-        break
-    fi
-    sleep 0.5
-done
-
-# Start frontend
-echo "Starting frontend (port $WEB_PORT)..."
-(cd "$PROJECT_DIR/web" && npm run dev -- --port "$WEB_PORT") &
-WEB_PID=$!
-
-echo ""
-echo "Services started:"
+echo "Starting dev environment..."
 echo "  Backend:  http://localhost:$SERVER_PORT"
 echo "  Frontend: http://localhost:$WEB_PORT"
 echo "  Token:    $AUTH_TOKEN"
 echo ""
-echo "Press Ctrl+C to stop."
-wait
+
+cd "$PROJECT_DIR" && npm run dev
