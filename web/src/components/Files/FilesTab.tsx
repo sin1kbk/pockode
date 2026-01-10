@@ -37,6 +37,7 @@ function FilesTab({ onSelectFile, activeFilePath }: Props) {
 					onSelectFile={onSelectFile}
 					activeFilePath={activeFilePath}
 					expandSignal={expandSignal}
+					watchEnabled={isActive}
 				/>
 			</PullToRefresh>
 		</div>

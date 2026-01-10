@@ -9,14 +9,20 @@ interface Props {
 	onSelectFile: (path: string) => void;
 	activeFilePath: string | null;
 	expandSignal: number;
+	watchEnabled: boolean;
 }
 
-function FileTree({ onSelectFile, activeFilePath, expandSignal }: Props) {
+function FileTree({
+	onSelectFile,
+	activeFilePath,
+	expandSignal,
+	watchEnabled,
+}: Props) {
 	const queryClient = useQueryClient();
 	const { data, isLoading, error } = useContents();
 
 	useFSWatch(
-		"",
+		watchEnabled ? "" : null,
 		useCallback(() => {
 			queryClient.invalidateQueries({ queryKey: contentsQueryKey("") });
 		}, [queryClient]),
@@ -59,6 +65,7 @@ function FileTree({ onSelectFile, activeFilePath, expandSignal }: Props) {
 					onSelectFile={onSelectFile}
 					activeFilePath={activeFilePath}
 					expandSignal={expandSignal}
+					watchEnabled={watchEnabled}
 				/>
 			))}
 		</div>

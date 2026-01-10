@@ -13,8 +13,9 @@ import DiffFileList from "./DiffFileList";
 function useGitIndexWatch(
 	status: GitStatus | undefined,
 	onChanged: () => void,
+	enabled: boolean,
 ) {
-	useFSWatch(".git/index", onChanged);
+	useFSWatch(enabled ? ".git/index" : null, onChanged);
 
 	const submodulePaths = useMemo(
 		() => Object.keys(status?.submodules ?? {}),
@@ -26,7 +27,10 @@ function useGitIndexWatch(
 	for (let i = 0; i < maxSubmodules; i++) {
 		const path = submodulePaths[i];
 		// biome-ignore lint/correctness/useHookAtTopLevel: hook count is stable (always maxSubmodules calls)
-		useFSWatch(path ? `.git/modules/${path}/index` : null, onChanged);
+		useFSWatch(
+			enabled && path ? `.git/modules/${path}/index` : null,
+			onChanged,
+		);
 	}
 }
 
@@ -39,7 +43,7 @@ function DiffTab({ onSelectFile, activeFile }: Props) {
 	const { data: status, isLoading, error, refresh } = useGitStatus();
 	const { isActive } = useSidebarRefresh("diff", refresh);
 
-	useGitIndexWatch(status, refresh);
+	useGitIndexWatch(status, refresh, isActive);
 
 	const flatStatus = useMemo(
 		() => (status ? flattenGitStatus(status) : null),

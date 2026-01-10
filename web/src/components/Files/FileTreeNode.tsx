@@ -12,6 +12,7 @@ interface Props {
 	onSelectFile: (path: string) => void;
 	activeFilePath: string | null;
 	expandSignal: number;
+	watchEnabled: boolean;
 }
 
 const FileTreeNode = memo(function FileTreeNode({
@@ -20,6 +21,7 @@ const FileTreeNode = memo(function FileTreeNode({
 	onSelectFile,
 	activeFilePath,
 	expandSignal,
+	watchEnabled,
 }: Props) {
 	const queryClient = useQueryClient();
 	const isDirectory = entry.type === "dir";
@@ -41,7 +43,7 @@ const FileTreeNode = memo(function FileTreeNode({
 	);
 
 	useFSWatch(
-		isDirectory && isExpanded ? entry.path : null,
+		watchEnabled && isDirectory && isExpanded ? entry.path : null,
 		useCallback(() => {
 			queryClient.invalidateQueries({ queryKey: contentsQueryKey(entry.path) });
 		}, [queryClient, entry.path]),
@@ -118,6 +120,7 @@ const FileTreeNode = memo(function FileTreeNode({
 								onSelectFile={onSelectFile}
 								activeFilePath={activeFilePath}
 								expandSignal={expandSignal}
+								watchEnabled={watchEnabled}
 							/>
 						))
 					) : null}
