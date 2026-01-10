@@ -1,4 +1,7 @@
-import { useContents } from "../../hooks/useContents";
+import { useQueryClient } from "@tanstack/react-query";
+import { useCallback } from "react";
+import { contentsQueryKey, useContents } from "../../hooks/useContents";
+import { useFSWatch } from "../../hooks/useFSWatch";
 import { Spinner } from "../ui";
 import FileTreeNode from "./FileTreeNode";
 
@@ -9,7 +12,15 @@ interface Props {
 }
 
 function FileTree({ onSelectFile, activeFilePath, expandSignal }: Props) {
+	const queryClient = useQueryClient();
 	const { data, isLoading, error } = useContents();
+
+	useFSWatch(
+		"",
+		useCallback(() => {
+			queryClient.invalidateQueries({ queryKey: contentsQueryKey("") });
+		}, [queryClient]),
+	);
 
 	if (isLoading) {
 		return (

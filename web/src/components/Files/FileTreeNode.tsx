@@ -1,6 +1,8 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, File, Folder } from "lucide-react";
-import { useEffect, useState } from "react";
-import { useContents } from "../../hooks/useContents";
+import { memo, useCallback, useEffect, useState } from "react";
+import { contentsQueryKey, useContents } from "../../hooks/useContents";
+import { useFSWatch } from "../../hooks/useFSWatch";
 import type { Entry } from "../../types/contents";
 import { Spinner } from "../ui";
 
@@ -12,13 +14,14 @@ interface Props {
 	expandSignal: number;
 }
 
-function FileTreeNode({
+const FileTreeNode = memo(function FileTreeNode({
 	entry,
 	depth,
 	onSelectFile,
 	activeFilePath,
 	expandSignal,
 }: Props) {
+	const queryClient = useQueryClient();
 	const isDirectory = entry.type === "dir";
 	const isActive = entry.path === activeFilePath;
 	const isInActivePath =
@@ -35,6 +38,13 @@ function FileTreeNode({
 	const { data, isLoading, error } = useContents(
 		entry.path,
 		isDirectory && isExpanded,
+	);
+
+	useFSWatch(
+		isDirectory && isExpanded ? entry.path : null,
+		useCallback(() => {
+			queryClient.invalidateQueries({ queryKey: contentsQueryKey(entry.path) });
+		}, [queryClient, entry.path]),
 	);
 
 	const handleClick = () => {
@@ -115,6 +125,6 @@ function FileTreeNode({
 			)}
 		</div>
 	);
-}
+});
 
 export default FileTreeNode;
