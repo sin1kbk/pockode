@@ -232,7 +232,6 @@ describe("MessageItem", () => {
 
 		render(<MessageItem message={message} />);
 		expect(screen.getByText("Bash")).toBeInTheDocument();
-		expect(screen.getByText("✓")).toBeInTheDocument();
 		expect(
 			screen.queryByRole("button", { name: "Allow" }),
 		).not.toBeInTheDocument();

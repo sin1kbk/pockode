@@ -1,3 +1,4 @@
+import { Check, ChevronRight, CircleHelp, X } from "lucide-react";
 import { useState } from "react";
 import type {
 	AskUserQuestionRequest,
@@ -32,12 +33,12 @@ function AskUserQuestionItem({
 	const [otherText, setOtherText] = useState<Record<string, string>>({});
 
 	const statusConfig = {
-		pending: { icon: "?", color: "text-th-warning" },
-		answered: { icon: "✓", color: "text-th-success" },
-		cancelled: { icon: "✗", color: "text-th-error" },
+		pending: { Icon: CircleHelp, color: "text-th-warning" },
+		answered: { Icon: Check, color: "text-th-success" },
+		cancelled: { Icon: X, color: "text-th-error" },
 	};
 
-	const { icon, color } = statusConfig[status];
+	const { Icon, color } = statusConfig[status];
 
 	// Get first question's header as summary
 	const headerSummary =
@@ -142,12 +143,10 @@ function AskUserQuestionItem({
 				onClick={() => setExpanded(!expanded)}
 				className="flex w-full items-center gap-1.5 rounded p-2 text-left hover:bg-th-overlay-hover"
 			>
-				<span
-					className={`w-2.5 shrink-0 text-th-text-muted transition-transform ${expanded ? "rotate-90" : ""}`}
-				>
-					▶
-				</span>
-				<span className={`shrink-0 ${color}`}>{icon}</span>
+				<ChevronRight
+					className={`size-3 shrink-0 text-th-text-muted transition-transform ${expanded ? "rotate-90" : ""}`}
+				/>
+				<Icon className={`size-3 shrink-0 ${color}`} />
 				<span className="shrink-0 text-th-accent">Question</span>
 				<span className="rounded bg-th-accent/20 px-1.5 py-0.5 text-th-accent">
 					{headerSummary}

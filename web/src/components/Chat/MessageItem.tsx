@@ -1,3 +1,10 @@
+import {
+	AlertTriangle,
+	Check,
+	ChevronRight,
+	CircleHelp,
+	X,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import type {
 	AskUserQuestionRequest,
@@ -68,11 +75,11 @@ function ToolCallItem({ tool }: ToolCallItemProps) {
 				onClick={() => hasResult && setExpanded(!expanded)}
 				className={`flex w-full items-center gap-1.5 rounded p-2 text-left ${hasResult ? "hover:bg-th-overlay-hover" : ""}`}
 			>
-				<span
-					className={`w-2.5 shrink-0 text-th-text-muted transition-transform ${expanded ? "rotate-90" : ""}`}
-				>
-					{hasResult && "▶"}
-				</span>
+				{hasResult && (
+					<ChevronRight
+						className={`size-3 shrink-0 text-th-text-muted transition-transform ${expanded ? "rotate-90" : ""}`}
+					/>
+				)}
 				<span className="shrink-0 text-th-accent">{tool.name}</span>
 				{summary && (
 					<span className="truncate text-th-text-muted">{summary}</span>
@@ -116,11 +123,9 @@ function SystemItem({ content }: SystemItemProps) {
 				onClick={() => setExpanded(!expanded)}
 				className="flex w-full items-center gap-1.5 rounded p-2 text-left hover:bg-th-overlay-hover"
 			>
-				<span
-					className={`w-2.5 shrink-0 text-th-text-muted transition-transform ${expanded ? "rotate-90" : ""}`}
-				>
-					▶
-				</span>
+				<ChevronRight
+					className={`size-3 shrink-0 text-th-text-muted transition-transform ${expanded ? "rotate-90" : ""}`}
+				/>
 				<span className="italic text-th-text-muted">{label}</span>
 			</button>
 			{expanded && (
@@ -140,7 +145,7 @@ interface WarningItemProps {
 function WarningItem({ message, code }: WarningItemProps) {
 	return (
 		<div className="flex items-start gap-2 rounded bg-th-warning/10 p-2 text-sm text-th-warning">
-			<span className="shrink-0">⚠</span>
+			<AlertTriangle className="size-4 shrink-0" />
 			<div>
 				<span>{message}</span>
 				<span className="ml-2 text-xs opacity-70">({code})</span>
@@ -174,11 +179,9 @@ function RawItem({ content }: RawItemProps) {
 				onClick={() => setExpanded(!expanded)}
 				className="flex w-full items-center gap-1.5 rounded p-2 text-left hover:bg-th-overlay-hover"
 			>
-				<span
-					className={`w-2.5 shrink-0 text-th-text-muted transition-transform ${expanded ? "rotate-90" : ""}`}
-				>
-					▶
-				</span>
+				<ChevronRight
+					className={`size-3 shrink-0 text-th-text-muted transition-transform ${expanded ? "rotate-90" : ""}`}
+				/>
 				<span className="italic text-th-text-muted">{label}</span>
 			</button>
 			{expanded && (
@@ -285,12 +288,12 @@ function PermissionRequestItem({
 	const [expanded, setExpanded] = useState(isPending && hasExpandableContent);
 
 	const statusConfig = {
-		pending: { icon: "?", color: "text-th-warning" },
-		allowed: { icon: "✓", color: "text-th-success" },
-		denied: { icon: "✗", color: "text-th-error" },
+		pending: { Icon: CircleHelp, color: "text-th-warning" },
+		allowed: { Icon: Check, color: "text-th-success" },
+		denied: { Icon: X, color: "text-th-error" },
 	};
 
-	const { icon, color } = statusConfig[status];
+	const { Icon, color } = statusConfig[status];
 
 	return (
 		<div
@@ -301,12 +304,12 @@ function PermissionRequestItem({
 				onClick={() => hasExpandableContent && setExpanded(!expanded)}
 				className={`flex w-full items-center gap-1.5 rounded p-2 text-left ${hasExpandableContent ? "hover:bg-th-overlay-hover" : ""}`}
 			>
-				<span
-					className={`w-2.5 shrink-0 text-th-text-muted transition-transform ${expanded ? "rotate-90" : ""}`}
-				>
-					{hasExpandableContent && "▶"}
-				</span>
-				<span className={`shrink-0 ${color}`}>{icon}</span>
+				{hasExpandableContent && (
+					<ChevronRight
+						className={`size-3 shrink-0 text-th-text-muted transition-transform ${expanded ? "rotate-90" : ""}`}
+					/>
+				)}
+				<Icon className={`size-3 shrink-0 ${color}`} />
 				<span className="shrink-0 text-th-accent">{request.toolName}</span>
 				{summary && (
 					<span className="truncate text-th-text-muted">{summary}</span>
