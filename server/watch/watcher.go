@@ -199,6 +199,12 @@ func (w *FSWatcher) eventLoop() {
 }
 
 func (w *FSWatcher) handleEvent(event fsnotify.Event) {
+	// Ignore CHMOD events - they're triggered by atime updates (e.g., git status reading files)
+	// and don't represent actual content changes
+	if event.Op == fsnotify.Chmod {
+		return
+	}
+
 	relPath, err := filepath.Rel(w.workDir, event.Name)
 	if err != nil {
 		slog.Error("failed to get relative path", "path", event.Name, "error", err)

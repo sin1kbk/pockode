@@ -229,8 +229,12 @@ func (s *GitStatus) HasFile(path string, staged bool) bool {
 // Status returns the current git status (staged and unstaged files).
 // Submodules are returned as nested GitStatus with their relative paths as keys.
 // Note: Pockode does not support nested submodules.
+//
+// --no-optional-locks prevents git from writing to .git/index (e.g., refreshing stat cache).
+// Combined with ignoring CHMOD events in watcher.go, this prevents an infinite loop
+// when watching .git/index. If issues persist, consider switching to periodic polling.
 func Status(dir string) (*GitStatus, error) {
-	cmd := exec.Command("git", "status", "--porcelain=v1", "-uall", "--ignore-submodules=none")
+	cmd := exec.Command("git", "--no-optional-locks", "status", "--porcelain=v1", "-uall", "--ignore-submodules=none")
 	cmd.Dir = dir
 	output, err := cmd.Output()
 	if err != nil {
