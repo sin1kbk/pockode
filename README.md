@@ -14,7 +14,7 @@ Code from anywhere with Claude Code.
 curl -fsSL https://pockode.com/install.sh | sh
 
 # Run
-pockode -relay -auth-token YOUR_PASSWORD
+pockode -auth-token YOUR_PASSWORD
 ```
 
 Scan the QR code on your phone. That's it.

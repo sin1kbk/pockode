@@ -145,7 +145,7 @@ func main() {
 	portFlag := flag.Int("port", 0, "server port (default 8080)")
 	tokenFlag := flag.String("auth-token", "", "authentication token (required)")
 	devModeFlag := flag.Bool("dev", false, "enable development mode")
-	relayFlag := flag.Bool("relay", false, "enable relay for remote access")
+	relayFlag := flag.Bool("relay", true, "relay for remote access (use -relay=false to disable)")
 	versionFlag := flag.Bool("version", false, "print version and exit")
 	flag.Parse()
 
@@ -275,7 +275,7 @@ func main() {
 	var relayManager *relay.Manager
 	var cancelRelayStreams context.CancelFunc
 	var remoteURL string
-	relayEnabled := *relayFlag || os.Getenv("RELAY_ENABLED") == "true"
+	relayEnabled := *relayFlag && os.Getenv("RELAY_ENABLED") != "false"
 	if relayEnabled {
 		relayCfg := relay.Config{
 			CloudURL:      cloudURL,

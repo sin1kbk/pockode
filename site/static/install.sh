@@ -31,4 +31,4 @@ echo "Installing to $INSTALL_DIR/$BINARY_NAME..."
 sudo mv "/tmp/$BINARY_NAME" "$INSTALL_DIR/$BINARY_NAME"
 sudo chmod +x "$INSTALL_DIR/$BINARY_NAME"
 
-echo "Done! Run 'pockode -relay -auth-token YOUR_PASSWORD' to get started."
+echo "Done! Run 'pockode -auth-token YOUR_PASSWORD' to get started."
