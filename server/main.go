@@ -26,6 +26,7 @@ import (
 	"github.com/pockode/server/process"
 	"github.com/pockode/server/relay"
 	"github.com/pockode/server/session"
+	"github.com/pockode/server/startup"
 	"github.com/pockode/server/watch"
 	"github.com/pockode/server/ws"
 )
@@ -273,6 +274,7 @@ func main() {
 	// Initialize relay if enabled
 	var relayManager *relay.Manager
 	var cancelRelayStreams context.CancelFunc
+	var remoteURL string
 	relayEnabled := *relayFlag || os.Getenv("RELAY_ENABLED") == "true"
 	if relayEnabled {
 		relayCfg := relay.Config{
@@ -288,20 +290,14 @@ func main() {
 		}
 		relayManager = relay.NewManager(relayCfg, backendPort, frontendPort, slog.Default())
 
-		remoteURL, err := relayManager.Start(context.Background())
+		var err error
+		remoteURL, err = relayManager.Start(context.Background())
 		if err != nil {
 			slog.Error("failed to start relay", "error", err)
 			os.Exit(1)
 		}
 
 		slog.Info("remote access enabled", "url", remoteURL)
-
-		fmt.Println()
-		fmt.Println("Remote Access URL:")
-		fmt.Printf("  %s\n", remoteURL)
-		fmt.Println()
-		relay.PrintQRCode(remoteURL)
-		fmt.Println()
 
 		var relayStreamCtx context.Context
 		relayStreamCtx, cancelRelayStreams = context.WithCancel(context.Background())
@@ -335,16 +331,25 @@ func main() {
 		close(shutdownDone)
 	}()
 
-	fmt.Printf("Pockode %s\n", version)
+	// Fetch announcement from cloud
+	announcement := relay.NewClient(cloudURL).GetAnnouncement(context.Background())
 
-	// Fetch and display announcement from cloud
-	if msg := relay.NewClient(cloudURL).GetAnnouncement(context.Background()); msg != "" {
-		fmt.Printf("\n%s\n", msg)
+	// Display startup banner
+	startup.PrintBanner(startup.BannerOptions{
+		Version:      version,
+		LocalURL:     "http://localhost:" + port,
+		RemoteURL:    remoteURL,
+		Announcement: announcement,
+	})
+
+	// Print QR code if relay is enabled
+	if remoteURL != "" {
+		startup.PrintQRCode(remoteURL)
+		fmt.Println()
 	}
 
-	fmt.Printf("\nServer running at http://localhost:%s\n", port)
-	fmt.Println("Press Ctrl+C to stop")
-	fmt.Println()
+	startup.PrintFooter()
+
 	slog.Info("server starting", "port", port, "workDir", workDir, "dataDir", dataDir, "devMode", devMode, "idleTimeout", idleTimeout)
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		slog.Error("server error", "error", err)
