@@ -48,6 +48,8 @@ interface ConnectionActions {
 export interface WatchActions {
 	watchSubscribe: (path: string, callback: () => void) => Promise<string>;
 	watchUnsubscribe: (id: string) => Promise<void>;
+	gitSubscribe: (callback: () => void) => Promise<string>;
+	gitUnsubscribe: (id: string) => Promise<void>;
 }
 
 type RPCActions = ConnectionActions &
@@ -72,6 +74,7 @@ let reconnectAttempts = 0;
 let reconnectTimeout: number | undefined;
 const notificationListeners = new Set<NotificationListener>();
 const watchCallbacks = new Map<string, () => void>();
+const gitWatchCallbacks = new Map<string, () => void>();
 
 // Callback to check if a session exists (set by useSession hook)
 let sessionExistsChecker: ((sessionId: string) => boolean) | null = null;
@@ -114,9 +117,15 @@ function stripNamespace(method: string): string {
 function handleNotification(method: string, params: unknown): void {
 	// Handle watch.changed notifications specially via callback
 	if (method === "watch.changed") {
-		const { id } = params as { id: string; data: unknown };
-		const callback = watchCallbacks.get(id);
-		callback?.();
+		const { id } = params as { id: string };
+		watchCallbacks.get(id)?.();
+		return;
+	}
+
+	// Handle git.changed notifications specially via callback
+	if (method === "git.changed") {
+		const { id } = params as { id: string };
+		gitWatchCallbacks.get(id)?.();
 		return;
 	}
 
@@ -219,6 +228,7 @@ export const useWSStore = create<WSState>((set, get) => ({
 				rpcReceiver = null;
 				rpcRequester = null;
 				watchCallbacks.clear();
+				gitWatchCallbacks.clear();
 
 				const currentStatus = get().status;
 				// Don't reconnect on auth failure or intentional disconnect
@@ -297,6 +307,30 @@ export const useWSStore = create<WSState>((set, get) => ({
 			}
 		},
 
+		gitSubscribe: async (callback: () => void): Promise<string> => {
+			const client = getClient();
+			if (!client) {
+				throw new Error("Not connected");
+			}
+			const result = (await client.request("git.subscribe", {})) as {
+				id: string;
+			};
+			gitWatchCallbacks.set(result.id, callback);
+			return result.id;
+		},
+
+		gitUnsubscribe: async (id: string): Promise<void> => {
+			gitWatchCallbacks.delete(id);
+			const client = getClient();
+			if (client) {
+				try {
+					await client.request("git.unsubscribe", { id });
+				} catch {
+					// Ignore errors (connection might be closed)
+				}
+			}
+		},
+
 		// Spread namespace-specific actions
 		...chatActions,
 		...commandActions,
@@ -325,6 +359,7 @@ export function resetWSStore() {
 	reconnectAttempts = 0;
 	notificationListeners.clear();
 	watchCallbacks.clear();
+	gitWatchCallbacks.clear();
 	sessionExistsChecker = null;
 	useWSStore.setState({ status: "disconnected" });
 }

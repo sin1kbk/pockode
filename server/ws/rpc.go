@@ -29,9 +29,10 @@ type RPCHandler struct {
 	commandStore *command.Store
 	workDir      string
 	watcher      *watch.FSWatcher
+	gitWatcher   *watch.GitWatcher
 }
 
-func NewRPCHandler(token string, manager *process.Manager, devMode bool, sessionStore session.Store, commandStore *command.Store, workDir string, watcher *watch.FSWatcher) *RPCHandler {
+func NewRPCHandler(token string, manager *process.Manager, devMode bool, sessionStore session.Store, commandStore *command.Store, workDir string, watcher *watch.FSWatcher, gitWatcher *watch.GitWatcher) *RPCHandler {
 	return &RPCHandler{
 		token:        token,
 		manager:      manager,
@@ -40,6 +41,7 @@ func NewRPCHandler(token string, manager *process.Manager, devMode bool, session
 		commandStore: commandStore,
 		workDir:      workDir,
 		watcher:      watcher,
+		gitWatcher:   gitWatcher,
 	}
 }
 
@@ -76,6 +78,7 @@ func (h *RPCHandler) HandleStream(ctx context.Context, stream jsonrpc2.ObjectStr
 		subscribed: make(map[string]struct{}),
 		manager:    h.manager,
 		watcher:    h.watcher,
+		gitWatcher: h.gitWatcher,
 		log:        log,
 	}
 
@@ -102,6 +105,7 @@ type rpcConnState struct {
 	subscribed map[string]struct{}
 	manager    *process.Manager
 	watcher    *watch.FSWatcher
+	gitWatcher *watch.GitWatcher
 	conn       *jsonrpc2.Conn
 	log        *slog.Logger
 }
@@ -136,6 +140,7 @@ func (s *rpcConnState) cleanup() {
 
 	// Clean up watch subscriptions
 	s.watcher.CleanupConnection(s.connID)
+	s.gitWatcher.CleanupConnection(s.connID)
 }
 
 type rpcMethodHandler struct {
@@ -192,6 +197,10 @@ func (h *rpcMethodHandler) Handle(ctx context.Context, conn *jsonrpc2.Conn, req 
 		h.handleGitStatus(ctx, conn, req)
 	case "git.diff":
 		h.handleGitDiff(ctx, conn, req)
+	case "git.subscribe":
+		h.handleGitSubscribe(ctx, conn, req)
+	case "git.unsubscribe":
+		h.handleGitUnsubscribe(ctx, conn, req)
 	// command namespace
 	case "command.list":
 		h.handleCommandList(ctx, conn, req)

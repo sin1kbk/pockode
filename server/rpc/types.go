@@ -112,6 +112,16 @@ type WatchUnsubscribeParams struct {
 	ID string `json:"id"`
 }
 
+// Git watch (subscription for git status changes)
+
+type GitSubscribeResult struct {
+	ID string `json:"id"`
+}
+
+type GitUnsubscribeParams struct {
+	ID string `json:"id"`
+}
+
 // Server → Client
 
 // SessionParams is the params for done, interrupted, and process_ended notifications.

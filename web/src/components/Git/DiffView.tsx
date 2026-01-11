@@ -2,9 +2,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useCallback, useMemo } from "react";
-import { useFSWatch } from "../../hooks/useFSWatch";
 import { gitDiffQueryKey, useGitDiff } from "../../hooks/useGitDiff";
-import { resolveGitIndexPath, useGitStatus } from "../../hooks/useGitStatus";
+import { useGitStatus } from "../../hooks/useGitStatus";
+import { useGitWatch } from "../../hooks/useGitWatch";
 import type { OverlaySearchParams } from "../../router";
 import { flattenGitStatus } from "../../types/git";
 import { ContentView } from "../ui";
@@ -35,13 +35,7 @@ function DiffView({ path, staged, onBack }: Props) {
 		queryClient.invalidateQueries({ queryKey: gitDiffQueryKey(path, staged) });
 	}, [queryClient, path, staged]);
 
-	const gitIndexPath = useMemo(
-		() => resolveGitIndexPath(gitStatus, path),
-		[gitStatus, path],
-	);
-
-	useFSWatch(path, invalidateDiff);
-	useFSWatch(gitIndexPath, invalidateDiff);
+	useGitWatch(invalidateDiff);
 
 	const allFiles = useMemo(() => {
 		if (!gitStatus) return [];

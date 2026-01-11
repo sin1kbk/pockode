@@ -250,7 +250,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	wsHandler := ws.NewRPCHandler(token, manager, devMode, sessionStore, commandStore, workDir, fsWatcher)
+	// Initialize git watcher
+	gitWatcher := watch.NewGitWatcher(workDir)
+	if err := gitWatcher.Start(); err != nil {
+		slog.Error("failed to start git watcher", "error", err)
+		os.Exit(1)
+	}
+
+	wsHandler := ws.NewRPCHandler(token, manager, devMode, sessionStore, commandStore, workDir, fsWatcher, gitWatcher)
 	handler := newHandler(token, manager, devMode, sessionStore, workDir, wsHandler)
 
 	srv := &http.Server{
@@ -321,6 +328,7 @@ func main() {
 			cancelRelayStreams()
 			relayManager.Stop()
 		}
+		gitWatcher.Stop()
 		fsWatcher.Stop()
 		manager.Shutdown()
 		close(shutdownDone)

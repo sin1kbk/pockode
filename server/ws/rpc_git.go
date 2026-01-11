@@ -64,3 +64,39 @@ func (h *rpcMethodHandler) handleGitDiff(ctx context.Context, conn *jsonrpc2.Con
 		h.log.Error("failed to send git diff response", "error", err)
 	}
 }
+
+func (h *rpcMethodHandler) handleGitSubscribe(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.Request) {
+	connID := h.state.getConnID()
+	id, err := h.gitWatcher.Subscribe("", conn, connID)
+	if err != nil {
+		h.replyError(ctx, conn, req.ID, jsonrpc2.CodeInternalError, err.Error())
+		return
+	}
+
+	h.log.Debug("git subscribed", "watchId", id)
+
+	if err := conn.Reply(ctx, req.ID, rpc.GitSubscribeResult{ID: id}); err != nil {
+		h.log.Error("failed to send git subscribe response", "error", err)
+	}
+}
+
+func (h *rpcMethodHandler) handleGitUnsubscribe(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.Request) {
+	var params rpc.GitUnsubscribeParams
+	if err := unmarshalParams(req, &params); err != nil {
+		h.replyError(ctx, conn, req.ID, jsonrpc2.CodeInvalidParams, "invalid params")
+		return
+	}
+
+	if params.ID == "" {
+		h.replyError(ctx, conn, req.ID, jsonrpc2.CodeInvalidParams, "id is required")
+		return
+	}
+
+	h.gitWatcher.Unsubscribe(params.ID)
+
+	h.log.Debug("git unsubscribed", "watchId", params.ID)
+
+	if err := conn.Reply(ctx, req.ID, struct{}{}); err != nil {
+		h.log.Error("failed to send git unsubscribe response", "error", err)
+	}
+}
