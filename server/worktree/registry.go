@@ -136,11 +136,14 @@ func (r *Registry) Create(name, branch string) (Info, error) {
 		return Info{}, ErrWorktreeAlreadyExist
 	}
 
-	args := []string{"-C", r.mainDir, "worktree", "add", "-b", branch, worktreePath}
-
-	cmd := exec.Command("git", args...)
-	if output, err := cmd.CombinedOutput(); err != nil {
-		return Info{}, fmt.Errorf("git worktree add failed: %s", strings.TrimSpace(string(output)))
+	// Try without -b first (works for existing local/remote branches),
+	// fall back to -b for new branches.
+	cmd := exec.Command("git", "-C", r.mainDir, "worktree", "add", worktreePath, branch)
+	if _, err := cmd.CombinedOutput(); err != nil {
+		cmd = exec.Command("git", "-C", r.mainDir, "worktree", "add", "-b", branch, worktreePath)
+		if output, err := cmd.CombinedOutput(); err != nil {
+			return Info{}, fmt.Errorf("git worktree add failed: %s", strings.TrimSpace(string(output)))
+		}
 	}
 
 	r.invalidateCache()

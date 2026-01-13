@@ -139,6 +139,46 @@ func TestCreate_Success(t *testing.T) {
 	}
 }
 
+func TestCreate_ExistingBranch(t *testing.T) {
+	dir := initGitRepo(t)
+	r := NewRegistry(dir)
+
+	cmd := exec.Command("git", "-C", dir, "branch", "existing-branch")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git branch failed: %s", out)
+	}
+
+	info, err := r.Create("feature", "existing-branch")
+	if err != nil {
+		t.Fatalf("Create() with existing branch failed: %v", err)
+	}
+	if info.Branch != "existing-branch" {
+		t.Errorf("info.Branch = %q, want %q", info.Branch, "existing-branch")
+	}
+}
+
+func TestCreate_RemoteBranch(t *testing.T) {
+	dir := initGitRepo(t)
+	r := NewRegistry(dir)
+
+	cmd := exec.Command("git", "-C", dir, "remote", "add", "origin", "https://example.com/repo.git")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git remote add failed: %s", out)
+	}
+	cmd = exec.Command("git", "-C", dir, "update-ref", "refs/remotes/origin/feature-x", "HEAD")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git update-ref failed: %s", out)
+	}
+
+	info, err := r.Create("feature", "feature-x")
+	if err != nil {
+		t.Fatalf("Create() with remote branch failed: %v", err)
+	}
+	if info.Branch != "feature-x" {
+		t.Errorf("info.Branch = %q, want %q", info.Branch, "feature-x")
+	}
+}
+
 func TestCreate_EmptyName(t *testing.T) {
 	dir := initGitRepo(t)
 	r := NewRegistry(dir)
