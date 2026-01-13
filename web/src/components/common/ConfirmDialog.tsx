@@ -28,6 +28,7 @@ function ConfirmDialog({
 
 		const handleKeyDown = (e: KeyboardEvent) => {
 			if (e.key === "Escape") {
+				e.stopPropagation();
 				onCancel();
 			}
 		};
@@ -48,14 +49,20 @@ function ConfirmDialog({
 			? "bg-th-error text-th-text-inverse hover:opacity-90"
 			: "bg-th-accent text-th-accent-text hover:bg-th-accent-hover";
 
+	// Isolate all events from parent components
+	const stopEvent = (e: React.SyntheticEvent) => e.stopPropagation();
+
 	return createPortal(
+		/* biome-ignore lint/a11y/useKeyWithClickEvents: keyboard handled in useEffect */
 		<div
 			className="fixed inset-0 z-50 flex items-center justify-center bg-th-bg-overlay"
 			role="dialog"
 			aria-modal="true"
 			aria-labelledby={titleId}
+			onClick={stopEvent}
+			onMouseDown={stopEvent}
 		>
-			{/* biome-ignore lint/a11y/useKeyWithClickEvents lint/a11y/noStaticElementInteractions: Overlay backdrop - Escape key handled in useEffect */}
+			{/* biome-ignore lint/a11y/useKeyWithClickEvents lint/a11y/noStaticElementInteractions: backdrop */}
 			<div className="absolute inset-0" onClick={onCancel} />
 			<div className="relative mx-4 w-full max-w-sm rounded-lg bg-th-bg-secondary p-4 shadow-xl">
 				<h2 id={titleId} className="text-lg font-semibold text-th-text-primary">
