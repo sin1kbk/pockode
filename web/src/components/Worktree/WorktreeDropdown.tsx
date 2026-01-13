@@ -11,9 +11,7 @@ interface Props {
 	onCreateNew: () => void;
 	onClose: () => void;
 	getDisplayName: (worktree: WorktreeInfo) => string;
-	/** Reference to the trigger button to exclude from outside click detection */
 	triggerRef?: React.RefObject<HTMLButtonElement | null>;
-	/** Whether in desktop mode (controls layout) */
 	isDesktop: boolean;
 }
 
@@ -40,12 +38,14 @@ function WorktreeDropdown({
 
 	const hasNoSwitchTargets = switchableWorktrees.length === 0;
 
-	// Close on outside click (excluding trigger button)
 	useEffect(() => {
 		const handleClickOutside = (e: MouseEvent) => {
-			const target = e.target as Node;
-			// Ignore clicks on the trigger button
+			const target = e.target as Element;
 			if (triggerRef?.current?.contains(target)) {
+				return;
+			}
+			// Ignore clicks inside portaled dialogs (e.g., delete confirmation)
+			if (target.closest('[role="dialog"]')) {
 				return;
 			}
 			if (panelRef.current && !panelRef.current.contains(target)) {
@@ -57,7 +57,6 @@ function WorktreeDropdown({
 		return () => document.removeEventListener("mousedown", handleClickOutside);
 	}, [onClose, triggerRef]);
 
-	// Close on Escape
 	useEffect(() => {
 		const handleEscape = (e: KeyboardEvent) => {
 			if (e.key === "Escape") onClose();
@@ -67,7 +66,6 @@ function WorktreeDropdown({
 		return () => document.removeEventListener("keydown", handleEscape);
 	}, [onClose]);
 
-	// Prevent body scroll on mobile
 	useEffect(() => {
 		if (!mobile) return;
 
@@ -90,7 +88,6 @@ function WorktreeDropdown({
 			role="listbox"
 			aria-label="Select worktree"
 		>
-			{/* Header - mobile only */}
 			{mobile && (
 				<>
 					<div className="flex shrink-0 justify-center pt-3 pb-2">
@@ -112,7 +109,6 @@ function WorktreeDropdown({
 				</>
 			)}
 
-			{/* Worktree list or empty state */}
 			{hasNoSwitchTargets ? (
 				<div className="flex flex-col items-center px-4 py-6 text-center">
 					<div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-th-bg-tertiary">
@@ -135,7 +131,6 @@ function WorktreeDropdown({
 				</div>
 			)}
 
-			{/* Create action */}
 			<div className="border-t border-th-border p-2">
 				<button
 					type="button"
