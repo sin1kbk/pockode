@@ -1,10 +1,18 @@
 import { QueryClient } from "@tanstack/react-query";
 import { HttpError } from "./api";
 import { authActions } from "./authStore";
+import { worktreeActions } from "./worktreeStore";
 
 function isUnauthorized(error: unknown): boolean {
 	return error instanceof HttpError && error.status === 401;
 }
+
+const WORKTREE_DEPENDENT_QUERY_KEYS = [
+	"git-status",
+	"git-diff",
+	"sessions",
+	"contents",
+];
 
 export function createQueryClient(): QueryClient {
 	const queryClient = new QueryClient({
@@ -35,6 +43,13 @@ export function createQueryClient(): QueryClient {
 			isUnauthorized(event.mutation?.state.error)
 		) {
 			authActions.logout();
+		}
+	});
+
+	// Prevent stale data flash when switching worktrees
+	worktreeActions.onWorktreeChange(() => {
+		for (const key of WORKTREE_DEPENDENT_QUERY_KEYS) {
+			queryClient.removeQueries({ queryKey: [key] });
 		}
 	});
 

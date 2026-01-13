@@ -74,6 +74,7 @@ export function useWorktree({
 		setWorktreeDeletedListener((name, wasCurrentWorktree) => {
 			queryClient.invalidateQueries({ queryKey: ["worktrees"] });
 			if (wasCurrentWorktree) {
+				worktreeActions.setCurrent("");
 				reconnectWebSocket();
 			}
 			onDeleted?.(name);

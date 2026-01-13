@@ -15,14 +15,29 @@ export const useWorktreeStore = create<WorktreeState>(() => ({
 	isGitRepo: true,
 }));
 
+type WorktreeChangeListener = (prev: string, next: string) => void;
+const changeListeners = new Set<WorktreeChangeListener>();
+
 export const worktreeActions = {
 	setCurrent: (name: string) => {
+		const prev = useWorktreeStore.getState().current;
+		if (prev === name) return;
+
 		if (name) {
 			localStorage.setItem(WORKTREE_KEY, name);
 		} else {
 			localStorage.removeItem(WORKTREE_KEY);
 		}
 		useWorktreeStore.setState({ current: name });
+
+		for (const listener of changeListeners) {
+			listener(prev, name);
+		}
+	},
+
+	onWorktreeChange: (listener: WorktreeChangeListener) => {
+		changeListeners.add(listener);
+		return () => changeListeners.delete(listener);
 	},
 
 	setIsGitRepo: (isGitRepo: boolean) => {

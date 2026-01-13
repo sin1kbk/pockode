@@ -26,7 +26,7 @@ export function useSession({
 	const isConnected = wsStatus === "connected";
 	const hasConnectedOnceRef = useRef(false);
 
-	// Invalidate sessions on reconnect (worktree switch, etc.)
+	// Invalidate sessions on reconnect
 	useEffect(() => {
 		if (isConnected) {
 			if (hasConnectedOnceRef.current) {
