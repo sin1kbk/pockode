@@ -196,6 +196,7 @@ body {
   max-width: 720px;
   width: 100%;
   height: auto;
+  border: 1px solid var(--border);
   box-shadow: 0 16px 48px rgba(0,0,0,0.5);
 }
 
@@ -207,6 +208,7 @@ body {
   bottom: 0;
   height: 340px;
   width: auto;
+  border: 1px solid var(--border);
   box-shadow: 0 20px 48px rgba(0,0,0,0.6);
 }
 
@@ -279,6 +281,86 @@ body {
   font-size: 0.9375rem;
   color: var(--text-secondary);
   line-height: 1.6;
+}
+
+/* Feature showcase section */
+.feature {
+  padding: 6rem 2rem;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.feature-content {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 3rem;
+  align-items: center;
+}
+
+.feature-badge {
+  display: inline-block;
+  padding: 0.375rem 0.875rem;
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: 100px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--green);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 1.5rem;
+}
+
+.feature-title {
+  font-size: 2.25rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+  margin-bottom: 1.25rem;
+  background: linear-gradient(135deg, #fff 0%, var(--text-secondary) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.feature-desc {
+  font-size: 1.0625rem;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  margin-bottom: 2rem;
+}
+
+.feature-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+.feature-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.9375rem;
+  color: var(--text-secondary);
+}
+
+.feature-list svg {
+  color: var(--green);
+  flex-shrink: 0;
+}
+
+.feature-media {
+  display: flex;
+  justify-content: center;
+}
+
+.feature-video {
+  width: auto;
+  max-width: 100%;
+  max-height: 520px;
+  border: 1px solid var(--border);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.6);
 }
 
 /* Install section */
@@ -505,6 +587,27 @@ body {
 
   .value-grid {
     grid-template-columns: 1fr;
+  }
+
+  .feature {
+    padding: 4rem 1.5rem;
+  }
+
+  .feature-content {
+    grid-template-columns: 1fr;
+    gap: 2.5rem;
+  }
+
+  .feature-title {
+    font-size: 1.75rem;
+  }
+
+  .feature-text {
+    text-align: center;
+  }
+
+  .feature-list {
+    align-items: center;
   }
 
   .footer-links {
