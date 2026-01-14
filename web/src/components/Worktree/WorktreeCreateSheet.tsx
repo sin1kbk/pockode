@@ -163,9 +163,7 @@ function WorktreeCreateSheet({
 								disabled={isCreating}
 								autoComplete="off"
 							/>
-							<p className="text-xs text-th-text-muted">
-								Uses name if empty
-							</p>
+							<p className="text-xs text-th-text-muted">Uses name if empty</p>
 						</div>
 
 						{/* Error message */}
