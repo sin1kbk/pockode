@@ -3,9 +3,23 @@
 [![Server](https://github.com/sijiaoh/pockode/actions/workflows/server.yml/badge.svg)](https://github.com/sijiaoh/pockode/actions/workflows/server.yml)
 [![Web](https://github.com/sijiaoh/pockode/actions/workflows/web.yml/badge.svg)](https://github.com/sijiaoh/pockode/actions/workflows/web.yml)
 
-Code from anywhere with Claude Code.
+Mobile-first coding environment for Claude Code.
+
+Claude Code assumes a desktop. Pockode removes that assumption —
+chat, browse files, review diffs, and manage worktrees from your phone.
 
 **Website:** [pockode.com](https://pockode.com)
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/sijiaoh/pockode/main/site/public/images/demo-mobile.jpg" alt="Pockode on mobile" width="300">
+</p>
+
+## Features
+
+- Chat-first UI optimized for mobile
+- File browser and editor
+- Git diff viewer
+- Git worktree management
 
 ## Quick Start
 
@@ -21,11 +35,11 @@ Scan the QR code on your phone. That's it.
 
 ## Status
 
-Under active development. Things move fast, things might break. But that's part of the fun, right?
+Early-stage. APIs may change. Feedback welcome.
 
 ## Feedback
 
-Got ideas? Found a bug? [Open an issue](https://github.com/sijiaoh/pockode/issues) — we'd love to hear from you!
+Got ideas? Found a bug? [Open an issue](https://github.com/sijiaoh/pockode/issues).
 
 > Code contributions aren't accepted yet (too much refactoring happening), but your feedback shapes the product.
 
