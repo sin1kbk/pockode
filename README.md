@@ -11,7 +11,7 @@ chat, browse files, review diffs, and manage worktrees from your phone.
 **Website:** [pockode.com](https://pockode.com)
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/sijiaoh/pockode/main/site/public/images/demo-mobile.jpg" alt="Pockode on mobile" width="300">
+  <img src="https://raw.githubusercontent.com/sijiaoh/pockode/main/site/static/images/demo-mobile.jpg" alt="Pockode on mobile" width="300">
 </p>
 
 ## Features
