@@ -63,7 +63,7 @@ function WorktreeSwitcher({ onClose, isDesktop = true }: Props) {
 		setIsCreateOpen(true);
 	}, []);
 
-	const displayBranch = currentWorktree?.branch;
+	const displayName = currentWorktree ? getDisplayName(currentWorktree) : null;
 
 	// Close button component (reused in multiple places)
 	const closeButton = !isDesktop && onClose && (
@@ -92,7 +92,7 @@ function WorktreeSwitcher({ onClose, isDesktop = true }: Props) {
 	}
 
 	// Loading state or no worktree data yet: show skeleton
-	if (isLoading || !displayBranch) {
+	if (isLoading || !displayName) {
 		return (
 			<div className="mx-3 mt-3 mb-2 flex items-center gap-2">
 				<div className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-th-border bg-th-bg-tertiary px-3 py-2">
@@ -120,7 +120,7 @@ function WorktreeSwitcher({ onClose, isDesktop = true }: Props) {
 					aria-hidden="true"
 				/>
 				<span className="flex-1 truncate text-left text-sm font-medium">
-					{displayBranch}
+					{displayName}
 				</span>
 				<ChevronDown
 					className={`h-4 w-4 shrink-0 text-th-text-muted transition-transform group-hover:text-th-text-primary ${

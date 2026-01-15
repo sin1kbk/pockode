@@ -122,9 +122,9 @@ export function useWorktree({
 		[current, navigate],
 	);
 
-	const currentWorktree = worktrees.find((w) =>
-		current ? w.name === current : w.is_main,
-	);
+	const currentWorktree =
+		worktrees.find((w) => (current ? w.name === current : w.is_main)) ??
+		worktrees.find((w) => w.is_main);
 
 	return {
 		current,
