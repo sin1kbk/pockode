@@ -6,19 +6,32 @@ interface Props {
 	displayName: string;
 	onSelect: () => void;
 	onDelete: () => void;
+	isCurrent: boolean;
 }
 
-function WorktreeItem({ worktree, displayName, onSelect, onDelete }: Props) {
+function WorktreeItem({
+	worktree,
+	displayName,
+	onSelect,
+	onDelete,
+	isCurrent,
+}: Props) {
 	const showBranchSubtitle =
 		worktree.branch !== worktree.name && worktree.branch !== displayName;
+
+	const canDelete = !worktree.is_main;
 
 	return (
 		/* biome-ignore lint/a11y/useKeyWithClickEvents lint/a11y/useFocusableInteractive: Keyboard navigation handled by listbox parent */
 		<div
-			onClick={onSelect}
-			className="group flex w-full cursor-pointer items-center gap-3 px-3 py-2.5 transition-colors hover:bg-th-bg-tertiary"
+			onClick={isCurrent ? undefined : onSelect}
+			className={`group flex w-full items-center gap-3 px-3 py-2.5 transition-colors ${
+				isCurrent
+					? "bg-th-bg-tertiary"
+					: "cursor-pointer hover:bg-th-bg-tertiary"
+			}`}
 			role="option"
-			aria-selected={false}
+			aria-selected={isCurrent}
 		>
 			<div className="min-w-0 flex-1 text-left">
 				<div className="flex items-center gap-2">
@@ -30,6 +43,11 @@ function WorktreeItem({ worktree, displayName, onSelect, onDelete }: Props) {
 							Default
 						</span>
 					)}
+					{isCurrent && (
+						<span className="shrink-0 rounded bg-th-accent/15 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-th-accent">
+							Current
+						</span>
+					)}
 				</div>
 				{showBranchSubtitle && (
 					<span className="mt-0.5 block truncate text-xs text-th-text-muted">
@@ -38,7 +56,7 @@ function WorktreeItem({ worktree, displayName, onSelect, onDelete }: Props) {
 				)}
 			</div>
 
-			{!worktree.is_main && (
+			{canDelete && (
 				<DeleteButton
 					itemName={displayName}
 					itemType="worktree"

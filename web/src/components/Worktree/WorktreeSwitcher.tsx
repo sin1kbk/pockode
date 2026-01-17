@@ -65,6 +65,13 @@ function WorktreeSwitcher({ onClose, isDesktop = true }: Props) {
 
 	const displayName = currentWorktree ? getDisplayName(currentWorktree) : null;
 
+	const isCurrent = useCallback(
+		(worktree: WorktreeInfo) => {
+			return current ? worktree.name === current : worktree.is_main;
+		},
+		[current],
+	);
+
 	// Close button component (reused in multiple places)
 	const closeButton = !isDesktop && onClose && (
 		<button
@@ -135,7 +142,6 @@ function WorktreeSwitcher({ onClose, isDesktop = true }: Props) {
 			<WorktreeDropdown
 				isOpen={isOpen}
 				worktrees={worktrees}
-				current={current}
 				onSelect={handleSelect}
 				onDelete={handleDelete}
 				onCreateNew={handleOpenCreate}
@@ -143,6 +149,7 @@ function WorktreeSwitcher({ onClose, isDesktop = true }: Props) {
 				getDisplayName={getDisplayName}
 				triggerRef={buttonRef}
 				isDesktop={isDesktop}
+				isCurrent={isCurrent}
 			/>
 
 			{isCreateOpen && (

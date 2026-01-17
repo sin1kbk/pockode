@@ -1,5 +1,4 @@
 import { GitBranch, Plus } from "lucide-react";
-import { useMemo } from "react";
 import type { WorktreeInfo } from "../../types/message";
 import ResponsivePanel from "../ui/ResponsivePanel";
 import WorktreeItem from "./WorktreeItem";
@@ -7,7 +6,6 @@ import WorktreeItem from "./WorktreeItem";
 interface Props {
 	isOpen: boolean;
 	worktrees: WorktreeInfo[];
-	current: string;
 	onSelect: (worktree: WorktreeInfo) => void;
 	onDelete: (worktree: WorktreeInfo) => void;
 	onCreateNew: () => void;
@@ -15,12 +13,12 @@ interface Props {
 	getDisplayName: (worktree: WorktreeInfo) => string;
 	triggerRef?: React.RefObject<HTMLButtonElement | null>;
 	isDesktop: boolean;
+	isCurrent: (worktree: WorktreeInfo) => boolean;
 }
 
 function WorktreeDropdown({
 	isOpen,
 	worktrees,
-	current,
 	onSelect,
 	onDelete,
 	onCreateNew,
@@ -28,15 +26,10 @@ function WorktreeDropdown({
 	getDisplayName,
 	triggerRef,
 	isDesktop,
+	isCurrent,
 }: Props) {
-	// Filter out current worktree - dropdown shows "switch to" options only
-	const switchableWorktrees = useMemo(() => {
-		return worktrees.filter((wt) =>
-			current ? wt.name !== current : !wt.is_main,
-		);
-	}, [worktrees, current]);
-
-	const hasNoSwitchTargets = switchableWorktrees.length === 0;
+	// Only main worktree exists = no other worktrees to switch to
+	const hasOnlyMain = worktrees.length === 1 && worktrees[0].is_main;
 
 	return (
 		<ResponsivePanel
@@ -48,7 +41,7 @@ function WorktreeDropdown({
 			mobileMaxHeight="70dvh"
 			desktopMaxHeight="50vh"
 		>
-			{hasNoSwitchTargets ? (
+			{hasOnlyMain ? (
 				<div className="flex flex-col items-center px-4 py-6 text-center">
 					<div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-th-bg-tertiary">
 						<GitBranch className="h-5 w-5 text-th-text-muted" />
@@ -62,15 +55,19 @@ function WorktreeDropdown({
 				</div>
 			) : (
 				<div className="flex-1 overflow-y-auto py-2">
-					{switchableWorktrees.map((worktree) => (
-						<WorktreeItem
-							key={worktree.name || "__main__"}
-							worktree={worktree}
-							displayName={getDisplayName(worktree)}
-							onSelect={() => onSelect(worktree)}
-							onDelete={() => onDelete(worktree)}
-						/>
-					))}
+					{worktrees.map((worktree) => {
+						const isCurrentWorktree = isCurrent(worktree);
+						return (
+							<WorktreeItem
+								key={worktree.name || "__main__"}
+								worktree={worktree}
+								displayName={getDisplayName(worktree)}
+								onSelect={() => onSelect(worktree)}
+								onDelete={() => onDelete(worktree)}
+								isCurrent={isCurrentWorktree}
+							/>
+						);
+					})}
 				</div>
 			)}
 
