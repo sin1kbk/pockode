@@ -43,7 +43,7 @@ function WorktreeItem({
 							Default
 						</span>
 					)}
-					</div>
+				</div>
 				{showBranchSubtitle && (
 					<span className="mt-0.5 block truncate text-xs text-th-text-muted">
 						{worktree.branch}

@@ -1,4 +1,5 @@
 import { GitBranch, Plus } from "lucide-react";
+import { useMemo } from "react";
 import type { WorktreeInfo } from "../../types/message";
 import ResponsivePanel from "../ui/ResponsivePanel";
 import WorktreeItem from "./WorktreeItem";
@@ -31,6 +32,14 @@ function WorktreeDropdown({
 	// Only main worktree exists = no other worktrees to switch to
 	const hasOnlyMain = worktrees.length === 1 && worktrees[0].is_main;
 
+	// Sort: main first, then alphabetically by name
+	const sortedWorktrees = useMemo(() => {
+		return [...worktrees].sort((a, b) => {
+			if (a.is_main !== b.is_main) return a.is_main ? -1 : 1;
+			return a.name.localeCompare(b.name);
+		});
+	}, [worktrees]);
+
 	return (
 		<ResponsivePanel
 			isOpen={isOpen}
@@ -55,7 +64,7 @@ function WorktreeDropdown({
 				</div>
 			) : (
 				<div className="flex-1 overflow-y-auto py-2">
-					{worktrees.map((worktree) => {
+					{sortedWorktrees.map((worktree) => {
 						const isCurrentWorktree = isCurrent(worktree);
 						return (
 							<WorktreeItem
