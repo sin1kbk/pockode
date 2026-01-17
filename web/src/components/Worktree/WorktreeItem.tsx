@@ -43,12 +43,7 @@ function WorktreeItem({
 							Default
 						</span>
 					)}
-					{isCurrent && (
-						<span className="shrink-0 rounded bg-th-accent/15 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-th-accent">
-							Current
-						</span>
-					)}
-				</div>
+					</div>
 				{showBranchSubtitle && (
 					<span className="mt-0.5 block truncate text-xs text-th-text-muted">
 						{worktree.branch}
