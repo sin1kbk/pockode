@@ -256,43 +256,5 @@ type CommandOutputParams struct {
 
 // NewNotifyParams creates method-specific notification params from an AgentEvent.
 func NewNotifyParams(sessionID string, event agent.AgentEvent) interface{} {
-	switch e := event.(type) {
-	case agent.TextEvent:
-		return TextParams{SessionID: sessionID, Content: e.Content}
-	case agent.ToolCallEvent:
-		return ToolCallParams{SessionID: sessionID, ToolName: e.ToolName, ToolInput: e.ToolInput, ToolUseID: e.ToolUseID}
-	case agent.ToolResultEvent:
-		return ToolResultParams{SessionID: sessionID, ToolUseID: e.ToolUseID, ToolResult: e.ToolResult}
-	case agent.WarningEvent:
-		return WarningParams{SessionID: sessionID, Message: e.Message, Code: e.Code}
-	case agent.ErrorEvent:
-		return ErrorParams{SessionID: sessionID, Error: e.Error}
-	case agent.DoneEvent:
-		return SessionParams{SessionID: sessionID}
-	case agent.InterruptedEvent:
-		return SessionParams{SessionID: sessionID}
-	case agent.PermissionRequestEvent:
-		return PermissionRequestParams{
-			SessionID:             sessionID,
-			RequestID:             e.RequestID,
-			ToolName:              e.ToolName,
-			ToolInput:             e.ToolInput,
-			ToolUseID:             e.ToolUseID,
-			PermissionSuggestions: e.PermissionSuggestions,
-		}
-	case agent.RequestCancelledEvent:
-		return RequestCancelledParams{SessionID: sessionID, RequestID: e.RequestID}
-	case agent.AskUserQuestionEvent:
-		return AskUserQuestionParams{SessionID: sessionID, RequestID: e.RequestID, ToolUseID: e.ToolUseID, Questions: e.Questions}
-	case agent.SystemEvent:
-		return SystemParams{SessionID: sessionID, Content: e.Content}
-	case agent.ProcessEndedEvent:
-		return SessionParams{SessionID: sessionID}
-	case agent.RawEvent:
-		return RawParams{SessionID: sessionID, Content: e.Content}
-	case agent.CommandOutputEvent:
-		return CommandOutputParams{SessionID: sessionID, Content: e.Content}
-	default:
-		return SessionParams{SessionID: sessionID}
-	}
+	return event.ToNotifyParams(sessionID)
 }
