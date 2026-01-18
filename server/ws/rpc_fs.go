@@ -7,8 +7,8 @@ import (
 	"github.com/sourcegraph/jsonrpc2"
 )
 
-func (h *rpcMethodHandler) handleWatchSubscribe(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.Request) {
-	var params rpc.WatchSubscribeParams
+func (h *rpcMethodHandler) handleFSSubscribe(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.Request) {
+	var params rpc.FSSubscribeParams
 	if err := unmarshalParams(req, &params); err != nil {
 		h.replyError(ctx, conn, req.ID, jsonrpc2.CodeInvalidParams, "invalid params")
 		return
@@ -21,13 +21,13 @@ func (h *rpcMethodHandler) handleWatchSubscribe(ctx context.Context, conn *jsonr
 		return
 	}
 
-	if err := conn.Reply(ctx, req.ID, rpc.WatchSubscribeResult{ID: id}); err != nil {
-		h.log.Error("failed to send watch subscribe response", "error", err)
+	if err := conn.Reply(ctx, req.ID, rpc.FSSubscribeResult{ID: id}); err != nil {
+		h.log.Error("failed to send fs subscribe response", "error", err)
 	}
 }
 
-func (h *rpcMethodHandler) handleWatchUnsubscribe(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.Request) {
-	var params rpc.WatchUnsubscribeParams
+func (h *rpcMethodHandler) handleFSUnsubscribe(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.Request) {
+	var params rpc.FSUnsubscribeParams
 	if err := unmarshalParams(req, &params); err != nil {
 		h.replyError(ctx, conn, req.ID, jsonrpc2.CodeInvalidParams, "invalid params")
 		return
@@ -41,6 +41,6 @@ func (h *rpcMethodHandler) handleWatchUnsubscribe(ctx context.Context, conn *jso
 	h.state.worktree.FSWatcher.Unsubscribe(params.ID)
 
 	if err := conn.Reply(ctx, req.ID, struct{}{}); err != nil {
-		h.log.Error("failed to send watch unsubscribe response", "error", err)
+		h.log.Error("failed to send fs unsubscribe response", "error", err)
 	}
 }

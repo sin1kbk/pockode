@@ -30,7 +30,7 @@ type FSWatcher struct {
 
 func NewFSWatcher(workDir string) *FSWatcher {
 	return &FSWatcher{
-		BaseWatcher:  NewBaseWatcher("w"),
+		BaseWatcher:  NewBaseWatcher("f"),
 		workDir:      workDir,
 		pathToIDs:    make(map[string][]string),
 		pathRefCount: make(map[string]int),
@@ -211,7 +211,7 @@ func (w *FSWatcher) notifyPath(path string) {
 	var notified int
 	for _, id := range ids {
 		if sub, ok := subsMap[id]; ok {
-			err := sub.Conn.Notify(context.Background(), "watch.changed", map[string]any{
+			err := sub.Conn.Notify(context.Background(), "fs.changed", map[string]any{
 				"id": sub.ID,
 			})
 			if err != nil {

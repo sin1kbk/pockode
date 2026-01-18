@@ -106,21 +106,21 @@ type CommandListResult struct {
 	Commands []command.Command `json:"commands"`
 }
 
-// Watch namespace
+// FS namespace
 
-type WatchSubscribeParams struct {
+type FSSubscribeParams struct {
 	Path string `json:"path"`
 }
 
-type WatchSubscribeResult struct {
+type FSSubscribeResult struct {
 	ID string `json:"id"`
 }
 
-type WatchUnsubscribeParams struct {
+type FSUnsubscribeParams struct {
 	ID string `json:"id"`
 }
 
-// Git watch (subscription for git status changes)
+// Git namespace
 
 type GitSubscribeResult struct {
 	ID string `json:"id"`

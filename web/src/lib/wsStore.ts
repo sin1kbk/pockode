@@ -51,8 +51,8 @@ interface ConnectionActions {
 }
 
 export interface WatchActions {
-	watchSubscribe: (path: string, callback: () => void) => Promise<string>;
-	watchUnsubscribe: (id: string) => Promise<void>;
+	fsSubscribe: (path: string, callback: () => void) => Promise<string>;
+	fsUnsubscribe: (id: string) => Promise<void>;
 	gitSubscribe: (callback: () => void) => Promise<string>;
 	gitUnsubscribe: (id: string) => Promise<void>;
 	worktreeSubscribe: (callback: () => void) => Promise<string>;
@@ -83,7 +83,7 @@ let currentToken: string | null = null;
 let reconnectAttempts = 0;
 let reconnectTimeout: number | undefined;
 const notificationListeners = new Set<NotificationListener>();
-const watchCallbacks = new Map<string, () => void>();
+const fsWatchCallbacks = new Map<string, () => void>();
 const gitWatchCallbacks = new Map<string, () => void>();
 const worktreeWatchCallbacks = new Map<string, () => void>();
 
@@ -95,7 +95,7 @@ const worktreeWatchCallbacks = new Map<string, () => void>();
  * This mirrors server-side Worktree.UnsubscribeConnection().
  */
 function clearWatchSubscriptions(): void {
-	watchCallbacks.clear();
+	fsWatchCallbacks.clear();
 	gitWatchCallbacks.clear();
 	// Note: worktreeWatchCallbacks is NOT cleared here because it's Manager-level,
 	// not worktree-specific. It persists across worktree switches.
@@ -147,10 +147,10 @@ function stripNamespace(method: string): string {
 }
 
 function handleNotification(method: string, params: unknown): void {
-	// Handle watch.changed notifications specially via callback
-	if (method === "watch.changed") {
+	// Handle fs.changed notifications specially via callback
+	if (method === "fs.changed") {
 		const { id } = params as { id: string };
-		watchCallbacks.get(id)?.();
+		fsWatchCallbacks.get(id)?.();
 		return;
 	}
 
@@ -378,7 +378,7 @@ export const useWSStore = create<WSState>((set, get) => ({
 			};
 		},
 
-		watchSubscribe: async (
+		fsSubscribe: async (
 			path: string,
 			callback: () => void,
 		): Promise<string> => {
@@ -386,19 +386,19 @@ export const useWSStore = create<WSState>((set, get) => ({
 			if (!client) {
 				throw new Error("Not connected");
 			}
-			const result = (await client.request("watch.subscribe", { path })) as {
+			const result = (await client.request("fs.subscribe", { path })) as {
 				id: string;
 			};
-			watchCallbacks.set(result.id, callback);
+			fsWatchCallbacks.set(result.id, callback);
 			return result.id;
 		},
 
-		watchUnsubscribe: async (id: string): Promise<void> => {
-			watchCallbacks.delete(id);
+		fsUnsubscribe: async (id: string): Promise<void> => {
+			fsWatchCallbacks.delete(id);
 			const client = getClient();
 			if (client) {
 				try {
-					await client.request("watch.unsubscribe", { id });
+					await client.request("fs.unsubscribe", { id });
 				} catch {
 					// Ignore errors (connection might be closed)
 				}
@@ -530,7 +530,7 @@ export function resetWSStore() {
 	}
 	reconnectAttempts = 0;
 	notificationListeners.clear();
-	watchCallbacks.clear();
+	fsWatchCallbacks.clear();
 	gitWatchCallbacks.clear();
 	worktreeWatchCallbacks.clear();
 	sessionExistsChecker = null;

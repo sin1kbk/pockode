@@ -431,8 +431,8 @@ describe("wsStore", () => {
 		});
 	});
 
-	describe("watch callbacks", () => {
-		it("calls callback when watch.changed notification is received", async () => {
+	describe("fs watch callbacks", () => {
+		it("calls callback when fs.changed notification is received", async () => {
 			const wsActions = await getWsActions();
 			const callback = vi.fn();
 
@@ -440,32 +440,32 @@ describe("wsStore", () => {
 			const ws = getMockWs();
 			if (!ws) throw new Error("WebSocket not found");
 
-			// Mock watchSubscribe to return a known ID
+			// Mock fsSubscribe to return a known ID
 			ws.send = vi.fn((data: string) => {
 				const parsed = JSON.parse(data);
-				if (parsed.method === "watch.subscribe") {
+				if (parsed.method === "fs.subscribe") {
 					queueMicrotask(() => {
 						ws.simulateMessage({
 							jsonrpc: "2.0",
 							id: parsed.id,
-							result: { id: "w_test123" },
+							result: { id: "f_test123" },
 						});
 					});
 				}
 			});
 
-			const watchId = await wsActions.watchSubscribe("/test/path", callback);
-			expect(watchId).toBe("w_test123");
+			const subscriptionId = await wsActions.fsSubscribe("/test/path", callback);
+			expect(subscriptionId).toBe("f_test123");
 
-			ws.simulateNotification("watch.changed", {
-				id: "w_test123",
+			ws.simulateNotification("fs.changed", {
+				id: "f_test123",
 				data: {},
 			});
 
 			expect(callback).toHaveBeenCalledTimes(1);
 		});
 
-		it("ignores watch.changed for unknown ID", async () => {
+		it("ignores fs.changed for unknown ID", async () => {
 			const wsActions = await getWsActions();
 			const callback = vi.fn();
 
@@ -473,32 +473,32 @@ describe("wsStore", () => {
 			const ws = getMockWs();
 			if (!ws) throw new Error("WebSocket not found");
 
-			// Mock watchSubscribe
+			// Mock fsSubscribe
 			ws.send = vi.fn((data: string) => {
 				const parsed = JSON.parse(data);
-				if (parsed.method === "watch.subscribe") {
+				if (parsed.method === "fs.subscribe") {
 					queueMicrotask(() => {
 						ws.simulateMessage({
 							jsonrpc: "2.0",
 							id: parsed.id,
-							result: { id: "w_known" },
+							result: { id: "f_known" },
 						});
 					});
 				}
 			});
 
-			await wsActions.watchSubscribe("/test/path", callback);
+			await wsActions.fsSubscribe("/test/path", callback);
 
 			// Send notification with unknown ID
-			ws.simulateNotification("watch.changed", {
-				id: "w_unknown",
+			ws.simulateNotification("fs.changed", {
+				id: "f_unknown",
 				data: {},
 			});
 
 			expect(callback).not.toHaveBeenCalled();
 		});
 
-		it("ignores watch.changed after unsubscribe", async () => {
+		it("ignores fs.changed after unsubscribe", async () => {
 			const wsActions = await getWsActions();
 			const callback = vi.fn();
 
@@ -508,15 +508,15 @@ describe("wsStore", () => {
 
 			ws.send = vi.fn((data: string) => {
 				const parsed = JSON.parse(data);
-				if (parsed.method === "watch.subscribe") {
+				if (parsed.method === "fs.subscribe") {
 					queueMicrotask(() => {
 						ws.simulateMessage({
 							jsonrpc: "2.0",
 							id: parsed.id,
-							result: { id: "w_test123" },
+							result: { id: "f_test123" },
 						});
 					});
-				} else if (parsed.method === "watch.unsubscribe") {
+				} else if (parsed.method === "fs.unsubscribe") {
 					queueMicrotask(() => {
 						ws.simulateMessage({
 							jsonrpc: "2.0",
@@ -527,11 +527,11 @@ describe("wsStore", () => {
 				}
 			});
 
-			const watchId = await wsActions.watchSubscribe("/test/path", callback);
-			await wsActions.watchUnsubscribe(watchId);
+			const subscriptionId = await wsActions.fsSubscribe("/test/path", callback);
+			await wsActions.fsUnsubscribe(subscriptionId);
 
-			ws.simulateNotification("watch.changed", {
-				id: "w_test123",
+			ws.simulateNotification("fs.changed", {
+				id: "f_test123",
 				data: {},
 			});
 

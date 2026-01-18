@@ -9,8 +9,8 @@ import { useWSStore } from "../lib/wsStore";
  * @param onChanged - Callback to invoke when the file/directory changes
  */
 export function useFSWatch(path: string | null, onChanged: () => void): void {
-	const watchSubscribe = useWSStore((s) => s.actions.watchSubscribe);
-	const watchUnsubscribe = useWSStore((s) => s.actions.watchUnsubscribe);
+	const fsSubscribe = useWSStore((s) => s.actions.fsSubscribe);
+	const fsUnsubscribe = useWSStore((s) => s.actions.fsUnsubscribe);
 	const status = useWSStore((s) => s.status);
 
 	// Keep callback ref up to date without triggering effect
@@ -20,29 +20,29 @@ export function useFSWatch(path: string | null, onChanged: () => void): void {
 	useEffect(() => {
 		if (path === null || status !== "connected") return;
 
-		let watchId: string | null = null;
+		let subscriptionId: string | null = null;
 		let cancelled = false;
 
-		watchSubscribe(path, () => {
+		fsSubscribe(path, () => {
 			onChangedRef.current();
 		})
 			.then((id) => {
 				if (cancelled) {
 					// Component unmounted before subscribe completed
-					watchUnsubscribe(id);
+					fsUnsubscribe(id);
 				} else {
-					watchId = id;
+					subscriptionId = id;
 				}
 			})
 			.catch((err) => {
-				console.error("Failed to subscribe to watch:", path, err);
+				console.error("Failed to subscribe to fs watch:", path, err);
 			});
 
 		return () => {
 			cancelled = true;
-			if (watchId) {
-				watchUnsubscribe(watchId);
+			if (subscriptionId) {
+				fsUnsubscribe(subscriptionId);
 			}
 		};
-	}, [path, status, watchSubscribe, watchUnsubscribe]);
+	}, [path, status, fsSubscribe, fsUnsubscribe]);
 }

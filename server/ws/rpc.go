@@ -238,11 +238,11 @@ func (h *rpcMethodHandler) Handle(ctx context.Context, conn *jsonrpc2.Conn, req 
 		h.handleGitSubscribe(ctx, conn, req)
 	case "git.unsubscribe":
 		h.handleGitUnsubscribe(ctx, conn, req)
-	// watch namespace
-	case "watch.subscribe":
-		h.handleWatchSubscribe(ctx, conn, req)
-	case "watch.unsubscribe":
-		h.handleWatchUnsubscribe(ctx, conn, req)
+	// fs namespace
+	case "fs.subscribe":
+		h.handleFSSubscribe(ctx, conn, req)
+	case "fs.unsubscribe":
+		h.handleFSUnsubscribe(ctx, conn, req)
 	default:
 		h.replyError(ctx, conn, req.ID, jsonrpc2.CodeMethodNotFound, "method not found: "+req.Method)
 	}
