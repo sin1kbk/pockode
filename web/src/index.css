@@ -675,5 +675,6 @@ samp {
 .shiki {
 	min-width: fit-content;
 	line-height: 1.5;
+	/* biome-ignore lint/complexity/noImportantStyles: Override Shiki's inline background color */
 	background-color: var(--th-code-bg) !important;
 }

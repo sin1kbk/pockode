@@ -26,9 +26,7 @@ function WorktreeItem({
 		<div
 			onClick={isCurrent ? undefined : onSelect}
 			className={`group flex w-full items-center gap-3 px-3 py-2.5 transition-colors ${
-				isCurrent
-					? "bg-th-accent/10"
-					: "cursor-pointer hover:bg-th-bg-tertiary"
+				isCurrent ? "bg-th-accent/10" : "cursor-pointer hover:bg-th-bg-tertiary"
 			}`}
 			role="option"
 			aria-selected={isCurrent}
