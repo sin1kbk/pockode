@@ -114,12 +114,10 @@ func (w *WorktreeWatcher) pollWorktreeList() string {
 }
 
 func (w *WorktreeWatcher) notifySubscribers() {
-	w.NotifyAll("worktree.changed", func(sub *Subscription) any {
+	count := w.NotifyAll("worktree.changed", func(sub *Subscription) any {
 		return map[string]any{
 			"id": sub.ID,
 		}
 	})
-
-	count := len(w.GetAllSubscriptions())
 	slog.Debug("notified worktree list change", "subscribers", count)
 }

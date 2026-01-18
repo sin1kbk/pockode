@@ -67,7 +67,7 @@ func (h *rpcMethodHandler) handleGitDiff(ctx context.Context, conn *jsonrpc2.Con
 
 func (h *rpcMethodHandler) handleGitSubscribe(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.Request) {
 	connID := h.state.getConnID()
-	id, err := h.state.worktree.GitWatcher.Subscribe("", conn, connID)
+	id, err := h.state.worktree.GitWatcher.Subscribe(conn, connID)
 	if err != nil {
 		h.replyError(ctx, conn, req.ID, jsonrpc2.CodeInternalError, err.Error())
 		return

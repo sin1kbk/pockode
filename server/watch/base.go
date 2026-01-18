@@ -61,7 +61,6 @@ func (b *BaseWatcher) RemoveSubscription(id string) *Subscription {
 
 	delete(b.subscriptions, id)
 
-	// Remove from connToIDs
 	ids := b.connToIDs[sub.ConnID]
 	for i, v := range ids {
 		if v == id {
@@ -76,33 +75,23 @@ func (b *BaseWatcher) RemoveSubscription(id string) *Subscription {
 	return sub
 }
 
-// CleanupConnection removes all subscriptions for a connection.
-// Returns removed subscriptions for caller's additional cleanup (e.g., FSWatcher path mappings).
-func (b *BaseWatcher) CleanupConnection(connID string) []*Subscription {
+func (b *BaseWatcher) CleanupConnection(connID string) {
 	b.subMu.Lock()
 	defer b.subMu.Unlock()
 
 	ids, ok := b.connToIDs[connID]
 	if !ok {
-		return nil
+		return
 	}
 
-	removed := make([]*Subscription, 0, len(ids))
 	for _, id := range ids {
-		if sub, exists := b.subscriptions[id]; exists {
-			removed = append(removed, sub)
-			delete(b.subscriptions, id)
-		}
+		delete(b.subscriptions, id)
 	}
 	delete(b.connToIDs, connID)
 
-	if len(removed) > 0 {
-		slog.Debug("cleaned up connection subscriptions",
-			"connId", connID,
-			"count", len(removed))
-	}
-
-	return removed
+	slog.Debug("cleaned up connection subscriptions",
+		"connId", connID,
+		"count", len(ids))
 }
 
 func (b *BaseWatcher) GetAllSubscriptions() []*Subscription {
@@ -116,12 +105,8 @@ func (b *BaseWatcher) GetAllSubscriptions() []*Subscription {
 	return subs
 }
 
-func (b *BaseWatcher) NotifyAll(method string, makeParams func(sub *Subscription) any) {
+func (b *BaseWatcher) NotifyAll(method string, makeParams func(sub *Subscription) any) int {
 	subs := b.GetAllSubscriptions()
-	if len(subs) == 0 {
-		return
-	}
-
 	for _, sub := range subs {
 		params := makeParams(sub)
 		if err := sub.Conn.Notify(context.Background(), method, params); err != nil {
@@ -130,6 +115,7 @@ func (b *BaseWatcher) NotifyAll(method string, makeParams func(sub *Subscription
 				"error", err)
 		}
 	}
+	return len(subs)
 }
 
 func (b *BaseWatcher) Context() context.Context { return b.ctx }
@@ -139,4 +125,23 @@ func (b *BaseWatcher) HasSubscriptions() bool {
 	b.subMu.RLock()
 	defer b.subMu.RUnlock()
 	return len(b.subscriptions) > 0
+}
+
+// GetSubscriptionsByConnID allows derived watchers to inspect subscriptions before cleanup.
+func (b *BaseWatcher) GetSubscriptionsByConnID(connID string) []*Subscription {
+	b.subMu.RLock()
+	defer b.subMu.RUnlock()
+
+	ids := b.connToIDs[connID]
+	if len(ids) == 0 {
+		return nil
+	}
+
+	subs := make([]*Subscription, 0, len(ids))
+	for _, id := range ids {
+		if sub, ok := b.subscriptions[id]; ok {
+			subs = append(subs, sub)
+		}
+	}
+	return subs
 }

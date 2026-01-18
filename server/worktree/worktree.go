@@ -20,6 +20,8 @@ type Worktree struct {
 	GitWatcher     *watch.GitWatcher
 	ProcessManager *process.Manager
 
+	watchers []watch.Watcher // for unified lifecycle management
+
 	mu          sync.Mutex // protects subscribers only
 	refCount    int        // protected by Manager.mu, not Worktree.mu
 	subscribers map[*jsonrpc2.Conn]struct{}
@@ -38,12 +40,11 @@ func (w *Worktree) Unsubscribe(conn *jsonrpc2.Conn) {
 }
 
 // UnsubscribeConnection removes all subscriptions for a connection.
-// This is the single source of truth for connection cleanup - any new
-// resources that need cleanup when a connection leaves should be added here.
 func (w *Worktree) UnsubscribeConnection(conn *jsonrpc2.Conn, connID string) {
 	w.ProcessManager.UnsubscribeConn(conn)
-	w.FSWatcher.CleanupConnection(connID)
-	w.GitWatcher.CleanupConnection(connID)
+	for _, watcher := range w.watchers {
+		watcher.CleanupConnection(connID)
+	}
 	w.Unsubscribe(conn)
 }
 
@@ -67,20 +68,21 @@ func (w *Worktree) SubscriberCount() int {
 }
 
 func (w *Worktree) Start() error {
-	if err := w.FSWatcher.Start(); err != nil {
-		return fmt.Errorf("start fs watcher: %w", err)
+	for i, watcher := range w.watchers {
+		if err := watcher.Start(); err != nil {
+			// Rollback: stop already started watchers
+			for j := i - 1; j >= 0; j-- {
+				w.watchers[j].Stop()
+			}
+			return fmt.Errorf("start watcher: %w", err)
+		}
 	}
-
-	if err := w.GitWatcher.Start(); err != nil {
-		w.FSWatcher.Stop()
-		return fmt.Errorf("start git watcher: %w", err)
-	}
-
 	return nil
 }
 
 func (w *Worktree) Stop() {
-	w.GitWatcher.Stop()
-	w.FSWatcher.Stop()
+	for _, watcher := range w.watchers {
+		watcher.Stop()
+	}
 	w.ProcessManager.Shutdown()
 }

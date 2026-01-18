@@ -47,7 +47,7 @@ func (w *GitWatcher) Stop() {
 	slog.Info("GitWatcher stopped")
 }
 
-func (w *GitWatcher) Subscribe(_ string, conn *jsonrpc2.Conn, connID string) (string, error) {
+func (w *GitWatcher) Subscribe(conn *jsonrpc2.Conn, connID string) (string, error) {
 	id := w.GenerateID()
 
 	sub := &Subscription{
@@ -144,12 +144,10 @@ func sortLines(text string) string {
 }
 
 func (w *GitWatcher) notifySubscribers() {
-	w.NotifyAll("git.changed", func(sub *Subscription) any {
+	count := w.NotifyAll("git.changed", func(sub *Subscription) any {
 		return map[string]any{
 			"id": sub.ID,
 		}
 	})
-
-	count := len(w.GetAllSubscriptions())
 	slog.Debug("notified git status change", "subscribers", count)
 }

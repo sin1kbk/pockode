@@ -112,16 +112,21 @@ func (w *FSWatcher) Unsubscribe(id string) {
 }
 
 func (w *FSWatcher) CleanupConnection(connID string) {
-	removed := w.BaseWatcher.CleanupConnection(connID)
-	if len(removed) == 0 {
+	// Get subscriptions before BaseWatcher removes them
+	subs := w.GetSubscriptionsByConnID(connID)
+	if len(subs) == 0 {
 		return
 	}
 
+	// Clean up path mappings first
 	w.pathMu.Lock()
-	defer w.pathMu.Unlock()
-	for _, sub := range removed {
+	for _, sub := range subs {
 		w.removePathMapping(sub.ID, sub.Path)
 	}
+	w.pathMu.Unlock()
+
+	// Then let BaseWatcher clean up the subscriptions
+	w.BaseWatcher.CleanupConnection(connID)
 }
 
 // removePathMapping removes path tracking. Caller must hold pathMu.

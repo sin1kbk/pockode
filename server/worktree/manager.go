@@ -170,6 +170,7 @@ func (m *Manager) create(name, workDir string) (*Worktree, error) {
 		FSWatcher:      fsWatcher,
 		GitWatcher:     gitWatcher,
 		ProcessManager: processManager,
+		watchers:       []watch.Watcher{fsWatcher, gitWatcher},
 		subscribers:    make(map[*jsonrpc2.Conn]struct{}),
 	}
 
