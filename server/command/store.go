@@ -27,6 +27,7 @@ var BuiltinCommands = []string{
 	"context",
 	"cost",
 	"init",
+	"review",
 }
 
 // RecentCommand represents a recently used slash command.
