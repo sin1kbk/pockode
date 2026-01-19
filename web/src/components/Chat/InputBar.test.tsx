@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { Mock } from "vitest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useInputStore } from "../../lib/inputStore";
 import InputBar from "./InputBar";
@@ -11,10 +12,13 @@ vi.mock("../../utils/breakpoints", () => ({
 }));
 
 // Mock textarea-caret for Y coordinate detection in history navigation
-const mockGetCaretCoordinates = vi.fn(() => ({ top: 0, left: 0, height: 20 }));
 vi.mock("textarea-caret", () => ({
-	default: (...args: unknown[]) => mockGetCaretCoordinates(...args),
+	default: vi.fn(() => ({ top: 0, left: 0, height: 20 })),
 }));
+
+import getCaretCoordinates from "textarea-caret";
+
+const mockGetCaretCoordinates = getCaretCoordinates as Mock;
 
 const mockListCommands = vi.fn();
 const mockInvalidateCommandCache = vi.fn();
@@ -49,13 +53,13 @@ describe("InputBar", () => {
 		localStorage.clear();
 		mockListCommands.mockResolvedValue(mockCommands);
 		mockInvalidateCommandCache.mockClear();
+		mockGetCaretCoordinates.mockReturnValue({ top: 0, left: 0, height: 20 });
 	});
 
 	afterEach(() => {
 		useInputStore.setState({ inputs: {} });
 		localStorage.clear();
 		vi.clearAllMocks();
-		mockGetCaretCoordinates.mockReturnValue({ top: 0, left: 0, height: 20 });
 	});
 
 	it("disables send button when canSend is false", () => {
