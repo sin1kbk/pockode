@@ -3,13 +3,11 @@ import type {
 	SessionDeleteParams,
 	SessionGetHistoryParams,
 	SessionGetHistoryResult,
-	SessionListResult,
 	SessionMeta,
 	SessionUpdateTitleParams,
 } from "../../types/message";
 
 export interface SessionActions {
-	listSessions: () => Promise<SessionMeta[]>;
 	createSession: () => Promise<SessionMeta>;
 	deleteSession: (sessionId: string) => Promise<void>;
 	updateSessionTitle: (sessionId: string, title: string) => Promise<void>;
@@ -28,14 +26,6 @@ export function createSessionActions(
 	};
 
 	return {
-		listSessions: async (): Promise<SessionMeta[]> => {
-			const result: SessionListResult = await requireClient().request(
-				"session.list",
-				{},
-			);
-			return result.sessions;
-		},
-
 		createSession: async (): Promise<SessionMeta> => {
 			return requireClient().request("session.create", {});
 		},

@@ -5,6 +5,8 @@ import type {
 	AuthResult,
 	ServerMethod,
 	ServerNotification,
+	SessionListChangedNotification,
+	SessionListSubscribeResult,
 } from "../types/message";
 import { getWebSocketUrl } from "../utils/config";
 import {
@@ -50,6 +52,8 @@ interface ConnectionActions {
 	subscribeNotification: (listener: NotificationListener) => () => void;
 }
 
+// TODO: Implement retry logic for watcher subscriptions.
+// Currently callers must handle failures; retry only happens on WebSocket reconnect.
 export interface WatchActions {
 	fsSubscribe: (path: string, callback: () => void) => Promise<string>;
 	fsUnsubscribe: (id: string) => Promise<void>;
@@ -57,6 +61,10 @@ export interface WatchActions {
 	gitUnsubscribe: (id: string) => Promise<void>;
 	worktreeSubscribe: (callback: () => void) => Promise<string>;
 	worktreeUnsubscribe: (id: string) => Promise<void>;
+	sessionListSubscribe: (
+		callback: (params: SessionListChangedNotification) => void,
+	) => Promise<SessionListSubscribeResult>;
+	sessionListUnsubscribe: (id: string) => Promise<void>;
 }
 
 type RPCActions = ConnectionActions &
@@ -86,6 +94,10 @@ const notificationListeners = new Set<NotificationListener>();
 const fsWatchCallbacks = new Map<string, () => void>();
 const gitWatchCallbacks = new Map<string, () => void>();
 const worktreeWatchCallbacks = new Map<string, () => void>();
+const sessionListWatchCallbacks = new Map<
+	string,
+	(params: SessionListChangedNotification) => void
+>();
 
 /**
  * Clear all local watch subscriptions.
@@ -97,6 +109,7 @@ const worktreeWatchCallbacks = new Map<string, () => void>();
 function clearWatchSubscriptions(): void {
 	fsWatchCallbacks.clear();
 	gitWatchCallbacks.clear();
+	sessionListWatchCallbacks.clear();
 	// Note: worktreeWatchCallbacks is NOT cleared here because it's Manager-level,
 	// not worktree-specific. It persists across worktree switches.
 }
@@ -177,6 +190,13 @@ function handleNotification(method: string, params: unknown): void {
 	if (method === "worktree.changed") {
 		const { id } = params as { id: string };
 		worktreeWatchCallbacks.get(id)?.();
+		return;
+	}
+
+	// Handle session.list.changed notification via callback
+	if (method === "session.list.changed") {
+		const changedParams = params as SessionListChangedNotification;
+		sessionListWatchCallbacks.get(changedParams.id)?.(changedParams);
 		return;
 	}
 
@@ -453,6 +473,33 @@ export const useWSStore = create<WSState>((set, get) => ({
 			}
 		},
 
+		sessionListSubscribe: async (
+			callback: (params: SessionListChangedNotification) => void,
+		): Promise<SessionListSubscribeResult> => {
+			const client = getClient();
+			if (!client) {
+				throw new Error("Not connected");
+			}
+			const result = (await client.request(
+				"session.list.subscribe",
+				{},
+			)) as SessionListSubscribeResult;
+			sessionListWatchCallbacks.set(result.id, callback);
+			return result;
+		},
+
+		sessionListUnsubscribe: async (id: string): Promise<void> => {
+			sessionListWatchCallbacks.delete(id);
+			const client = getClient();
+			if (client) {
+				try {
+					await client.request("session.list.unsubscribe", { id });
+				} catch {
+					// Ignore errors (connection might be closed)
+				}
+			}
+		},
+
 		// Spread namespace-specific actions
 		...chatActions,
 		...commandActions,
@@ -533,6 +580,7 @@ export function resetWSStore() {
 	fsWatchCallbacks.clear();
 	gitWatchCallbacks.clear();
 	worktreeWatchCallbacks.clear();
+	sessionListWatchCallbacks.clear();
 	sessionExistsChecker = null;
 	worktreeDeletedListener = null;
 	onWorktreeSwitched = null;

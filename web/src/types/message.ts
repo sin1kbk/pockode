@@ -232,9 +232,19 @@ export interface SessionGetHistoryParams {
 	session_id: string;
 }
 
-export interface SessionListResult {
+export interface SessionListSubscribeResult {
+	id: string;
 	sessions: SessionMeta[];
 }
+
+export interface SessionListUnsubscribeParams {
+	id: string;
+}
+
+export type SessionListChangedNotification =
+	| { id: string; operation: "create"; session: SessionMeta }
+	| { id: string; operation: "update"; session: SessionMeta }
+	| { id: string; operation: "delete"; sessionId: string };
 
 export interface SessionGetHistoryResult {
 	history: unknown[];

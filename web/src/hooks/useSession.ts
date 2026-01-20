@@ -1,13 +1,39 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useRef } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
+import { create } from "zustand";
 import {
 	createSession,
 	deleteSession,
-	listSessions,
 	updateSessionTitle,
 } from "../lib/sessionApi";
 import { setSessionExistsChecker, useWSStore } from "../lib/wsStore";
-import type { SessionMeta } from "../types/message";
+import type {
+	SessionListChangedNotification,
+	SessionMeta,
+} from "../types/message";
+
+interface SessionState {
+	sessions: SessionMeta[];
+	isLoading: boolean;
+	isSuccess: boolean;
+}
+
+interface SessionStore extends SessionState {
+	setSessions: (sessions: SessionMeta[]) => void;
+	updateSessions: (updater: (old: SessionMeta[]) => SessionMeta[]) => void;
+	reset: () => void;
+}
+
+export const useSessionStore = create<SessionStore>((set) => ({
+	sessions: [],
+	isLoading: true,
+	isSuccess: false,
+	setSessions: (sessions) =>
+		set({ sessions, isLoading: false, isSuccess: true }),
+	updateSessions: (updater) =>
+		set((state) => ({ sessions: updater(state.sessions) })),
+	reset: () => set({ sessions: [], isLoading: false, isSuccess: false }),
+}));
 
 interface UseSessionOptions {
 	enabled?: boolean;
@@ -19,33 +45,91 @@ export function useSession({
 	enabled = true,
 	routeSessionId,
 }: UseSessionOptions = {}) {
-	const queryClient = useQueryClient();
-	const wsStatus = useWSStore((state) => state.status);
+	const wsStatus = useWSStore((s) => s.status);
+	const sessionListSubscribe = useWSStore(
+		(s) => s.actions.sessionListSubscribe,
+	);
+	const sessionListUnsubscribe = useWSStore(
+		(s) => s.actions.sessionListUnsubscribe,
+	);
 
-	// Only fetch sessions when WebSocket is connected
+	const { sessions, isLoading, isSuccess, setSessions, updateSessions, reset } =
+		useSessionStore();
+
 	const isConnected = wsStatus === "connected";
-	const hasConnectedOnceRef = useRef(false);
+	const watchIdRef = useRef<string | null>(null);
 
-	// Invalidate sessions on reconnect
+	// Manage subscription lifecycle
 	useEffect(() => {
-		if (isConnected) {
-			if (hasConnectedOnceRef.current) {
-				queryClient.invalidateQueries({ queryKey: ["sessions"] });
-			}
-			hasConnectedOnceRef.current = true;
+		if (!enabled || !isConnected) {
+			reset();
+			return;
 		}
-	}, [isConnected, queryClient]);
 
-	const {
-		data: sessions = [],
-		isLoading,
-		isSuccess,
-	} = useQuery({
-		queryKey: ["sessions"],
-		queryFn: listSessions,
-		enabled: enabled && isConnected,
-		staleTime: Number.POSITIVE_INFINITY,
-	});
+		let cancelled = false;
+
+		async function setupSubscription() {
+			if (watchIdRef.current) {
+				await sessionListUnsubscribe(watchIdRef.current);
+				watchIdRef.current = null;
+			}
+
+			if (cancelled) return;
+
+			try {
+				const result = await sessionListSubscribe(
+					(params: SessionListChangedNotification) => {
+						updateSessions((old) => {
+							switch (params.operation) {
+								case "create":
+									return [
+										params.session,
+										...old.filter((s) => s.id !== params.session.id),
+									];
+								case "update":
+									return old.map((s) =>
+										s.id === params.session.id ? params.session : s,
+									);
+								case "delete":
+									return old.filter((s) => s.id !== params.sessionId);
+							}
+						});
+					},
+				);
+
+				if (cancelled) {
+					await sessionListUnsubscribe(result.id);
+					return;
+				}
+
+				watchIdRef.current = result.id;
+				setSessions(result.sessions);
+			} catch (error) {
+				console.error("Failed to subscribe to session list:", error);
+				if (!cancelled) {
+					reset();
+				}
+			}
+		}
+
+		setupSubscription();
+
+		return () => {
+			cancelled = true;
+			if (watchIdRef.current) {
+				sessionListUnsubscribe(watchIdRef.current);
+				watchIdRef.current = null;
+			}
+		};
+	}, [
+		enabled,
+		isConnected,
+		sessionListSubscribe,
+		sessionListUnsubscribe,
+		setSessions,
+		updateSessions,
+		reset,
+	]);
 
 	// Register session existence checker for wsStore
 	useEffect(() => {
@@ -55,53 +139,29 @@ export function useSession({
 		return () => setSessionExistsChecker(null);
 	}, [sessions]);
 
-	const refresh = useCallback(() => {
-		queryClient.invalidateQueries({ queryKey: ["sessions"] });
-	}, [queryClient]);
-
 	const createMutation = useMutation({
 		mutationFn: createSession,
-		onSuccess: (newSession) => {
-			queryClient.setQueryData<SessionMeta[]>(["sessions"], (old = []) => [
-				newSession,
-				...old,
-			]);
-		},
 	});
 
 	const deleteMutation = useMutation({
 		mutationFn: deleteSession,
-		onSuccess: (_, deletedId) => {
-			queryClient.setQueryData<SessionMeta[]>(["sessions"], (old = []) =>
-				old.filter((s) => s.id !== deletedId),
-			);
-		},
 	});
 
 	const updateTitleMutation = useMutation({
 		mutationFn: ({ id, title }: { id: string; title: string }) =>
 			updateSessionTitle(id, title),
-		onSuccess: (_, { id, title }) => {
-			queryClient.setQueryData<SessionMeta[]>(["sessions"], (old = []) =>
-				old.map((s) => (s.id === id ? { ...s, title } : s)),
-			);
-		},
-		onError: () => {
-			queryClient.invalidateQueries({ queryKey: ["sessions"] });
-		},
 	});
 
 	const currentSessionId = routeSessionId ?? null;
 	const currentSession = sessions.find((s) => s.id === currentSessionId);
 
-	const getRedirectSessionId = (): string | null => {
+	const redirectSessionId = (() => {
 		if (!isSuccess) return null;
 		if (currentSessionId && currentSession) return null;
 		if (sessions.length > 0) return sessions[0].id;
 		return null;
-	};
+	})();
 
-	const redirectSessionId = getRedirectSessionId();
 	const needsNewSession = isSuccess && sessions.length === 0;
 
 	return {
@@ -112,7 +172,6 @@ export function useSession({
 		isSuccess,
 		redirectSessionId,
 		needsNewSession,
-		refresh,
 		createSession: () => createMutation.mutateAsync(),
 		deleteSession: (id: string) => deleteMutation.mutateAsync(id),
 		updateTitle: (id: string, title: string) =>

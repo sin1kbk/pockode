@@ -216,8 +216,6 @@ func (h *rpcMethodHandler) Handle(ctx context.Context, conn *jsonrpc2.Conn, req 
 	case "chat.question_response":
 		h.handleQuestionResponse(ctx, conn, req)
 	// session namespace
-	case "session.list":
-		h.handleSessionList(ctx, conn, req)
 	case "session.create":
 		h.handleSessionCreate(ctx, conn, req)
 	case "session.delete":
@@ -226,6 +224,10 @@ func (h *rpcMethodHandler) Handle(ctx context.Context, conn *jsonrpc2.Conn, req 
 		h.handleSessionUpdateTitle(ctx, conn, req)
 	case "session.get_history":
 		h.handleSessionGetHistory(ctx, conn, req)
+	case "session.list.subscribe":
+		h.handleSessionListSubscribe(ctx, conn, req)
+	case "session.list.unsubscribe":
+		h.handleSessionListUnsubscribe(ctx, conn, req)
 	// file namespace
 	case "file.get":
 		h.handleFileGet(ctx, conn, req)

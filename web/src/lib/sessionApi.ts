@@ -1,10 +1,6 @@
 import type { SessionMeta } from "../types/message";
 import { wsActions } from "./wsStore";
 
-export async function listSessions(): Promise<SessionMeta[]> {
-	return wsActions.listSessions();
-}
-
 export async function createSession(): Promise<SessionMeta> {
 	return wsActions.createSession();
 }

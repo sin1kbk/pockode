@@ -11,22 +11,6 @@ import (
 	"github.com/sourcegraph/jsonrpc2"
 )
 
-func (h *rpcMethodHandler) handleSessionList(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.Request) {
-	sessions, err := h.state.worktree.SessionStore.List()
-	if err != nil {
-		h.replyError(ctx, conn, req.ID, jsonrpc2.CodeInternalError, "failed to list sessions")
-		return
-	}
-
-	result := struct {
-		Sessions []session.SessionMeta `json:"sessions"`
-	}{Sessions: sessions}
-
-	if err := conn.Reply(ctx, req.ID, result); err != nil {
-		h.log.Error("failed to send session list response", "error", err)
-	}
-}
-
 func (h *rpcMethodHandler) handleSessionCreate(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.Request) {
 	sessionID := uuid.Must(uuid.NewV7()).String()
 
@@ -110,5 +94,37 @@ func (h *rpcMethodHandler) handleSessionGetHistory(ctx context.Context, conn *js
 
 	if err := conn.Reply(ctx, req.ID, result); err != nil {
 		h.log.Error("failed to send history response", "error", err)
+	}
+}
+
+func (h *rpcMethodHandler) handleSessionListSubscribe(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.Request) {
+	connID := h.state.getConnID()
+	id, sessions, err := h.state.worktree.SessionListWatcher.Subscribe(conn, connID)
+	if err != nil {
+		h.replyError(ctx, conn, req.ID, jsonrpc2.CodeInternalError, "failed to subscribe")
+		return
+	}
+
+	result := rpc.SessionListSubscribeResult{
+		ID:       id,
+		Sessions: sessions,
+	}
+
+	if err := conn.Reply(ctx, req.ID, result); err != nil {
+		h.log.Error("failed to send session list subscribe response", "error", err)
+	}
+}
+
+func (h *rpcMethodHandler) handleSessionListUnsubscribe(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.Request) {
+	var params rpc.SessionListUnsubscribeParams
+	if err := unmarshalParams(req, &params); err != nil {
+		h.replyError(ctx, conn, req.ID, jsonrpc2.CodeInvalidParams, "invalid params")
+		return
+	}
+
+	h.state.worktree.SessionListWatcher.Unsubscribe(params.ID)
+
+	if err := conn.Reply(ctx, req.ID, struct{}{}); err != nil {
+		h.log.Error("failed to send session list unsubscribe response", "error", err)
 	}
 }

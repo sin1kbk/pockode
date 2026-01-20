@@ -601,23 +601,28 @@ func TestHandler_Message_SessionNotInStore(t *testing.T) {
 
 // Session management tests
 
-func TestHandler_SessionList(t *testing.T) {
+func TestHandler_SessionListSubscribe(t *testing.T) {
 	env := newTestEnv(t, &mockAgent{})
 	store := env.getMainWorktree().SessionStore
 	store.Create(bgCtx, "session-1")
 	store.Create(bgCtx, "session-2")
 
-	resp := env.call("session.list", nil)
+	resp := env.call("session.list.subscribe", nil)
 
 	if resp.Error != nil {
 		t.Errorf("unexpected error: %s", resp.Error.Message)
 	}
 
 	var result struct {
+		ID       string                `json:"id"`
 		Sessions []session.SessionMeta `json:"sessions"`
 	}
 	if err := json.Unmarshal(resp.Result, &result); err != nil {
 		t.Fatalf("failed to unmarshal result: %v", err)
+	}
+
+	if result.ID == "" {
+		t.Error("expected non-empty subscription ID")
 	}
 
 	if len(result.Sessions) != 2 {

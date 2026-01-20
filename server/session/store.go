@@ -27,6 +27,9 @@ type Store interface {
 	GetHistory(ctx context.Context, sessionID string) ([]json.RawMessage, error)
 	// AppendToHistory appends a JSON-serializable record (ClientMessage or ServerMessage) to history.
 	AppendToHistory(ctx context.Context, sessionID string, record any) error
+
+	// Change notification
+	SetOnChangeListener(listener OnChangeListener)
 }
 
 type indexData struct {
@@ -39,6 +42,7 @@ type FileStore struct {
 	dataDir  string
 	mu       sync.RWMutex
 	sessions []SessionMeta // in-memory cache
+	listener OnChangeListener
 }
 
 func NewFileStore(dataDir string) (*FileStore, error) {
@@ -85,6 +89,18 @@ func (s *FileStore) persistIndex() error {
 		return err
 	}
 	return os.WriteFile(s.indexPath(), data, 0644)
+}
+
+func (s *FileStore) SetOnChangeListener(listener OnChangeListener) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.listener = listener
+}
+
+func (s *FileStore) notifyChange(event SessionChangeEvent) {
+	if s.listener != nil {
+		s.listener.OnSessionChange(event)
+	}
 }
 
 func (s *FileStore) List() ([]SessionMeta, error) {
@@ -135,6 +151,8 @@ func (s *FileStore) Create(ctx context.Context, sessionID string) (SessionMeta, 
 		s.sessions = s.sessions[1:]
 		return SessionMeta{}, err
 	}
+
+	s.notifyChange(SessionChangeEvent{Op: OperationCreate, Session: session})
 	return session, nil
 }
 
@@ -159,7 +177,12 @@ func (s *FileStore) Delete(ctx context.Context, sessionID string) error {
 	}
 	s.sessions = newSessions
 
-	return s.persistIndex()
+	if err := s.persistIndex(); err != nil {
+		return err
+	}
+
+	s.notifyChange(SessionChangeEvent{Op: OperationDelete, Session: SessionMeta{ID: sessionID}})
+	return nil
 }
 
 func (s *FileStore) Update(ctx context.Context, sessionID string, title string) error {
@@ -171,11 +194,15 @@ func (s *FileStore) Update(ctx context.Context, sessionID string, title string) 
 	defer s.mu.Unlock()
 
 	now := time.Now()
-	for i, sess := range s.sessions {
-		if sess.ID == sessionID {
+	for i := range s.sessions {
+		if s.sessions[i].ID == sessionID {
 			s.sessions[i].Title = title
 			s.sessions[i].UpdatedAt = now
-			return s.persistIndex()
+			if err := s.persistIndex(); err != nil {
+				return err
+			}
+			s.notifyChange(SessionChangeEvent{Op: OperationUpdate, Session: s.sessions[i]})
+			return nil
 		}
 	}
 
@@ -190,11 +217,15 @@ func (s *FileStore) Activate(ctx context.Context, sessionID string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	for i, sess := range s.sessions {
-		if sess.ID == sessionID {
+	for i := range s.sessions {
+		if s.sessions[i].ID == sessionID {
 			s.sessions[i].Activated = true
 			s.sessions[i].UpdatedAt = time.Now()
-			return s.persistIndex()
+			if err := s.persistIndex(); err != nil {
+				return err
+			}
+			s.notifyChange(SessionChangeEvent{Op: OperationUpdate, Session: s.sessions[i]})
+			return nil
 		}
 	}
 
@@ -297,5 +328,9 @@ func (s *FileStore) AppendToHistory(ctx context.Context, sessionID string, recor
 	}
 
 	s.sessions[idx].UpdatedAt = time.Now()
-	return s.persistIndex()
+	if err := s.persistIndex(); err != nil {
+		return err
+	}
+	s.notifyChange(SessionChangeEvent{Op: OperationUpdate, Session: s.sessions[idx]})
+	return nil
 }

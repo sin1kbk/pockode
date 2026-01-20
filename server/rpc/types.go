@@ -9,6 +9,7 @@ import (
 	"github.com/pockode/server/command"
 	"github.com/pockode/server/contents"
 	"github.com/pockode/server/git"
+	"github.com/pockode/server/session"
 )
 
 // Client → Server
@@ -137,6 +138,17 @@ type WorktreeSubscribeResult struct {
 }
 
 type WorktreeUnsubscribeParams struct {
+	ID string `json:"id"`
+}
+
+// Session list watch (subscription for session list changes)
+
+type SessionListSubscribeResult struct {
+	ID       string                `json:"id"`
+	Sessions []session.SessionMeta `json:"sessions"`
+}
+
+type SessionListUnsubscribeParams struct {
 	ID string `json:"id"`
 }
 

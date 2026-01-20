@@ -161,17 +161,19 @@ func (m *Manager) create(name, workDir string) (*Worktree, error) {
 
 	fsWatcher := watch.NewFSWatcher(workDir)
 	gitWatcher := watch.NewGitWatcher(workDir)
+	sessionListWatcher := watch.NewSessionListWatcher(sessionStore)
 	processManager := process.NewManager(m.agent, workDir, sessionStore, m.idleTimeout)
 
 	wt := &Worktree{
-		Name:           name,
-		WorkDir:        workDir,
-		SessionStore:   sessionStore,
-		FSWatcher:      fsWatcher,
-		GitWatcher:     gitWatcher,
-		ProcessManager: processManager,
-		watchers:       []watch.Watcher{fsWatcher, gitWatcher},
-		subscribers:    make(map[*jsonrpc2.Conn]struct{}),
+		Name:               name,
+		WorkDir:            workDir,
+		SessionStore:       sessionStore,
+		FSWatcher:          fsWatcher,
+		GitWatcher:         gitWatcher,
+		SessionListWatcher: sessionListWatcher,
+		ProcessManager:     processManager,
+		watchers:           []watch.Watcher{fsWatcher, gitWatcher, sessionListWatcher},
+		subscribers:        make(map[*jsonrpc2.Conn]struct{}),
 	}
 
 	processManager.SetOnProcessEnd(func() {

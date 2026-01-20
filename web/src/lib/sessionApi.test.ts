@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // Mock wsStore - must be defined before import
 vi.mock("./wsStore", () => ({
 	wsActions: {
-		listSessions: vi.fn(),
 		createSession: vi.fn(),
 		deleteSession: vi.fn(),
 		updateSessionTitle: vi.fn(),
@@ -15,7 +14,6 @@ import {
 	createSession,
 	deleteSession,
 	getHistory,
-	listSessions,
 	updateSessionTitle,
 } from "./sessionApi";
 import { wsActions } from "./wsStore";
@@ -23,28 +21,6 @@ import { wsActions } from "./wsStore";
 describe("sessionApi", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-	});
-
-	describe("listSessions", () => {
-		it("calls wsActions.listSessions", async () => {
-			const sessions = [
-				{ id: "1", title: "Test", created_at: "", updated_at: "" },
-			];
-			vi.mocked(wsActions.listSessions).mockResolvedValue(sessions);
-
-			const result = await listSessions();
-
-			expect(wsActions.listSessions).toHaveBeenCalled();
-			expect(result).toEqual(sessions);
-		});
-
-		it("throws when not connected", async () => {
-			vi.mocked(wsActions.listSessions).mockRejectedValue(
-				new Error("Not connected"),
-			);
-
-			await expect(listSessions()).rejects.toThrow("Not connected");
-		});
 	});
 
 	describe("createSession", () => {

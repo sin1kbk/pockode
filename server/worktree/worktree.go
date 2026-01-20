@@ -13,12 +13,13 @@ import (
 
 // Worktree holds all resources (session store, watchers, processes) for a single worktree.
 type Worktree struct {
-	Name           string
-	WorkDir        string
-	SessionStore   session.Store
-	FSWatcher      *watch.FSWatcher
-	GitWatcher     *watch.GitWatcher
-	ProcessManager *process.Manager
+	Name               string
+	WorkDir            string
+	SessionStore       session.Store
+	FSWatcher          *watch.FSWatcher
+	GitWatcher         *watch.GitWatcher
+	SessionListWatcher *watch.SessionListWatcher
+	ProcessManager     *process.Manager
 
 	watchers []watch.Watcher // for unified lifecycle management
 

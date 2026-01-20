@@ -1,7 +1,6 @@
 import { Plus } from "lucide-react";
 import { useSession } from "../../hooks/useSession";
 import { useSidebarRefresh } from "../Layout";
-import { PullToRefresh } from "../ui";
 import SessionList from "./SessionList";
 
 interface Props {
@@ -17,8 +16,8 @@ function SessionsTab({
 	onCreateSession,
 	onDeleteSession,
 }: Props) {
-	const { sessions, isLoading, refresh } = useSession();
-	const { isActive } = useSidebarRefresh("sessions", refresh);
+	const { sessions, isLoading } = useSession();
+	const { isActive } = useSidebarRefresh("sessions");
 
 	return (
 		<div
@@ -34,7 +33,7 @@ function SessionsTab({
 					New Chat
 				</button>
 			</div>
-			<PullToRefresh onRefresh={refresh}>
+			<div className="flex-1 overflow-y-auto">
 				{isLoading ? (
 					<div className="p-4 text-center text-th-text-muted">Loading...</div>
 				) : (
@@ -45,7 +44,7 @@ function SessionsTab({
 						onDeleteSession={onDeleteSession}
 					/>
 				)}
-			</PullToRefresh>
+			</div>
 		</div>
 	);
 }
