@@ -7,12 +7,9 @@
 
 Pockode connects your phone to your home dev machine running Claude Code. Chat with AI, browse files, review diffs, and manage worktrees — from anywhere.
 
-<p align="center">
-  <img src="site/static/images/screenshot-chat.jpg" alt="Chat" width="200">
-  <img src="site/static/images/screenshot-sessions.jpg" alt="Sessions" width="200">
-  <img src="site/static/images/screenshot-file.jpg" alt="File" width="200">
-  <img src="site/static/images/screenshot-diff.jpg" alt="Diff" width="200">
-</p>
+| Chat | Sessions | File | Diff |
+|:----:|:--------:|:----:|:----:|
+| <img src="site/static/images/screenshot-chat.jpg" alt="Chat" width="200"> | <img src="site/static/images/screenshot-sessions.jpg" alt="Sessions" width="200"> | <img src="site/static/images/screenshot-file.jpg" alt="File" width="200"> | <img src="site/static/images/screenshot-diff.jpg" alt="Diff" width="200"> |
 
 ## Why Pockode?
 
