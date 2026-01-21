@@ -127,6 +127,10 @@ func (b *BaseWatcher) HasSubscriptions() bool {
 	return len(b.subscriptions) > 0
 }
 
+func (b *BaseWatcher) Unsubscribe(id string) {
+	b.RemoveSubscription(id)
+}
+
 // GetSubscriptionsByConnID allows derived watchers to inspect subscriptions before cleanup.
 func (b *BaseWatcher) GetSubscriptionsByConnID(connID string) []*Subscription {
 	b.subMu.RLock()

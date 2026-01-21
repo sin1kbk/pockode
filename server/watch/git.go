@@ -62,12 +62,6 @@ func (w *GitWatcher) Subscribe(conn *jsonrpc2.Conn, connID string) (string, erro
 	return id, nil
 }
 
-func (w *GitWatcher) Unsubscribe(id string) {
-	if sub := w.RemoveSubscription(id); sub != nil {
-		slog.Debug("git subscription removed", "watchId", id)
-	}
-}
-
 func (w *GitWatcher) pollLoop() {
 	ticker := time.NewTicker(gitPollInterval)
 	defer ticker.Stop()

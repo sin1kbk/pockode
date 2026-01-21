@@ -114,17 +114,3 @@ func (h *rpcMethodHandler) handleSessionListSubscribe(ctx context.Context, conn 
 		h.log.Error("failed to send session list subscribe response", "error", err)
 	}
 }
-
-func (h *rpcMethodHandler) handleSessionListUnsubscribe(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.Request) {
-	var params rpc.SessionListUnsubscribeParams
-	if err := unmarshalParams(req, &params); err != nil {
-		h.replyError(ctx, conn, req.ID, jsonrpc2.CodeInvalidParams, "invalid params")
-		return
-	}
-
-	h.state.worktree.SessionListWatcher.Unsubscribe(params.ID)
-
-	if err := conn.Reply(ctx, req.ID, struct{}{}); err != nil {
-		h.log.Error("failed to send session list unsubscribe response", "error", err)
-	}
-}

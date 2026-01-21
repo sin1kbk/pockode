@@ -1,11 +1,12 @@
 package watch
 
-// Watcher defines the common lifecycle interface for all watchers.
-// Subscribe is intentionally not included as each watcher has different
-// parameter and return types based on what it monitors.
+// Watcher defines the common interface for all watchers.
+// Subscribe is not included as each watcher has different parameter and return
+// types based on what it monitors.
 type Watcher interface {
 	Start() error
 	Stop()
+	Unsubscribe(id string)
 	CleanupConnection(connID string)
 }
 

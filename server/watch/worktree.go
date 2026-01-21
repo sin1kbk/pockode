@@ -61,12 +61,6 @@ func (w *WorktreeWatcher) Subscribe(conn *jsonrpc2.Conn, connID string) (string,
 	return id, nil
 }
 
-func (w *WorktreeWatcher) Unsubscribe(id string) {
-	if sub := w.RemoveSubscription(id); sub != nil {
-		slog.Debug("worktree subscription removed", "watchId", id)
-	}
-}
-
 func (w *WorktreeWatcher) pollLoop() {
 	ticker := time.NewTicker(worktreePollInterval)
 	defer ticker.Stop()

@@ -100,6 +100,7 @@ func (w *FSWatcher) Subscribe(path string, conn *jsonrpc2.Conn, connID string) (
 	return id, nil
 }
 
+// Unsubscribe overrides BaseWatcher.Unsubscribe to also clean up fsnotify watches.
 func (w *FSWatcher) Unsubscribe(id string) {
 	sub := w.RemoveSubscription(id)
 	if sub == nil {
@@ -149,8 +150,6 @@ func (w *FSWatcher) removePathMapping(id, path string) {
 		delete(w.pathRefCount, path)
 		slog.Debug("stopped watching path", "path", path)
 	}
-
-	slog.Debug("fs subscription removed", "watchId", id, "path", path)
 }
 
 func (w *FSWatcher) eventLoop() {

@@ -15,6 +15,7 @@ import (
 	"github.com/pockode/server/command"
 	"github.com/pockode/server/logger"
 	"github.com/pockode/server/rpc"
+	"github.com/pockode/server/watch"
 	"github.com/pockode/server/worktree"
 	"github.com/sourcegraph/jsonrpc2"
 )
@@ -189,7 +190,7 @@ func (h *rpcMethodHandler) Handle(ctx context.Context, conn *jsonrpc2.Conn, req 
 		h.handleWorktreeSubscribe(ctx, conn, req)
 		return
 	case "worktree.unsubscribe":
-		h.handleWorktreeUnsubscribe(ctx, conn, req)
+		h.handleWatcherUnsubscribe(ctx, conn, req, h.worktreeManager.WorktreeWatcher, "worktree")
 		return
 	case "command.list":
 		h.handleCommandList(ctx, conn, req)
@@ -227,7 +228,7 @@ func (h *rpcMethodHandler) Handle(ctx context.Context, conn *jsonrpc2.Conn, req 
 	case "session.list.subscribe":
 		h.handleSessionListSubscribe(ctx, conn, req)
 	case "session.list.unsubscribe":
-		h.handleSessionListUnsubscribe(ctx, conn, req)
+		h.handleWatcherUnsubscribe(ctx, conn, req, h.state.worktree.SessionListWatcher, "session list")
 	// file namespace
 	case "file.get":
 		h.handleFileGet(ctx, conn, req)
@@ -239,12 +240,12 @@ func (h *rpcMethodHandler) Handle(ctx context.Context, conn *jsonrpc2.Conn, req 
 	case "git.subscribe":
 		h.handleGitSubscribe(ctx, conn, req)
 	case "git.unsubscribe":
-		h.handleGitUnsubscribe(ctx, conn, req)
+		h.handleWatcherUnsubscribe(ctx, conn, req, h.state.worktree.GitWatcher, "git")
 	// fs namespace
 	case "fs.subscribe":
 		h.handleFSSubscribe(ctx, conn, req)
 	case "fs.unsubscribe":
-		h.handleFSUnsubscribe(ctx, conn, req)
+		h.handleWatcherUnsubscribe(ctx, conn, req, h.state.worktree.FSWatcher, "fs")
 	default:
 		h.replyError(ctx, conn, req.ID, jsonrpc2.CodeMethodNotFound, "method not found: "+req.Method)
 	}
@@ -318,6 +319,35 @@ func (h *rpcMethodHandler) replyError(ctx context.Context, conn *jsonrpc2.Conn, 
 
 func unmarshalParams(req *jsonrpc2.Request, v interface{}) error {
 	return json.Unmarshal(*req.Params, v)
+}
+
+type unsubscribeParams struct {
+	ID string `json:"id"`
+}
+
+func (h *rpcMethodHandler) handleWatcherUnsubscribe(
+	ctx context.Context,
+	conn *jsonrpc2.Conn,
+	req *jsonrpc2.Request,
+	watcher watch.Watcher,
+	logName string,
+) {
+	var params unsubscribeParams
+	if err := unmarshalParams(req, &params); err != nil {
+		h.replyError(ctx, conn, req.ID, jsonrpc2.CodeInvalidParams, "invalid params")
+		return
+	}
+	if params.ID == "" {
+		h.replyError(ctx, conn, req.ID, jsonrpc2.CodeInvalidParams, "id is required")
+		return
+	}
+
+	watcher.Unsubscribe(params.ID)
+	h.log.Debug(logName+" unsubscribed", "watchId", params.ID)
+
+	if err := conn.Reply(ctx, req.ID, struct{}{}); err != nil {
+		h.log.Error("failed to send "+logName+" unsubscribe response", "error", err)
+	}
 }
 
 // webSocketStream adapts coder/websocket to jsonrpc2.ObjectStream.

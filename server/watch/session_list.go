@@ -95,12 +95,6 @@ func (w *SessionListWatcher) Subscribe(conn *jsonrpc2.Conn, connID string) (stri
 	return id, sessions, nil
 }
 
-func (w *SessionListWatcher) Unsubscribe(id string) {
-	if sub := w.RemoveSubscription(id); sub != nil {
-		slog.Debug("session list subscription removed", "watchId", id)
-	}
-}
-
 type sessionListChangedParams struct {
 	ID        string               `json:"id"`
 	Operation string               `json:"operation"`
