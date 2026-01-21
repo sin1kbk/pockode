@@ -15,7 +15,7 @@ interface SubscriptionOptions<TInitial> {
 	 */
 	onSubscribed?: (initial: TInitial) => void;
 	/**
-	 * Called when subscription fails or is disabled.
+	 * Called when subscription is reset: on failure, disable, disconnect, or worktree change.
 	 */
 	onReset?: () => void;
 }
@@ -108,6 +108,7 @@ export function useSubscription<TNotification = void, TInitial = void>(
 		// Resubscribe on worktree change (server resets worktree-scoped subscriptions)
 		const unregister = resubscribeOnWorktreeChange
 			? worktreeActions.onWorktreeChange(() => {
+					onResetRef.current?.();
 					doSubscribe();
 				})
 			: undefined;

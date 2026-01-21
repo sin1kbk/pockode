@@ -298,6 +298,37 @@ describe("useSubscription", () => {
 
 			expect(worktreeChangeCallbacks.length).toBe(0);
 		});
+
+		it("calls onReset before resubscribing on worktree change", async () => {
+			const onReset = vi.fn();
+			const callOrder: string[] = [];
+
+			onReset.mockImplementation(() => callOrder.push("reset"));
+			mockSubscribe.mockImplementation(() => {
+				callOrder.push("subscribe");
+				return Promise.resolve({ id: `sub-${callOrder.length}` });
+			});
+
+			renderHook(() =>
+				useSubscription(mockSubscribe, mockUnsubscribe, mockOnChanged, {
+					onReset,
+				}),
+			);
+
+			await waitFor(() => {
+				expect(mockSubscribe).toHaveBeenCalledTimes(1);
+			});
+
+			await act(async () => {
+				worktreeChangeCallbacks[0]?.();
+			});
+
+			await waitFor(() => {
+				expect(mockSubscribe).toHaveBeenCalledTimes(2);
+			});
+
+			expect(callOrder).toEqual(["subscribe", "reset", "subscribe"]);
+		});
 	});
 
 	describe("error handling", () => {
