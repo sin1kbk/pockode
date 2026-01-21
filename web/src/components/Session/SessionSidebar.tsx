@@ -1,5 +1,5 @@
 import { FolderOpen, GitCompare, MessageSquare } from "lucide-react";
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { unreadActions, useHasAnyUnread } from "../../lib/unreadStore";
 import { FilesTab } from "../Files";
 import { DiffTab } from "../Git";
@@ -50,21 +50,30 @@ function SessionSidebar({
 		[hasAnyUnread],
 	);
 
-	const handleSelectSession = (id: string) => {
-		unreadActions.markRead(id);
-		onSelectSession(id);
-		if (!isDesktop) onClose();
-	};
+	const handleSelectSession = useCallback(
+		(id: string) => {
+			unreadActions.markRead(id);
+			onSelectSession(id);
+			if (!isDesktop) onClose();
+		},
+		[onSelectSession, isDesktop, onClose],
+	);
 
-	const handleSelectDiffFile = (path: string, staged: boolean) => {
-		onSelectDiffFile(path, staged);
-		if (!isDesktop) onClose();
-	};
+	const handleSelectDiffFile = useCallback(
+		(path: string, staged: boolean) => {
+			onSelectDiffFile(path, staged);
+			if (!isDesktop) onClose();
+		},
+		[onSelectDiffFile, isDesktop, onClose],
+	);
 
-	const handleSelectFile = (path: string) => {
-		onSelectFile(path);
-		if (!isDesktop) onClose();
-	};
+	const handleSelectFile = useCallback(
+		(path: string) => {
+			onSelectFile(path);
+			if (!isDesktop) onClose();
+		},
+		[onSelectFile, isDesktop, onClose],
+	);
 
 	return (
 		<TabbedSidebar

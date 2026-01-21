@@ -29,8 +29,8 @@ function SessionList({
 					key={session.id}
 					session={session}
 					isActive={session.id === currentSessionId}
-					onSelect={() => onSelectSession(session.id)}
-					onDelete={() => onDeleteSession(session.id)}
+					onSelect={onSelectSession}
+					onDelete={onDeleteSession}
 				/>
 			))}
 		</div>
