@@ -534,7 +534,8 @@ const MessageItem = memo(function MessageItem({
 									: part.type === "ask_user_question"
 										? part.request.requestId
 										: part.type === "tool_call"
-											? part.tool.id
+											? // Index suffix: Claude Code resends tool_call after permission approval
+												`${part.tool.id}-${index}`
 											: `${part.type}-${index}`;
 							return (
 								<ContentPartItem
