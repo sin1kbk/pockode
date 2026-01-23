@@ -1,3 +1,5 @@
+export { default as BackToChatButton } from "./BackToChatButton";
+export { default as BadgeDot } from "./BadgeDot";
 export { default as ConnectionStatus } from "./ConnectionStatus";
 export {
 	default as ContentView,

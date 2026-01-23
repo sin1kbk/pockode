@@ -1,11 +1,10 @@
-import { useNavigate, useSearch } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useMemo } from "react";
 import { useGitDiffWatch } from "../../hooks/useGitDiffWatch";
 import { useGitStatus } from "../../hooks/useGitStatus";
-import { useCurrentWorktree } from "../../hooks/useRouteState";
+import { useRouteState } from "../../hooks/useRouteState";
 import { buildNavigation } from "../../lib/navigation";
-import type { OverlaySearchParams } from "../../router";
 import { flattenGitStatus } from "../../types/git";
 import { ContentView } from "../ui";
 import DiffContent from "./DiffContent";
@@ -16,7 +15,7 @@ interface Props {
 	onBack: () => void;
 }
 
-const navButtonClass = (enabled: boolean) =>
+const getNavButtonClass = (enabled: boolean) =>
 	`flex items-center justify-center rounded-md border border-th-border bg-th-bg-tertiary min-h-[44px] min-w-[44px] p-2 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-th-accent ${
 		enabled
 			? "text-th-text-secondary hover:border-th-border-focus hover:bg-th-bg-primary hover:text-th-text-primary active:scale-[0.97]"
@@ -25,9 +24,7 @@ const navButtonClass = (enabled: boolean) =>
 
 function DiffView({ path, staged, onBack }: Props) {
 	const navigate = useNavigate();
-	const worktree = useCurrentWorktree();
-	const search = useSearch({ strict: false }) as OverlaySearchParams;
-	const sessionId = search.session;
+	const { worktree, sessionId } = useRouteState();
 	const { data: diff, isLoading } = useGitDiffWatch({ path, staged });
 	const { data: gitStatus } = useGitStatus();
 
@@ -67,7 +64,7 @@ function DiffView({ path, staged, onBack }: Props) {
 				type="button"
 				disabled={!prev}
 				onClick={() => prev && navigateTo(prev)}
-				className={navButtonClass(!!prev)}
+				className={getNavButtonClass(!!prev)}
 				aria-label="Previous file"
 			>
 				<ChevronLeft className="h-5 w-5" aria-hidden="true" />
@@ -76,7 +73,7 @@ function DiffView({ path, staged, onBack }: Props) {
 				type="button"
 				disabled={!next}
 				onClick={() => next && navigateTo(next)}
-				className={navButtonClass(!!next)}
+				className={getNavButtonClass(!!next)}
 				aria-label="Next file"
 			>
 				<ChevronRight className="h-5 w-5" aria-hidden="true" />

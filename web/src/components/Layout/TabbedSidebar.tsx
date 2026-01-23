@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { BadgeDot } from "../ui";
 import Sidebar from "./Sidebar";
 import { SidebarContext } from "./SidebarContext";
 
@@ -88,9 +89,7 @@ function TabbedSidebar({
 								aria-label={tab.label}
 							>
 								<Icon className="h-5 w-5" />
-								{tab.showBadge && (
-									<span className="absolute top-2 right-1/4 h-2 w-2 rounded-full bg-th-accent" />
-								)}
+								<BadgeDot show={!!tab.showBadge} className="top-2 right-1/4" />
 							</button>
 						);
 					})}

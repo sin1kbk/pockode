@@ -1,6 +1,7 @@
-import { ChevronRight, MessageSquare } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import type { ReactNode } from "react";
 import { splitPath } from "../../utils/path";
+import BackToChatButton from "./BackToChatButton";
 import Spinner from "./Spinner";
 
 interface Props {
@@ -71,14 +72,7 @@ export default function ContentView({
 	return (
 		<div className="flex min-h-0 flex-1 flex-col">
 			<div className="flex items-center gap-1.5 border-b border-th-border bg-th-bg-secondary px-2 py-2">
-				<button
-					type="button"
-					onClick={onBack}
-					className={navButtonClass}
-					aria-label="Back to chat"
-				>
-					<MessageSquare className="h-5 w-5" aria-hidden="true" />
-				</button>
+				<BackToChatButton onClick={onBack} />
 
 				{headerActions}
 
