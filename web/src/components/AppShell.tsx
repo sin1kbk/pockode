@@ -73,6 +73,7 @@ function AppShell() {
 		isGitRepo,
 	} = useWorktree({ enabled: hasAuthToken });
 
+	// Redirect to main when URL worktree doesn't exist in worktree list
 	useEffect(() => {
 		if (!isWorktreesLoaded) return;
 		if (!urlWorktree) return;

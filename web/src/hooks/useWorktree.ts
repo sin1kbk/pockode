@@ -9,6 +9,7 @@ import {
 } from "../lib/worktreeStore";
 import {
 	setWorktreeDeletedListener,
+	setWorktreeNotFoundListener,
 	useWSStore,
 	wsActions,
 } from "../lib/wsStore";
@@ -97,6 +98,15 @@ export function useWorktree({
 		});
 		return () => setWorktreeDeletedListener(null);
 	}, [onDeleted, queryClient, navigate]);
+
+	useEffect(() => {
+		setWorktreeNotFoundListener(() => {
+			navigate(
+				buildNavigation({ type: "home", worktree: "" }, { replace: true }),
+			);
+		});
+		return () => setWorktreeNotFoundListener(null);
+	}, [navigate]);
 
 	const refresh = useCallback(() => {
 		queryClient.invalidateQueries({ queryKey: ["worktrees"] });

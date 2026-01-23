@@ -251,6 +251,16 @@ export function setWorktreeDeletedListener(
 	worktreeDeletedListener = listener;
 }
 
+// Listener called when auth fails due to non-existent worktree
+type WorktreeNotFoundListener = () => void;
+let worktreeNotFoundListener: WorktreeNotFoundListener | null = null;
+
+export function setWorktreeNotFoundListener(
+	listener: WorktreeNotFoundListener | null,
+) {
+	worktreeNotFoundListener = listener;
+}
+
 export const useWSStore = create<WSState>((set, get) => ({
 	status: "disconnected",
 	projectTitle: "",
@@ -316,6 +326,7 @@ export const useWSStore = create<WSState>((set, get) => ({
 							currentWorktree,
 						);
 						worktreeActions.setCurrent("");
+						worktreeNotFoundListener?.();
 						socket.close(1000, "auth_retry");
 						// Retry connection with main worktree
 						setTimeout(() => get().actions.connect(token), 100);
