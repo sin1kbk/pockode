@@ -1,12 +1,13 @@
 import { useNavigate } from "@tanstack/react-router";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Minus, Plus } from "lucide-react";
 import { useMemo } from "react";
 import { useGitDiffWatch } from "../../hooks/useGitDiffWatch";
+import { useGitStage } from "../../hooks/useGitStage";
 import { useGitStatus } from "../../hooks/useGitStatus";
 import { useRouteState } from "../../hooks/useRouteState";
 import { buildNavigation } from "../../lib/navigation";
 import { flattenGitStatus } from "../../types/git";
-import { ContentView } from "../ui";
+import { BottomActionBar, ContentView } from "../ui";
 import DiffContent from "./DiffContent";
 
 interface Props {
@@ -16,9 +17,9 @@ interface Props {
 }
 
 const getNavButtonClass = (enabled: boolean) =>
-	`flex items-center justify-center rounded-md border border-th-border bg-th-bg-tertiary min-h-[44px] min-w-[44px] p-2 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-th-accent ${
+	`flex items-center justify-center rounded border border-th-border bg-th-bg-tertiary h-8 w-8 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-th-accent ${
 		enabled
-			? "text-th-text-secondary hover:border-th-border-focus hover:bg-th-bg-primary hover:text-th-text-primary active:scale-[0.97]"
+			? "text-th-text-secondary hover:border-th-border-focus hover:bg-th-bg-primary hover:text-th-text-primary active:scale-95"
 			: "cursor-not-allowed opacity-40"
 	}`;
 
@@ -27,6 +28,7 @@ function DiffView({ path, staged, onBack }: Props) {
 	const { worktree, sessionId } = useRouteState();
 	const { data: diff, isLoading } = useGitDiffWatch({ path, staged });
 	const { data: gitStatus } = useGitStatus();
+	const { stageMutation, unstageMutation } = useGitStage();
 
 	const allFiles = useMemo(() => {
 		if (!gitStatus) return [];
@@ -58,28 +60,41 @@ function DiffView({ path, staged, onBack }: Props) {
 		);
 	};
 
-	const headerActions = (
-		<div className="flex items-center">
-			<button
-				type="button"
-				disabled={!prev}
-				onClick={() => prev && navigateTo(prev)}
-				className={getNavButtonClass(!!prev)}
-				aria-label="Previous file"
-			>
-				<ChevronLeft className="h-5 w-5" aria-hidden="true" />
-			</button>
-			<button
-				type="button"
-				disabled={!next}
-				onClick={() => next && navigateTo(next)}
-				className={getNavButtonClass(!!next)}
-				aria-label="Next file"
-			>
-				<ChevronRight className="h-5 w-5" aria-hidden="true" />
-			</button>
-		</div>
-	);
+	const isToggling = stageMutation.isPending || unstageMutation.isPending;
+
+	const handleToggleStage = async () => {
+		try {
+			if (staged) {
+				await unstageMutation.mutateAsync([path]);
+				navigate(
+					buildNavigation({
+						type: "overlay",
+						worktree,
+						overlayType: "unstaged",
+						path,
+						sessionId: sessionId ?? undefined,
+					}),
+				);
+			} else {
+				await stageMutation.mutateAsync([path]);
+				navigate(
+					buildNavigation({
+						type: "overlay",
+						worktree,
+						overlayType: "staged",
+						path,
+						sessionId: sessionId ?? undefined,
+					}),
+				);
+			}
+		} catch {
+			// Error is already handled by React Query - user sees the error state
+		}
+	};
+
+	const stageButtonLabel = staged ? "Unstage" : "Stage";
+	const StageIcon = staged ? Minus : Plus;
+	const stageIconColor = staged ? "text-th-warning" : "text-th-success";
 
 	const handlePathClick = () => {
 		navigate(
@@ -94,23 +109,66 @@ function DiffView({ path, staged, onBack }: Props) {
 	};
 
 	return (
-		<ContentView
-			path={path}
-			pathColor={staged ? "text-th-success" : "text-th-warning"}
-			isLoading={isLoading}
-			onBack={onBack}
-			onPathClick={handlePathClick}
-			headerActions={headerActions}
-		>
-			{diff !== undefined && (
-				<DiffContent
-					diff={diff.diff}
-					fileName={path}
-					oldContent={diff.old_content}
-					newContent={diff.new_content}
-				/>
-			)}
-		</ContentView>
+		<div className="flex flex-1 flex-col overflow-hidden">
+			<ContentView
+				path={path}
+				pathColor={staged ? "text-th-success" : "text-th-warning"}
+				isLoading={isLoading}
+				onBack={onBack}
+				onPathClick={handlePathClick}
+			>
+				{diff !== undefined && (
+					<DiffContent
+						diff={diff.diff}
+						fileName={path}
+						oldContent={diff.old_content}
+						newContent={diff.new_content}
+					/>
+				)}
+			</ContentView>
+			<BottomActionBar>
+				<div className="flex items-center justify-between">
+					<div className="flex items-center">
+						<button
+							type="button"
+							disabled={!prev}
+							onClick={() => prev && navigateTo(prev)}
+							className={getNavButtonClass(!!prev)}
+							aria-label="Previous file"
+						>
+							<ChevronLeft className="h-4 w-4" aria-hidden="true" />
+						</button>
+						<button
+							type="button"
+							disabled={!next}
+							onClick={() => next && navigateTo(next)}
+							className={getNavButtonClass(!!next)}
+							aria-label="Next file"
+						>
+							<ChevronRight className="h-4 w-4" aria-hidden="true" />
+						</button>
+					</div>
+					<button
+						type="button"
+						onClick={handleToggleStage}
+						disabled={isToggling}
+						className={`flex items-center gap-1.5 rounded border border-th-border bg-th-bg-tertiary h-8 px-3 text-xs font-medium transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-th-accent active:scale-95 ${
+							isToggling
+								? "opacity-50 cursor-not-allowed text-th-text-muted"
+								: `${stageIconColor} hover:border-th-border-focus hover:bg-th-bg-primary`
+						}`}
+						aria-label={stageButtonLabel}
+					>
+						{isToggling ? (
+							<Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
+						) : (
+							<StageIcon className="h-3 w-3" aria-hidden="true" />
+						)}
+						{stageButtonLabel}
+					</button>
+				</div>
+			</BottomActionBar>
+		</div>
 	);
 }
 

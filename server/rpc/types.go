@@ -96,6 +96,11 @@ type GitDiffUnsubscribeParams struct {
 	ID string `json:"id"`
 }
 
+// GitPathsParams is used for git.add and git.reset operations.
+type GitPathsParams struct {
+	Paths []string `json:"paths"`
+}
+
 // Command namespace
 
 type CommandListResult struct {

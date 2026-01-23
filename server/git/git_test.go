@@ -372,3 +372,31 @@ func TestDiffWithContent_WithSubmodule(t *testing.T) {
 		t.Errorf("NewContent = %q, want %q", result.NewContent, "modified content\n")
 	}
 }
+
+func TestValidatePath(t *testing.T) {
+	tests := []struct {
+		name    string
+		path    string
+		wantErr bool
+	}{
+		{name: "valid relative path", path: "file.txt", wantErr: false},
+		{name: "valid nested path", path: "dir/file.txt", wantErr: false},
+		{name: "valid deep path", path: "a/b/c/file.txt", wantErr: false},
+		{name: "valid dotfile", path: ".gitignore", wantErr: false},
+		{name: "valid ..foo", path: "..foo", wantErr: false},
+		{name: "empty path", path: "", wantErr: true},
+		{name: "absolute path unix", path: "/etc/passwd", wantErr: true},
+		{name: "parent traversal", path: "..", wantErr: true},
+		{name: "parent traversal with path", path: "../secret", wantErr: true},
+		{name: "nested parent traversal", path: "foo/../../secret", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validatePath(tt.path)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("validatePath(%q) error = %v, wantErr %v", tt.path, err, tt.wantErr)
+			}
+		})
+	}
+}

@@ -231,6 +231,10 @@ func (h *rpcMethodHandler) Handle(ctx context.Context, conn *jsonrpc2.Conn, req 
 		h.handleGitDiffSubscribe(ctx, conn, req)
 	case "git.diff.unsubscribe":
 		h.handleWatcherUnsubscribe(ctx, conn, req, h.state.worktree.GitDiffWatcher, "git-diff")
+	case "git.add":
+		h.handleGitAdd(ctx, conn, req)
+	case "git.reset":
+		h.handleGitReset(ctx, conn, req)
 	// fs namespace
 	case "fs.subscribe":
 		h.handleFSSubscribe(ctx, conn, req)

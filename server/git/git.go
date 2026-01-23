@@ -528,3 +528,60 @@ func extractHost(repoURL string) (string, error) {
 
 	return parsed.Host, nil
 }
+
+// Add stages a file to the git index.
+// For submodule paths (e.g., "submodule/path/to/file"), it runs git add inside the submodule.
+func Add(dir, path string) error {
+	if err := validatePath(path); err != nil {
+		return err
+	}
+
+	actualDir, relativePath := resolveSubmodulePath(dir, path)
+
+	cmd := exec.Command("git", "add", "--", relativePath)
+	cmd.Dir = actualDir
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("git add failed: %w (output: %s)", err, string(output))
+	}
+	return nil
+}
+
+// Reset unstages a file from the git index.
+// For submodule paths (e.g., "submodule/path/to/file"), it runs git reset inside the submodule.
+// Uses "git restore --staged" which handles both existing and newly added files correctly.
+func Reset(dir, path string) error {
+	if err := validatePath(path); err != nil {
+		return err
+	}
+
+	actualDir, relativePath := resolveSubmodulePath(dir, path)
+
+	cmd := exec.Command("git", "restore", "--staged", "--", relativePath)
+	cmd.Dir = actualDir
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("git restore --staged failed: %w (output: %s)", err, string(output))
+	}
+	return nil
+}
+
+// validatePath checks for path traversal attacks.
+func validatePath(path string) error {
+	if path == "" {
+		return fmt.Errorf("path is empty")
+	}
+
+	cleanPath := filepath.Clean(path)
+
+	if filepath.IsAbs(cleanPath) {
+		return fmt.Errorf("absolute paths are not allowed")
+	}
+
+	// Check if path escapes the base directory
+	if cleanPath == ".." || strings.HasPrefix(cleanPath, ".."+string(filepath.Separator)) {
+		return fmt.Errorf("path traversal is not allowed")
+	}
+
+	return nil
+}

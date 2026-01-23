@@ -81,3 +81,71 @@ func (h *rpcMethodHandler) handleGitSubscribe(ctx context.Context, conn *jsonrpc
 		h.log.Error("failed to send git subscribe response", "error", err)
 	}
 }
+
+func (h *rpcMethodHandler) handleGitAdd(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.Request) {
+	var params rpc.GitPathsParams
+	if err := unmarshalParams(req, &params); err != nil {
+		h.replyError(ctx, conn, req.ID, jsonrpc2.CodeInvalidParams, "invalid params")
+		return
+	}
+
+	if len(params.Paths) == 0 {
+		h.replyError(ctx, conn, req.ID, jsonrpc2.CodeInvalidParams, "paths required")
+		return
+	}
+
+	workDir := h.state.worktree.WorkDir
+	for _, path := range params.Paths {
+		if err := contents.ValidatePath(workDir, path); err != nil {
+			if errors.Is(err, contents.ErrInvalidPath) {
+				h.replyError(ctx, conn, req.ID, jsonrpc2.CodeInvalidParams, "invalid path: "+path)
+				return
+			}
+			h.replyError(ctx, conn, req.ID, jsonrpc2.CodeInternalError, err.Error())
+			return
+		}
+
+		if err := git.Add(workDir, path); err != nil {
+			h.replyError(ctx, conn, req.ID, jsonrpc2.CodeInternalError, err.Error())
+			return
+		}
+	}
+
+	if err := conn.Reply(ctx, req.ID, nil); err != nil {
+		h.log.Error("failed to send git add response", "error", err)
+	}
+}
+
+func (h *rpcMethodHandler) handleGitReset(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.Request) {
+	var params rpc.GitPathsParams
+	if err := unmarshalParams(req, &params); err != nil {
+		h.replyError(ctx, conn, req.ID, jsonrpc2.CodeInvalidParams, "invalid params")
+		return
+	}
+
+	if len(params.Paths) == 0 {
+		h.replyError(ctx, conn, req.ID, jsonrpc2.CodeInvalidParams, "paths required")
+		return
+	}
+
+	workDir := h.state.worktree.WorkDir
+	for _, path := range params.Paths {
+		if err := contents.ValidatePath(workDir, path); err != nil {
+			if errors.Is(err, contents.ErrInvalidPath) {
+				h.replyError(ctx, conn, req.ID, jsonrpc2.CodeInvalidParams, "invalid path: "+path)
+				return
+			}
+			h.replyError(ctx, conn, req.ID, jsonrpc2.CodeInternalError, err.Error())
+			return
+		}
+
+		if err := git.Reset(workDir, path); err != nil {
+			h.replyError(ctx, conn, req.ID, jsonrpc2.CodeInternalError, err.Error())
+			return
+		}
+	}
+
+	if err := conn.Reply(ctx, req.ID, nil); err != nil {
+		h.log.Error("failed to send git reset response", "error", err)
+	}
+}

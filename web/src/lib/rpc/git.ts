@@ -3,6 +3,8 @@ import type { GitStatus } from "../../types/git";
 
 export interface GitActions {
 	getStatus: () => Promise<GitStatus>;
+	stage: (paths: string[]) => Promise<void>;
+	unstage: (paths: string[]) => Promise<void>;
 }
 
 export function createGitActions(
@@ -19,6 +21,12 @@ export function createGitActions(
 	return {
 		getStatus: async (): Promise<GitStatus> => {
 			return requireClient().request("git.status", {});
+		},
+		stage: async (paths: string[]): Promise<void> => {
+			await requireClient().request("git.add", { paths });
+		},
+		unstage: async (paths: string[]): Promise<void> => {
+			await requireClient().request("git.reset", { paths });
 		},
 	};
 }

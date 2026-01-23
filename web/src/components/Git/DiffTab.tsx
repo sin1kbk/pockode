@@ -1,4 +1,5 @@
-import { useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { useGitStage } from "../../hooks/useGitStage";
 import { useGitStatus } from "../../hooks/useGitStatus";
 import { useGitWatch } from "../../hooks/useGitWatch";
 import { flattenGitStatus } from "../../types/git";
@@ -14,14 +15,56 @@ interface Props {
 function DiffTab({ onSelectFile, activeFile }: Props) {
 	const { data: status, isLoading, error, refresh } = useGitStatus();
 	const { isActive } = useSidebarRefresh("diff", refresh);
+	const { stageMutation, unstageMutation } = useGitStage();
+	const [togglingPaths, setTogglingPaths] = useState<Set<string>>(new Set());
 
-	// Use GitWatcher for git status changes (replaces fsnotify-based .git/index watching)
 	useGitWatch({ onChanged: refresh, enabled: isActive });
 
 	const flatStatus = useMemo(
 		() => (status ? flattenGitStatus(status) : null),
 		[status],
 	);
+
+	const togglePaths = useCallback(
+		async (paths: string[], staged: boolean) => {
+			setTogglingPaths((prev) => new Set([...prev, ...paths]));
+			try {
+				if (staged) {
+					await unstageMutation.mutateAsync(paths);
+				} else {
+					await stageMutation.mutateAsync(paths);
+				}
+			} finally {
+				setTogglingPaths((prev) => {
+					const next = new Set(prev);
+					for (const p of paths) next.delete(p);
+					return next;
+				});
+			}
+		},
+		[stageMutation, unstageMutation],
+	);
+
+	const handleToggleStage = useCallback(
+		(path: string, staged: boolean) => togglePaths([path], staged),
+		[togglePaths],
+	);
+
+	const handleToggleAllStaged = useCallback(() => {
+		if (!flatStatus || flatStatus.staged.length === 0) return;
+		togglePaths(
+			flatStatus.staged.map((f) => f.path),
+			true,
+		);
+	}, [flatStatus, togglePaths]);
+
+	const handleToggleAllUnstaged = useCallback(() => {
+		if (!flatStatus || flatStatus.unstaged.length === 0) return;
+		togglePaths(
+			flatStatus.unstaged.map((f) => f.path),
+			false,
+		);
+	}, [flatStatus, togglePaths]);
 
 	return (
 		<div
@@ -52,14 +95,20 @@ function DiffTab({ onSelectFile, activeFile }: Props) {
 							files={flatStatus.staged}
 							staged={true}
 							onSelectFile={onSelectFile}
+							onToggleStage={(path) => handleToggleStage(path, true)}
+							onToggleAll={handleToggleAllStaged}
 							activeFile={activeFile}
+							togglingPaths={togglingPaths}
 						/>
 						<DiffFileList
 							title="Unstaged"
 							files={flatStatus.unstaged}
 							staged={false}
 							onSelectFile={onSelectFile}
+							onToggleStage={(path) => handleToggleStage(path, false)}
+							onToggleAll={handleToggleAllUnstaged}
 							activeFile={activeFile}
+							togglingPaths={togglingPaths}
 						/>
 					</div>
 				)}
