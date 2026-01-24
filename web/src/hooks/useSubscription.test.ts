@@ -207,12 +207,14 @@ describe("useSubscription", () => {
 		});
 
 		it("ignores notification from stale subscription", async () => {
-			let capturedCallback: ((params: string) => void) | null = null;
+			const captured: { callback: ((params: string) => void) | null } = {
+				callback: null,
+			};
 			let resolveFirst: (result: { id: string }) => void = () => {};
 
 			mockSubscribe
 				.mockImplementationOnce((callback) => {
-					capturedCallback = callback;
+					captured.callback = callback;
 					return new Promise((resolve) => {
 						resolveFirst = resolve;
 					});
@@ -224,7 +226,7 @@ describe("useSubscription", () => {
 			);
 
 			expect(mockSubscribe).toHaveBeenCalledTimes(1);
-			const staleCallback = capturedCallback;
+			const staleCallback = captured.callback;
 
 			await act(async () => {
 				result.current.refresh();
