@@ -4,9 +4,11 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import { createQueryClient } from "./lib/queryClient";
+import { themeActions } from "./lib/themeStore";
 import { router } from "./router";
 
 const queryClient = createQueryClient();
+themeActions.init();
 
 const root = document.getElementById("root");
 if (!root) throw new Error("Root element not found");

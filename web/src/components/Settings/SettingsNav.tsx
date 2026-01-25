@@ -157,7 +157,7 @@ export default function SettingsNav({ items, scrollContainerRef }: Props) {
 					onClick={() => scrollToSection(item.id)}
 					className={`shrink-0 rounded-full px-4 py-2.5 text-xs transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-th-accent active:scale-95 ${
 						activeId === item.id
-							? "bg-th-accent text-white"
+							? "bg-th-accent text-th-accent-text"
 							: "bg-th-bg-tertiary text-th-text-muted hover:text-th-text-secondary"
 					}`}
 				>

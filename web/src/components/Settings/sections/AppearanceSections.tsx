@@ -6,7 +6,7 @@ import {
 	type ThemeMode,
 	type ThemeName,
 	useTheme,
-} from "../../../hooks/useTheme";
+} from "../../../lib/themeStore";
 import SettingsSection from "../SettingsSection";
 
 const MODE_OPTIONS: { value: ThemeMode; label: string; icon: ReactNode }[] = [
@@ -38,21 +38,22 @@ function isLightColor(hex: string): boolean {
 function ThemePreview({
 	themeName,
 	isSelected,
-	isDarkMode,
+	mode,
 }: {
 	themeName: ThemeName;
 	isSelected: boolean;
-	isDarkMode: boolean;
+	mode: "light" | "dark";
 }) {
 	const info = THEME_INFO[themeName];
-	const accentColor = isDarkMode ? info.accentDark : info.accentLight;
-	const previewBg = isDarkMode ? info.previewBgDark : info.previewBgLight;
+	const accentColor = info.accent[mode];
+	const bgColor = info.bg[mode];
+	const textColor = info.text[mode];
 	const checkColor = isLightColor(accentColor) ? "#000" : "#fff";
 
 	return (
 		<div
 			className="relative h-10 w-full overflow-hidden rounded-md"
-			style={{ backgroundColor: previewBg }}
+			style={{ backgroundColor: bgColor }}
 		>
 			<div
 				className="absolute bottom-0 left-0 h-1 w-full"
@@ -61,11 +62,11 @@ function ThemePreview({
 			<div className="flex flex-col gap-1 p-2">
 				<div
 					className="h-1 w-8 rounded-full opacity-60"
-					style={{ backgroundColor: isDarkMode ? "#fff" : "#000" }}
+					style={{ backgroundColor: textColor }}
 				/>
 				<div
 					className="h-1 w-5 rounded-full opacity-40"
-					style={{ backgroundColor: isDarkMode ? "#fff" : "#000" }}
+					style={{ backgroundColor: textColor }}
 				/>
 			</div>
 			{isSelected && (
@@ -118,8 +119,7 @@ export function AppearanceSection({ id }: { id: string }) {
 }
 
 export function ThemeSection({ id }: { id: string }) {
-	const { theme, setTheme, resolvedMode } = useTheme();
-	const isDarkMode = resolvedMode === "dark";
+	const { theme, setTheme, resolvedMode: mode } = useTheme();
 
 	return (
 		<SettingsSection id={id} title="Theme">
@@ -147,26 +147,26 @@ export function ThemeSection({ id }: { id: string }) {
 							<ThemePreview
 								themeName={name}
 								isSelected={isSelected}
-								isDarkMode={isDarkMode}
+								mode={mode}
 							/>
-							<div className="flex min-h-12 items-center justify-between bg-th-bg-secondary px-3 py-2">
+							<div
+								className="flex min-h-12 items-center justify-between px-3 py-2"
+								style={{ backgroundColor: info.bg[mode] }}
+							>
 								<div>
-									<div
-										className={`text-sm ${isSelected ? " text-th-text-primary" : "text-th-text-secondary"}`}
-									>
+									<div className="text-sm" style={{ color: info.text[mode] }}>
 										{info.label}
 									</div>
-									<div className="text-xs text-th-text-muted">
+									<div
+										className="text-xs"
+										style={{ color: info.textMuted[mode] }}
+									>
 										{info.description}
 									</div>
 								</div>
 								<div
 									className="h-4 w-4 rounded-full"
-									style={{
-										backgroundColor: isDarkMode
-											? info.accentDark
-											: info.accentLight,
-									}}
+									style={{ backgroundColor: info.accent[mode] }}
 								/>
 							</div>
 						</button>
