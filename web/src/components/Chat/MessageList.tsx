@@ -55,7 +55,7 @@ function MessageList({
 	const [showScrollButton, setShowScrollButton] = useState(false);
 	const isAtBottomRef = useRef(true);
 
-	// Handle height changes - keep at bottom if user hasn't scrolled away
+	// Shiki renders asynchronously, causing height changes after initial render
 	const handleTotalListHeightChanged = useCallback(() => {
 		if (isAtBottomRef.current) {
 			virtuosoRef.current?.scrollToIndex({
@@ -70,10 +70,8 @@ function MessageList({
 		setShowScrollButton(!atBottom);
 	}, []);
 
-	// Virtuoso calls this with isAtBottom parameter when data changes
-	// Return "smooth" to auto-scroll, false to stay in place
 	const followOutput = useCallback(
-		(isAtBottom: boolean) => (isAtBottom ? "smooth" : false),
+		(isAtBottom: boolean) => isAtBottom,
 		[],
 	);
 
