@@ -107,7 +107,7 @@ func TestCreate_Success(t *testing.T) {
 	dir := initGitRepo(t)
 	r := NewRegistry(dir)
 
-	info, err := r.Create("feature", "feature-branch")
+	info, err := r.Create("feature", "feature-branch", "")
 	if err != nil {
 		t.Fatalf("Create() failed: %v", err)
 	}
@@ -148,7 +148,7 @@ func TestCreate_ExistingBranch(t *testing.T) {
 		t.Fatalf("git branch failed: %s", out)
 	}
 
-	info, err := r.Create("feature", "existing-branch")
+	info, err := r.Create("feature", "existing-branch", "")
 	if err != nil {
 		t.Fatalf("Create() with existing branch failed: %v", err)
 	}
@@ -170,7 +170,7 @@ func TestCreate_RemoteBranch(t *testing.T) {
 		t.Fatalf("git update-ref failed: %s", out)
 	}
 
-	info, err := r.Create("feature", "feature-x")
+	info, err := r.Create("feature", "feature-x", "")
 	if err != nil {
 		t.Fatalf("Create() with remote branch failed: %v", err)
 	}
@@ -179,11 +179,63 @@ func TestCreate_RemoteBranch(t *testing.T) {
 	}
 }
 
+func TestCreate_WithBaseBranch(t *testing.T) {
+	dir := initGitRepo(t)
+	r := NewRegistry(dir)
+
+	// Create a base branch with a commit
+	cmd := exec.Command("git", "-C", dir, "checkout", "-b", "base-branch")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git checkout -b failed: %s", out)
+	}
+	cmd = exec.Command("git", "-C", dir, "commit", "--allow-empty", "-m", "base commit")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git commit failed: %s", out)
+	}
+
+	// Get the commit hash of base-branch
+	cmd = exec.Command("git", "-C", dir, "rev-parse", "base-branch")
+	baseCommit, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("git rev-parse failed: %v", err)
+	}
+
+	// Switch back to main and add another commit
+	cmd = exec.Command("git", "-C", dir, "checkout", "-")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git checkout failed: %s", out)
+	}
+	cmd = exec.Command("git", "-C", dir, "commit", "--allow-empty", "-m", "main commit")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git commit failed: %s", out)
+	}
+
+	// Create worktree with base branch specified
+	info, err := r.Create("feature", "feature-branch", "base-branch")
+	if err != nil {
+		t.Fatalf("Create() with base branch failed: %v", err)
+	}
+	if info.Branch != "feature-branch" {
+		t.Errorf("info.Branch = %q, want %q", info.Branch, "feature-branch")
+	}
+
+	// Verify the worktree is based on base-branch, not current HEAD
+	cmd = exec.Command("git", "-C", info.Path, "rev-parse", "HEAD")
+	worktreeCommit, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("git rev-parse in worktree failed: %v", err)
+	}
+
+	if string(worktreeCommit) != string(baseCommit) {
+		t.Error("worktree should be based on base-branch, not current HEAD")
+	}
+}
+
 func TestCreate_EmptyName(t *testing.T) {
 	dir := initGitRepo(t)
 	r := NewRegistry(dir)
 
-	_, err := r.Create("", "branch")
+	_, err := r.Create("", "branch", "")
 	if err == nil {
 		t.Error("Create() with empty name should fail")
 	}
@@ -193,7 +245,7 @@ func TestCreate_EmptyBranch(t *testing.T) {
 	dir := initGitRepo(t)
 	r := NewRegistry(dir)
 
-	_, err := r.Create("feature", "")
+	_, err := r.Create("feature", "", "")
 	if err == nil {
 		t.Error("Create() with empty branch should fail")
 	}
@@ -203,12 +255,12 @@ func TestCreate_Duplicate(t *testing.T) {
 	dir := initGitRepo(t)
 	r := NewRegistry(dir)
 
-	_, err := r.Create("feature", "branch1")
+	_, err := r.Create("feature", "branch1", "")
 	if err != nil {
 		t.Fatalf("first Create() failed: %v", err)
 	}
 
-	_, err = r.Create("feature", "branch2")
+	_, err = r.Create("feature", "branch2", "")
 	if err != ErrWorktreeAlreadyExist {
 		t.Errorf("duplicate Create() error = %v, want ErrWorktreeAlreadyExist", err)
 	}
@@ -218,7 +270,7 @@ func TestCreate_PathTraversal(t *testing.T) {
 	dir := initGitRepo(t)
 	r := NewRegistry(dir)
 
-	_, err := r.Create("../escape", "branch")
+	_, err := r.Create("../escape", "branch", "")
 	if err == nil {
 		t.Fatal("Create() with path traversal should fail")
 	}
@@ -231,7 +283,7 @@ func TestCreate_NonGitRepo(t *testing.T) {
 	dir := t.TempDir()
 	r := NewRegistry(dir)
 
-	_, err := r.Create("feature", "branch")
+	_, err := r.Create("feature", "branch", "")
 	if err != ErrNotGitRepo {
 		t.Errorf("Create() error = %v, want ErrNotGitRepo", err)
 	}
@@ -241,7 +293,7 @@ func TestDelete_Success(t *testing.T) {
 	dir := initGitRepo(t)
 	r := NewRegistry(dir)
 
-	info, err := r.Create("to-delete", "delete-branch")
+	info, err := r.Create("to-delete", "delete-branch", "")
 	if err != nil {
 		t.Fatalf("Create() failed: %v", err)
 	}
@@ -267,7 +319,7 @@ func TestDelete_WithModifiedTrackedFile(t *testing.T) {
 	dir := initGitRepo(t)
 	r := NewRegistry(dir)
 
-	info, err := r.Create("dirty-worktree", "dirty-branch")
+	info, err := r.Create("dirty-worktree", "dirty-branch", "")
 	if err != nil {
 		t.Fatalf("Create() failed: %v", err)
 	}
