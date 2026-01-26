@@ -138,10 +138,18 @@ function ChatPanel({
 
 	const renderContent = () => {
 		if (!overlay) {
+			// Defer mounting until history loads so Virtuoso's initialTopMostItemIndex works
+			if (isLoadingHistory) {
+				return (
+					<div className="flex min-h-0 flex-1 items-center justify-center">
+						<div className="h-5 w-5 animate-spin rounded-full border-2 border-th-text-muted border-t-transparent" />
+					</div>
+				);
+			}
 			return (
 				<MessageList
+					key={sessionId}
 					messages={messages}
-					sessionId={sessionId}
 					isProcessRunning={isProcessRunning}
 					onPermissionRespond={handlePermissionRespond}
 					onQuestionRespond={handleQuestionRespond}

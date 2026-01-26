@@ -1,11 +1,29 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { ComponentProps } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ServerNotification } from "../../types/message";
 import ChatPanel from "./ChatPanel";
 
 // Mock scrollTo (not available in jsdom)
 Element.prototype.scrollTo = vi.fn();
+
+// Mock react-virtuoso to render all items (jsdom lacks DOM measurement APIs)
+vi.mock("react-virtuoso", () => ({
+	Virtuoso: ({
+		data,
+		itemContent,
+		computeItemKey,
+	}: ComponentProps<typeof import("react-virtuoso").Virtuoso>) => (
+		<div data-testid="virtuoso-mock">
+			{(data as unknown[])?.map((item, index) => (
+				<div key={computeItemKey?.(index, item, {}) ?? index}>
+					{itemContent?.(index, item, {})}
+				</div>
+			))}
+		</div>
+	),
+}));
 
 // Use vi.hoisted to ensure mockState is available when vi.mock factory runs
 const mockState = vi.hoisted(() => ({

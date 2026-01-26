@@ -1,6 +1,6 @@
 import { ArrowDown } from "lucide-react";
-import { useEffect, useRef } from "react";
-import { useStickToBottom } from "../../hooks/useStickToBottom";
+import { forwardRef, useCallback, useRef, useState } from "react";
+import { type Components, Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import type {
 	AskUserQuestionRequest,
 	Message,
@@ -10,7 +10,6 @@ import MessageItem, { type PermissionChoice } from "./MessageItem";
 
 interface Props {
 	messages: Message[];
-	sessionId: string;
 	isProcessRunning: boolean;
 	onPermissionRespond?: (
 		request: PermissionRequest,
@@ -22,60 +21,125 @@ interface Props {
 	) => void;
 }
 
+// Custom scroller: prevent horizontal overflow
+const Scroller = forwardRef<HTMLDivElement, React.ComponentPropsWithRef<"div">>(
+	(props, ref) => (
+		<div
+			{...props}
+			ref={ref}
+			className="overscroll-contain"
+			style={{ ...props.style, overflowX: "hidden" }}
+		/>
+	),
+);
+Scroller.displayName = "Scroller";
+
+// Custom list container: horizontal padding
+const List = forwardRef<HTMLDivElement, React.ComponentPropsWithRef<"div">>(
+	(props, ref) => <div {...props} ref={ref} className="px-3 sm:px-4" />,
+);
+List.displayName = "List";
+
+const virtuosoComponents: Components<Message> = {
+	Scroller,
+	List,
+};
+
 function MessageList({
 	messages,
-	sessionId,
 	isProcessRunning,
 	onPermissionRespond,
 	onQuestionRespond,
 }: Props) {
-	const containerRef = useRef<HTMLDivElement>(null);
+	const virtuosoRef = useRef<VirtuosoHandle>(null);
+	const [showScrollButton, setShowScrollButton] = useState(false);
+	const isAtBottomRef = useRef(true);
 
-	const { isScrolledUp, scrollToBottom, resetToBottom } = useStickToBottom(
-		containerRef,
-		true, // Always enabled since containerRef is always attached
+	// Handle height changes - keep at bottom if user hasn't scrolled away
+	const handleTotalListHeightChanged = useCallback(() => {
+		if (isAtBottomRef.current) {
+			virtuosoRef.current?.scrollToIndex({
+				index: "LAST",
+				align: "end",
+			});
+		}
+	}, []);
+
+	const handleAtBottomStateChange = useCallback((atBottom: boolean) => {
+		isAtBottomRef.current = atBottom;
+		setShowScrollButton(!atBottom);
+	}, []);
+
+	// Virtuoso calls this with isAtBottom parameter when data changes
+	// Return "smooth" to auto-scroll, false to stay in place
+	const followOutput = useCallback(
+		(isAtBottom: boolean) => (isAtBottom ? "smooth" : false),
+		[],
 	);
 
-	// Reset to bottom when switching sessions
-	// biome-ignore lint/correctness/useExhaustiveDependencies: sessionId change should reset scroll
-	useEffect(() => {
-		resetToBottom();
-	}, [sessionId]);
+	const handleScrollToBottom = useCallback(() => {
+		virtuosoRef.current?.scrollToIndex({
+			index: "LAST",
+			align: "end",
+			behavior: "smooth",
+		});
+	}, []);
+
+	const computeItemKey = useCallback(
+		(_index: number, message: Message) => message.id,
+		[],
+	);
+
+	const itemContent = useCallback(
+		(index: number, message: Message) => (
+			<div className="py-1.5 sm:py-2">
+				<MessageItem
+					message={message}
+					isLast={index === messages.length - 1}
+					isProcessRunning={isProcessRunning}
+					onPermissionRespond={onPermissionRespond}
+					onQuestionRespond={onQuestionRespond}
+				/>
+			</div>
+		),
+		[messages.length, isProcessRunning, onPermissionRespond, onQuestionRespond],
+	);
+
+	if (messages.length === 0) {
+		return (
+			<div className="flex min-h-0 flex-1 items-center justify-center text-th-text-muted">
+				<p>Start a conversation...</p>
+			</div>
+		);
+	}
 
 	return (
-		<div className="relative min-h-0 flex-1">
-			<div
-				ref={containerRef}
-				className="flex h-full flex-col overflow-y-auto overscroll-contain p-3 sm:p-4"
-			>
-				{messages.length === 0 ? (
-					<div className="flex flex-1 items-center justify-center text-th-text-muted">
-						<p>Start a conversation...</p>
-					</div>
-				) : (
-					<>
-						{/* Spacer to push messages to bottom when content is short */}
-						<div className="flex-1" aria-hidden="true" />
-						{/* Messages container */}
-						<div className="space-y-3 sm:space-y-4">
-							{messages.map((message, index) => (
-								<MessageItem
-									key={message.id}
-									message={message}
-									isLast={index === messages.length - 1}
-									isProcessRunning={isProcessRunning}
-									onPermissionRespond={onPermissionRespond}
-									onQuestionRespond={onQuestionRespond}
-								/>
-							))}
-						</div>
-					</>
-				)}
-			</div>
-			{isScrolledUp && (
+		<div className="relative min-h-0 flex-1 overflow-hidden">
+			<Virtuoso
+				ref={virtuosoRef}
+				data={messages}
+				computeItemKey={computeItemKey}
+				itemContent={itemContent}
+				components={virtuosoComponents}
+				// Start scrolled to bottom
+				initialTopMostItemIndex={messages.length - 1}
+				// Align items to bottom when list is shorter than viewport
+				alignToBottom
+				// Auto-scroll when new items added (only if already at bottom)
+				followOutput={followOutput}
+				// Track scroll position for button visibility
+				atBottomStateChange={handleAtBottomStateChange}
+				// Re-scroll on height changes (async content like shiki)
+				totalListHeightChanged={handleTotalListHeightChanged}
+				// Consider "at bottom" if within 50px of bottom
+				atBottomThreshold={50}
+				className="h-full"
+			/>
+
+			{showScrollButton && (
 				<button
 					type="button"
-					onClick={scrollToBottom}
+					onClick={handleScrollToBottom}
 					className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full border border-th-border bg-th-bg-primary p-2 text-th-text-secondary shadow-xl transition-colors hover:bg-th-bg-secondary hover:text-th-text-primary"
 					aria-label="Scroll to bottom"
 				>
