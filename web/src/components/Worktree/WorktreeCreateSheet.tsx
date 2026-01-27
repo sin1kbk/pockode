@@ -191,7 +191,7 @@ function WorktreeCreateSheet({
 								autoComplete="off"
 							/>
 							<p className="text-xs text-th-text-muted">
-								Branch to base from (uses HEAD if empty)
+								Base for new branch (ignored if branch exists)
 							</p>
 						</div>
 
