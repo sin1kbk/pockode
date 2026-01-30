@@ -1,7 +1,6 @@
 import { getDiffViewHighlighter } from "@git-diff-view/shiki";
-import { useSyncExternalStore } from "react";
-import ShikiHighlighter from "react-shiki";
-import { bundledLanguagesInfo } from "shiki";
+import { useShikiHighlighter } from "react-shiki";
+import { bundledLanguagesInfo, createCssVariablesTheme } from "shiki";
 import { useIsDesktop } from "../hooks/useIsDesktop";
 
 export const CODE_FONT_SIZE_MOBILE = 12;
@@ -57,9 +56,10 @@ export function getIsDarkMode() {
 	return document.documentElement.classList.contains("dark");
 }
 
-export function getShikiTheme() {
-	return getIsDarkMode() ? "github-dark" : "github-light";
-}
+const cssVarTheme = createCssVariablesTheme({
+	name: "css-variables",
+	variablePrefix: "--shiki-",
+});
 
 export function CodeHighlighter({
 	children,
@@ -68,13 +68,16 @@ export function CodeHighlighter({
 	children: string;
 	language?: string;
 }) {
-	const theme = useSyncExternalStore(subscribeToDarkMode, getShikiTheme);
 	const isDesktop = useIsDesktop();
 	const fontSize = isDesktop ? CODE_FONT_SIZE_DESKTOP : CODE_FONT_SIZE_MOBILE;
 
+	const highlighted = useShikiHighlighter(children, language, cssVarTheme);
+
+	const style = { "--code-font-size": `${fontSize}px` } as React.CSSProperties;
+
 	return (
-		<ShikiHighlighter language={language} theme={theme} style={{ fontSize }}>
-			{children}
-		</ShikiHighlighter>
+		<pre className="code-block" style={style}>
+			{highlighted ?? <code>{children}</code>}
+		</pre>
 	);
 }
