@@ -275,13 +275,6 @@ export function applyServerEvent(
 		return updateToolResult(messages, event.toolUseId, event.toolResult);
 	}
 
-	// Find current assistant (sending or streaming) - use last one to avoid appending to stale messages
-	let index = messages.findLastIndex(
-		(m) =>
-			m.role === "assistant" &&
-			(m.status === "sending" || m.status === "streaming"),
-	);
-
 	// Terminal events only make sense for active (sending/streaming) messages
 	const isTerminalEvent =
 		event.type === "interrupted" ||
@@ -289,17 +282,39 @@ export function applyServerEvent(
 		event.type === "done" ||
 		event.type === "error";
 
+	// Only append to the last message if it's an assistant message that's sending/streaming.
+	// This prevents content from going into the wrong bubble when multiple messages are sent
+	// before the first response arrives.
+	const last = messages[messages.length - 1];
+	const hasActiveAssistant =
+		last?.role === "assistant" &&
+		(last.status === "sending" || last.status === "streaming");
+
 	let updated: Message[];
-	if (index === -1) {
+	let index: number;
+	if (hasActiveAssistant) {
+		updated = [...messages];
+		index = updated.length - 1;
+	} else {
 		if (isTerminalEvent) {
 			// No active message to terminate - ignore orphan terminal event
 			return messages;
 		}
-		// For content events, create new assistant message to hold orphan event
-		updated = [...messages, createAssistantMessage()];
+		// For content events, create new assistant message to hold orphan event.
+		// Remove empty sending messages and complete any streaming messages.
+		updated = messages
+			.map((m): Message | null => {
+				if (m.role === "assistant" && m.status === "sending") {
+					return null; // Remove empty sending messages
+				}
+				if (m.role === "assistant" && m.status === "streaming") {
+					return { ...m, status: "complete" };
+				}
+				return m;
+			})
+			.filter((m): m is Message => m !== null);
+		updated = [...updated, createAssistantMessage()];
 		index = updated.length - 1;
-	} else {
-		updated = [...messages];
 	}
 
 	const current = updated[index];
@@ -326,6 +341,19 @@ export function applyServerEvent(
 	}
 
 	updated[index] = message;
+
+	// After a terminal event, remove any orphan empty sending messages.
+	if (isTerminalEvent) {
+		updated = updated.filter(
+			(m) =>
+				!(
+					m.role === "assistant" &&
+					m.status === "sending" &&
+					m.parts.length === 0
+				),
+		);
+	}
+
 	return updated;
 }
 

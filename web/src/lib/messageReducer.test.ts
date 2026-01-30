@@ -694,6 +694,82 @@ describe("messageReducer", () => {
 			expect(messages).toHaveLength(1);
 			expect(messages[0]).toBe(completed);
 		});
+
+		describe("consecutive sends", () => {
+			it("appends content to the last sending message only", () => {
+				const a1: AssistantMessage = {
+					id: "a1",
+					role: "assistant",
+					parts: [],
+					status: "sending",
+					createdAt: new Date(),
+				};
+				const a2: AssistantMessage = {
+					id: "a2",
+					role: "assistant",
+					parts: [],
+					status: "sending",
+					createdAt: new Date(),
+				};
+				const messages = applyServerEvent([a1, a2], {
+					type: "text",
+					content: "Hello",
+				});
+				expect(messages).toHaveLength(2);
+				expect((messages[0] as AssistantMessage).parts).toEqual([]);
+				expect((messages[1] as AssistantMessage).parts).toEqual([
+					{ type: "text", content: "Hello" },
+				]);
+			});
+
+			it("removes orphan empty sending messages on terminal event", () => {
+				const a1: AssistantMessage = {
+					id: "a1",
+					role: "assistant",
+					parts: [],
+					status: "sending",
+					createdAt: new Date(),
+				};
+				const a2: AssistantMessage = {
+					id: "a2",
+					role: "assistant",
+					parts: [{ type: "text", content: "Hello" }],
+					status: "streaming",
+					createdAt: new Date(),
+				};
+				const messages = applyServerEvent([a1, a2], { type: "done" });
+				expect(messages).toHaveLength(1); // a1 removed
+				expect(messages[0].id).toBe("a2");
+				expect(messages[0].status).toBe("complete");
+			});
+
+			it("removes empty sending and creates new message when last is not active", () => {
+				const a1: AssistantMessage = {
+					id: "a1",
+					role: "assistant",
+					parts: [],
+					status: "sending",
+					createdAt: new Date(),
+				};
+				const user: UserMessage = {
+					id: "u1",
+					role: "user",
+					content: "Second message",
+					status: "complete",
+					createdAt: new Date(),
+				};
+				const messages = applyServerEvent([a1, user], {
+					type: "text",
+					content: "Response",
+				});
+				expect(messages).toHaveLength(2); // a1 removed
+				expect(messages[0]).toBe(user);
+				expect(messages[1].role).toBe("assistant"); // new assistant message
+				expect((messages[1] as AssistantMessage).parts).toEqual([
+					{ type: "text", content: "Response" },
+				]);
+			});
+		});
 	});
 
 	describe("applyUserMessage", () => {
