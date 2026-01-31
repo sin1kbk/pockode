@@ -26,13 +26,14 @@ type RPCHandler struct {
 	token           string
 	version         string
 	devMode         bool
+	agentType       string
 	commandStore    *command.Store
 	worktreeManager *worktree.Manager
 	settingsStore   *settings.Store
 	settingsWatcher *watch.SettingsWatcher
 }
 
-func NewRPCHandler(token, version string, devMode bool, commandStore *command.Store, worktreeManager *worktree.Manager, settingsStore *settings.Store) *RPCHandler {
+func NewRPCHandler(token, version string, devMode bool, agentType string, commandStore *command.Store, worktreeManager *worktree.Manager, settingsStore *settings.Store) *RPCHandler {
 	settingsWatcher := watch.NewSettingsWatcher(settingsStore)
 	settingsWatcher.Start()
 
@@ -40,6 +41,7 @@ func NewRPCHandler(token, version string, devMode bool, commandStore *command.St
 		token:           token,
 		version:         version,
 		devMode:         devMode,
+		agentType:       agentType,
 		commandStore:    commandStore,
 		worktreeManager: worktreeManager,
 		settingsStore:   settingsStore,
@@ -320,6 +322,7 @@ func (h *rpcMethodHandler) handleAuth(ctx context.Context, conn *jsonrpc2.Conn, 
 		Title:        title,
 		WorkDir:      wt.WorkDir,
 		WorktreeName: wt.Name,
+		Agent:        h.agentType,
 	}
 	if err := conn.Reply(ctx, req.ID, result); err != nil {
 		h.log.Error("failed to send auth response", "error", err)

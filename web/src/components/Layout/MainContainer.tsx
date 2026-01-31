@@ -6,6 +6,7 @@ interface Props {
 	onOpenSidebar?: () => void;
 	onOpenSettings?: () => void;
 	title?: string;
+	agentType?: string;
 }
 
 function MainContainer({
@@ -13,6 +14,7 @@ function MainContainer({
 	onOpenSidebar,
 	onOpenSettings,
 	title = "Pockode",
+	agentType,
 }: Props) {
 	return (
 		<div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-th-bg-primary">
@@ -30,6 +32,11 @@ function MainContainer({
 					)}
 					<h1 className="text-base font-bold text-th-text-primary sm:text-lg">
 						{title}
+						{agentType ? (
+							<span className="ml-1.5 text-sm font-normal text-th-text-muted">
+								({agentType})
+							</span>
+						) : null}
 					</h1>
 				</div>
 				<div className="flex items-center gap-2">

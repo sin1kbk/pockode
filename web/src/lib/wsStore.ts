@@ -104,6 +104,7 @@ interface WSState {
 	status: ConnectionStatus;
 	projectTitle: string;
 	workDir: string;
+	agentType: string;
 	actions: RPCActions;
 }
 
@@ -287,6 +288,7 @@ export const useWSStore = create<WSState>((set, get) => ({
 	status: "disconnected",
 	projectTitle: "",
 	workDir: "",
+	agentType: "",
 
 	actions: {
 		connect: (token: string) => {
@@ -337,6 +339,7 @@ export const useWSStore = create<WSState>((set, get) => ({
 						status: "connected",
 						projectTitle: result.title,
 						workDir: result.work_dir,
+						agentType: result.agent ?? "",
 					});
 					reconnectAttempts = 0;
 				} catch (error) {
@@ -705,5 +708,6 @@ export function resetWSStore() {
 		status: "disconnected",
 		projectTitle: "",
 		workDir: "",
+		agentType: "",
 	});
 }

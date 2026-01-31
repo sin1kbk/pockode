@@ -25,6 +25,7 @@ type AuthResult struct {
 	Title        string `json:"title"`
 	WorkDir      string `json:"work_dir"`
 	WorktreeName string `json:"worktree_name"`
+	Agent        string `json:"agent"`
 }
 
 type MessageParams struct {

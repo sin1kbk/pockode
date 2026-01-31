@@ -280,7 +280,7 @@ func main() {
 		slog.Warn("failed to start worktree manager", "error", err)
 	}
 
-	wsHandler := ws.NewRPCHandler(token, version, devMode, commandStore, worktreeManager, settingsStore)
+	wsHandler := ws.NewRPCHandler(token, version, devMode, string(agentType), commandStore, worktreeManager, settingsStore)
 	handler := newHandler(token, devMode, wsHandler)
 
 	portStr := strconv.Itoa(port)

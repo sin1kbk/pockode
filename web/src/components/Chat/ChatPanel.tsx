@@ -38,6 +38,7 @@ function ChatPanel({
 	onCloseOverlay,
 }: Props) {
 	const projectTitle = useWSStore((state) => state.projectTitle);
+	const agentType = useWSStore((state) => state.agentType);
 
 	const {
 		messages,
@@ -184,6 +185,7 @@ function ChatPanel({
 	return (
 		<MainContainer
 			title={projectTitle}
+			agentType={agentType || undefined}
 			onOpenSidebar={onOpenSidebar}
 			onOpenSettings={onOpenSettings}
 		>

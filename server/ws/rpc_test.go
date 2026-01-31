@@ -33,6 +33,7 @@ type testEnv struct {
 	ctx             context.Context
 	cancel          context.CancelFunc
 	reqID           int
+	authResult      rpc.AuthResult
 }
 
 func newTestEnv(t *testing.T, mock *mockAgent) *testEnv {
@@ -53,7 +54,7 @@ func newTestEnvWithWorkDir(t *testing.T, mock *mockAgent, workDir string) *testE
 	registry := worktree.NewRegistry(workDir)
 	worktreeManager := worktree.NewManager(registry, mock, dataDir, 10*time.Minute)
 
-	h := NewRPCHandler("test-token", "test", true, cmdStore, worktreeManager, settingsStore)
+	h := NewRPCHandler("test-token", "test", true, "claude", cmdStore, worktreeManager, settingsStore)
 	server := httptest.NewServer(h)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -82,6 +83,9 @@ func newTestEnvWithWorkDir(t *testing.T, mock *mockAgent, workDir string) *testE
 	if resp.Error != nil {
 		t.Fatalf("auth failed: %s", resp.Error.Message)
 	}
+	if err := json.Unmarshal(resp.Result, &env.authResult); err != nil {
+		t.Fatalf("failed to unmarshal auth result: %v", err)
+	}
 
 	t.Cleanup(func() {
 		conn.Close(websocket.StatusNormalClosure, "")
@@ -91,6 +95,13 @@ func newTestEnvWithWorkDir(t *testing.T, mock *mockAgent, workDir string) *testE
 	})
 
 	return env
+}
+
+func TestAuthResultIncludesAgent(t *testing.T) {
+	env := newTestEnv(t, &mockAgent{})
+	if env.authResult.Agent != "claude" {
+		t.Errorf("auth result Agent = %q, want %q", env.authResult.Agent, "claude")
+	}
 }
 
 // getMainWorktree returns the main worktree for tests that need direct access to store/manager.
@@ -200,7 +211,7 @@ func TestHandler_Auth_InvalidToken(t *testing.T) {
 	worktreeManager := worktree.NewManager(registry, &mockAgent{}, dataDir, 10*time.Minute)
 	defer worktreeManager.Shutdown()
 
-	h := NewRPCHandler("secret-token", "test", true, cmdStore, worktreeManager, settingsStore)
+	h := NewRPCHandler("secret-token", "test", true, "claude", cmdStore, worktreeManager, settingsStore)
 	server := httptest.NewServer(h)
 	defer server.Close()
 
@@ -247,7 +258,7 @@ func TestHandler_Auth_FirstMessageMustBeAuth(t *testing.T) {
 	worktreeManager := worktree.NewManager(registry, &mockAgent{}, dataDir, 10*time.Minute)
 	defer worktreeManager.Shutdown()
 
-	h := NewRPCHandler("test-token", "test", true, cmdStore, worktreeManager, settingsStore)
+	h := NewRPCHandler("test-token", "test", true, "claude", cmdStore, worktreeManager, settingsStore)
 	server := httptest.NewServer(h)
 	defer server.Close()
 

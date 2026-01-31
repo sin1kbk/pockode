@@ -59,6 +59,8 @@ vi.mock("../../lib/wsStore", () => {
 	const mockStore = ((selector: (state: unknown) => unknown) => {
 		const state = {
 			status: "connected",
+			projectTitle: "Test Project",
+			agentType: "claude",
 			actions: createMockActions(),
 		};
 		return selector(state);
@@ -72,6 +74,8 @@ vi.mock("../../lib/wsStore", () => {
 
 	mockStore.getState = () => ({
 		status: "connected",
+		projectTitle: "Test Project",
+		agentType: "claude",
 		actions: createMockActions(),
 	});
 

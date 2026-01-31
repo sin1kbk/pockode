@@ -175,6 +175,7 @@ export interface AuthResult {
 	version: string;
 	title: string;
 	work_dir: string;
+	agent?: string;
 }
 
 export interface MessageParams {

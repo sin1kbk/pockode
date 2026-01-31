@@ -33,7 +33,7 @@ class MockWebSocket {
 			queueMicrotask(() => {
 				let result: Record<string, unknown> = {};
 				if (parsed.method === "auth") {
-					result = { version: "test" };
+					result = { version: "test", agent: "claude" };
 				} else if (parsed.method === "chat.messages.subscribe") {
 					result = { id: "sub-1", history: [], process_running: false };
 				}
@@ -155,6 +155,17 @@ describe("wsStore", () => {
 			// After open, auth is sent and should auto-respond
 			await vi.runAllTimersAsync();
 			expect(useWSStore.getState().status).toBe("connected");
+		});
+
+		it("stores agentType from auth result", async () => {
+			const wsActions = await getWsActions();
+			const useWSStore = await getUseWSStore();
+
+			wsActions.connect(TEST_TOKEN);
+			getMockWs()?.simulateOpen();
+			await vi.runAllTimersAsync();
+
+			expect(useWSStore.getState().agentType).toBe("claude");
 		});
 
 		it("sends auth RPC request on open", async () => {
