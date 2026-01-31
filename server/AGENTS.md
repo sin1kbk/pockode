@@ -9,6 +9,7 @@ Go 1.25 + net/http + github.com/coder/websocket
 ```bash
 # 开发
 AUTH_TOKEN=xxx DEV_MODE=true go run .   # 运行（开发模式，不 serve 静态文件）
+go run . -agent=cursor-agent           # 使用 Cursor Agent CLI（默认 claude）
 go test ./...                           # 测试
 gofmt -w .                              # 格式化
 go vet ./...                            # 静态检查
@@ -27,7 +28,10 @@ go test -tags=integration ./agent/claude -v
 main.go                 # 入口 + 路由 + graceful shutdown
 agent/agent.go          # Agent/Session 接口（小接口原则）
 agent/event.go          # 事件类型
+agent/type.go           # エージェント種別（claude / cursor-agent）
 agent/claude/           # Claude CLI 实现
+agent/cursoragent/      # Cursor Agent CLI 实现
+agentfactory/           # 起動時エージェント選択（New）
 session/store.go        # Session 内存存储
 session/types.go        # Session 类型定义
 ws/rpc.go               # WebSocket RPC 处理
@@ -69,6 +73,7 @@ if err := json.Unmarshal(data, &parsed); err != nil {
 | 变量 | 必需 | 默认 | 说明 |
 |------|:----:|------|------|
 | `AUTH_TOKEN` | ✓ | — | API 认证令牌 |
+| `AGENT` | | `claude` | AI CLI バックエンド（`claude` / `cursor-agent`）。`-agent` フラグで上書き可。 |
 | `SERVER_PORT` | | `8080` | 服务端口 |
 | `WORK_DIR` | | `/workspace` | 工作目录 |
 | `DEV_MODE` | | `false` | 开发模式（true 时不 serve 静态文件） |

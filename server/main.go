@@ -19,7 +19,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/pockode/server/agent/claude"
+	"github.com/pockode/server/agent"
+	"github.com/pockode/server/agentfactory"
 	"github.com/pockode/server/command"
 	"github.com/pockode/server/git"
 	"github.com/pockode/server/logger"
@@ -157,6 +158,7 @@ func findAvailablePort(startPort int) int {
 func main() {
 	portFlag := flag.Int("port", 0, fmt.Sprintf("server port (default %d)", defaultPort))
 	tokenFlag := flag.String("auth-token", "", "authentication token (required)")
+	agentFlag := flag.String("agent", string(agent.Default), "AI CLI backend: claude, cursor-agent")
 	devModeFlag := flag.Bool("dev", false, "enable development mode")
 	versionFlag := flag.Bool("version", false, "print version and exit")
 	flag.Parse()
@@ -256,10 +258,24 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Resolve agent type (flag overrides env)
+	agentType := agent.AgentType(*agentFlag)
+	if envAgent := os.Getenv("AGENT"); envAgent != "" && *agentFlag == string(agent.Default) {
+		agentType = agent.AgentType(envAgent)
+	}
+	if !agentType.IsValid() {
+		slog.Error("invalid agent type (use claude or cursor-agent)", "agent", agentType)
+		os.Exit(1)
+	}
+	ag, err := agentfactory.New(agentType)
+	if err != nil {
+		slog.Error("failed to create agent", "agent", agentType, "error", err)
+		os.Exit(1)
+	}
+
 	// Initialize worktree registry and manager
-	claudeAgent := claude.New()
 	registry := worktree.NewRegistry(workDir)
-	worktreeManager := worktree.NewManager(registry, claudeAgent, dataDir, idleTimeout)
+	worktreeManager := worktree.NewManager(registry, ag, dataDir, idleTimeout)
 	if err := worktreeManager.Start(); err != nil {
 		slog.Warn("failed to start worktree manager", "error", err)
 	}
