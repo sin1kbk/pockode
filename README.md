@@ -5,7 +5,7 @@
 
 **Your dev machine in your pocket.**
 
-Pockode connects your phone to your home dev machine running Claude Code. Chat with AI, browse files, review diffs, and manage worktrees — from anywhere.
+Pockode connects your phone to your dev machine running Claude Code. Chat with AI, browse files, review diffs, and manage worktrees — on your local network.
 
 | Chat | Sessions | File | Diff |
 |:----:|:--------:|:----:|:----:|
@@ -13,12 +13,12 @@ Pockode connects your phone to your home dev machine running Claude Code. Chat w
 
 ## Why Pockode?
 
-Your powerful dev machine sits at home. With Pockode, you can use it from anywhere.
+Your powerful dev machine sits at home. With Pockode, you can use it locally without a cloud relay.
 
-- **Commute coding** — Fix bugs on the train using your home workstation
-- **Quick hotfixes** — Push a fix from your couch, no laptop needed
-- **Code review** — Review diffs while waiting in line
-- **Stay in flow** — Your ideas don't wait for you to get home
+- **Local companion** — Use your phone as a second screen for your dev box
+- **Quick checks** — Review diffs or files without opening your laptop
+- **Same-network access** — Connect from your phone on the same Wi-Fi
+- **Stay in flow** — Keep context without switching devices
 
 ## Features
 
@@ -40,7 +40,7 @@ curl -fsSL https://pockode.com/install.sh | sh
 pockode -auth-token YOUR_PASSWORD
 ```
 
-Open http://localhost:9870 in your browser. Done.
+Open http://localhost:9870 on your dev machine (or http://<dev-machine-ip>:9870 on the same network). Done.
 
 ## Status
 

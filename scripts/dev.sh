@@ -5,6 +5,7 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
 # Configuration
 export AUTH_TOKEN="${AUTH_TOKEN:-dev-token}"
+export AGENT="${AGENT:-claude}"
 # Resolve to absolute path (relative paths break when subprocesses cd)
 export WORK_DIR="$(cd "${WORK_DIR:-$PROJECT_DIR}" && pwd)"
 export SERVER_PORT="${SERVER_PORT:-8080}"
@@ -17,6 +18,7 @@ echo "Starting dev environment..."
 echo "  Backend:  http://localhost:$SERVER_PORT"
 echo "  Frontend: http://localhost:$WEB_PORT"
 echo "  Token:    $AUTH_TOKEN"
+echo "  Agent:    $AGENT"
 echo ""
 
 cd "$PROJECT_DIR" && npm run dev

@@ -5,8 +5,6 @@ package cursoragent
 import (
 	"bufio"
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -28,6 +26,8 @@ const (
 	stderrReadTimeout = 5 * time.Second
 )
 
+var execCommandContext = exec.CommandContext
+
 // Agent implements agent.Agent using Cursor Agent CLI.
 type Agent struct{}
 
@@ -40,93 +40,23 @@ func New() *Agent {
 func (a *Agent) Start(ctx context.Context, opts agent.StartOptions) (agent.Session, error) {
 	procCtx, cancel := context.WithCancel(ctx)
 
-	args := []string{
-		"--output-format", "stream-json",
-		"--input-format", "stream-json",
-		"--verbose",
-	}
-
-	switch opts.Mode {
-	case session.ModeYolo:
-		args = append(args, "--dangerously-skip-permissions")
-	default:
-		args = append(args, "--permission-prompt-tool", "stdio")
-	}
-
-	if opts.SessionID != "" {
-		if opts.Resume {
-			args = append(args, "--resume", opts.SessionID)
-		} else {
-			args = append(args, "--session-id", opts.SessionID)
-		}
-	}
-
-	cmd := exec.CommandContext(procCtx, Binary, args...)
-	cmd.Dir = opts.WorkDir
-
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
-		cancel()
-		return nil, fmt.Errorf("failed to create stdin pipe: %w", err)
-	}
-
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		stdin.Close()
-		cancel()
-		return nil, fmt.Errorf("failed to create stdout pipe: %w", err)
-	}
-
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		stdin.Close()
-		stdout.Close()
-		cancel()
-		return nil, fmt.Errorf("failed to create stderr pipe: %w", err)
-	}
-
-	if err := cmd.Start(); err != nil {
-		stdin.Close()
-		stdout.Close()
-		stderr.Close()
-		cancel()
-		return nil, fmt.Errorf("failed to start cursor-agent: %w", err)
-	}
-
 	log := slog.With("sessionId", opts.SessionID)
-	log.Info("cursor-agent process started", "pid", cmd.Process.Pid, "mode", opts.Mode)
+	chatID, err := createChatID(procCtx, opts.WorkDir)
+	if err != nil {
+		cancel()
+		return nil, err
+	}
 
 	events := make(chan agent.AgentEvent)
-	pendingRequests := &sync.Map{}
-
 	sess := &cliSession{
-		log:             log,
-		events:          events,
-		stdin:           stdin,
-		pendingRequests: pendingRequests,
-		cancel:          cancel,
+		log:     log,
+		events:  events,
+		workDir: opts.WorkDir,
+		mode:    opts.Mode,
+		chatID:  chatID,
+		ctx:     procCtx,
+		cancel:  cancel,
 	}
-
-	go func() {
-		defer func() {
-			if r := recover(); r != nil {
-				logger.LogPanic(r, "cursor-agent process crashed", "sessionId", opts.SessionID)
-			}
-		}()
-		defer close(events)
-		defer cancel()
-		defer stdout.Close()
-		defer stderr.Close()
-
-		stderrCh := readStderr(stderr)
-		streamOutput(procCtx, log, stdout, events, pendingRequests)
-		waitForProcess(procCtx, log, cmd, stderrCh, events)
-
-		select {
-		case events <- agent.ProcessEndedEvent{}:
-		case <-procCtx.Done():
-		}
-	}()
 
 	return sess, nil
 }
@@ -134,9 +64,17 @@ func (a *Agent) Start(ctx context.Context, opts agent.StartOptions) (agent.Sessi
 type cliSession struct {
 	log             *slog.Logger
 	events          chan agent.AgentEvent
-	stdin           io.WriteCloser
-	stdinMu         sync.Mutex
-	pendingRequests *sync.Map
+	workDir         string
+	mode            session.Mode
+	chatID          string
+	ctx             context.Context
+	activeCancelMu  sync.Mutex
+	activeCancel    context.CancelFunc
+	runningMu       sync.Mutex
+	running         bool
+	closeMu         sync.Mutex
+	closePending    bool
+	closed          bool
 	cancel          func()
 	closeOnce       sync.Once
 }
@@ -144,129 +82,149 @@ type cliSession struct {
 func (s *cliSession) Events() <-chan agent.AgentEvent { return s.events }
 
 func (s *cliSession) SendMessage(prompt string) error {
-	msg := userMessage{
-		Type: "user",
-		Message: userContent{
-			Role:    "user",
-			Content: []textContent{{Type: "text", Text: prompt}},
-		},
+	s.runningMu.Lock()
+	if s.running {
+		s.runningMu.Unlock()
+		return fmt.Errorf("another request is already running")
 	}
-	data, err := json.Marshal(msg)
-	if err != nil {
-		return fmt.Errorf("failed to marshal message: %w", err)
-	}
-	s.log.Debug("sending prompt", "length", len(prompt))
-	return s.writeStdin(data)
+	s.running = true
+	s.runningMu.Unlock()
+
+	go func() {
+		defer func() {
+			s.runningMu.Lock()
+			s.running = false
+			s.runningMu.Unlock()
+			s.maybeCloseEvents()
+		}()
+		if err := s.runPrompt(prompt); err != nil {
+			select {
+			case s.events <- agent.ErrorEvent{Error: err.Error()}:
+			default:
+			}
+		}
+	}()
+
+	return nil
 }
 
 func (s *cliSession) SendPermissionResponse(data agent.PermissionRequestData, choice agent.PermissionChoice) error {
-	var content controlResponseContent
-	switch choice {
-	case agent.PermissionAllow, agent.PermissionAlwaysAllow:
-		content = controlResponseContent{
-			Behavior:     "allow",
-			ToolUseID:    data.ToolUseID,
-			UpdatedInput: data.ToolInput,
-		}
-		if choice == agent.PermissionAlwaysAllow && len(data.PermissionSuggestions) > 0 {
-			content.UpdatedPermissions = data.PermissionSuggestions
-		}
-	default:
-		content = controlResponseContent{
-			Behavior:  "deny",
-			Message:   "User denied permission",
-			Interrupt: true,
-			ToolUseID: data.ToolUseID,
-		}
-	}
-	return s.sendControlResponse(data.RequestID, content)
+	return fmt.Errorf("permission responses are not supported in cursor-agent print mode")
 }
 
 func (s *cliSession) SendQuestionResponse(data agent.QuestionRequestData, answers map[string]string) error {
-	var content controlResponseContent
-	if answers == nil {
-		content = controlResponseContent{
-			Behavior:  "deny",
-			Message:   "User cancelled the question",
-			Interrupt: true,
-			ToolUseID: data.ToolUseID,
-		}
-	} else {
-		updatedInput, err := json.Marshal(questionAnswerInput{Answers: answers})
-		if err != nil {
-			return fmt.Errorf("failed to marshal updated input: %w", err)
-		}
-		content = controlResponseContent{
-			Behavior:     "allow",
-			ToolUseID:    data.ToolUseID,
-			UpdatedInput: updatedInput,
-		}
-	}
-	return s.sendControlResponse(data.RequestID, content)
+	return fmt.Errorf("question responses are not supported in cursor-agent print mode")
 }
-
-func (s *cliSession) sendControlResponse(requestID string, content controlResponseContent) error {
-	response := controlResponse{
-		Type: "control_response",
-		Response: controlResponsePayload{
-			Subtype:   "success",
-			RequestID: requestID,
-			Response:  content,
-		},
-	}
-	data, err := json.Marshal(response)
-	if err != nil {
-		return fmt.Errorf("failed to marshal control response: %w", err)
-	}
-	s.log.Debug("sending control response")
-	return s.writeStdin(data)
-}
-
-type interruptMarker struct{}
 
 func (s *cliSession) SendInterrupt() error {
-	requestID := generateRequestID()
-	request := interruptRequest{
-		Type:      "control_request",
-		RequestID: requestID,
-		Request:   interruptRequestData{Subtype: "interrupt"},
+	s.activeCancelMu.Lock()
+	cancel := s.activeCancel
+	s.activeCancelMu.Unlock()
+	if cancel == nil {
+		return nil
 	}
-	data, err := json.Marshal(request)
-	if err != nil {
-		return fmt.Errorf("failed to marshal interrupt request: %w", err)
-	}
-	s.pendingRequests.Store(requestID, interruptMarker{})
-	s.log.Info("sending interrupt signal")
-	if err := s.writeStdin(data); err != nil {
-		s.pendingRequests.Delete(requestID)
-		return err
+	cancel()
+	select {
+	case s.events <- agent.InterruptedEvent{}:
+	default:
 	}
 	return nil
 }
 
-func generateRequestID() string {
-	b := make([]byte, 16)
-	if _, err := rand.Read(b); err != nil {
-		slog.Error("rand.Read failed", "error", err)
-	}
-	return hex.EncodeToString(b)
-}
-
 func (s *cliSession) Close() {
 	s.closeOnce.Do(func() {
-		s.log.Info("terminating cursor-agent process")
+		s.log.Info("terminating cursor-agent session")
 		s.cancel()
-		s.stdinMu.Lock()
-		s.stdin.Close()
-		s.stdinMu.Unlock()
+		s.closeMu.Lock()
+		s.closePending = true
+		s.closeMu.Unlock()
+		s.maybeCloseEvents()
 	})
 }
 
-func (s *cliSession) writeStdin(data []byte) error {
-	s.stdinMu.Lock()
-	defer s.stdinMu.Unlock()
-	_, err := s.stdin.Write(append(data, '\n'))
-	return err
+func (s *cliSession) runPrompt(prompt string) error {
+	cmdCtx, cancel := context.WithCancel(s.ctx)
+	s.activeCancelMu.Lock()
+	s.activeCancel = cancel
+	s.activeCancelMu.Unlock()
+	defer func() {
+		cancel()
+		s.activeCancelMu.Lock()
+		s.activeCancel = nil
+		s.activeCancelMu.Unlock()
+	}()
+
+	args := []string{
+		"--print",
+		"--output-format", "stream-json",
+		"--resume", s.chatID,
+	}
+	if s.mode == session.ModeYolo {
+		args = append(args, "--force")
+	}
+
+	cmd := execCommandContext(cmdCtx, Binary, args...)
+	cmd.Dir = s.workDir
+
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		return fmt.Errorf("failed to create stdin pipe: %w", err)
+	}
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		stdin.Close()
+		return fmt.Errorf("failed to create stdout pipe: %w", err)
+	}
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		stdin.Close()
+		stdout.Close()
+		return fmt.Errorf("failed to create stderr pipe: %w", err)
+	}
+
+	if err := cmd.Start(); err != nil {
+		stdin.Close()
+		stdout.Close()
+		stderr.Close()
+		return fmt.Errorf("failed to start cursor-agent: %w", err)
+	}
+
+	s.log.Info("cursor-agent message started", "pid", cmd.Process.Pid)
+
+	if _, err := io.WriteString(stdin, prompt); err != nil {
+		stdin.Close()
+		return fmt.Errorf("failed to write prompt: %w", err)
+	}
+	if err := stdin.Close(); err != nil {
+		return fmt.Errorf("failed to close stdin: %w", err)
+	}
+
+	stderrCh := readStderr(stderr)
+	streamOutput(cmdCtx, s.log, stdout, s.events)
+	waitForProcess(cmdCtx, s.log, cmd, stderrCh, s.events)
+
+	select {
+	case s.events <- agent.ProcessEndedEvent{}:
+	case <-cmdCtx.Done():
+	}
+
+	return nil
+}
+
+func (s *cliSession) maybeCloseEvents() {
+	s.closeMu.Lock()
+	defer s.closeMu.Unlock()
+	if s.closed || !s.closePending {
+		return
+	}
+	s.runningMu.Lock()
+	running := s.running
+	s.runningMu.Unlock()
+	if running {
+		return
+	}
+	close(s.events)
+	s.closed = true
 }
 
 func readStderr(stderr io.Reader) <-chan string {
@@ -291,7 +249,21 @@ func readStderr(stderr io.Reader) <-chan string {
 	return ch
 }
 
-func streamOutput(ctx context.Context, log *slog.Logger, stdout io.Reader, events chan<- agent.AgentEvent, pendingRequests *sync.Map) {
+func createChatID(ctx context.Context, workDir string) (string, error) {
+	cmd := execCommandContext(ctx, Binary, "create-chat")
+	cmd.Dir = workDir
+	output, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to create cursor-agent chat: %w", err)
+	}
+	chatID := strings.TrimSpace(string(output))
+	if chatID == "" {
+		return "", fmt.Errorf("cursor-agent returned empty chat id")
+	}
+	return chatID, nil
+}
+
+func streamOutput(ctx context.Context, log *slog.Logger, stdout io.Reader, events chan<- agent.AgentEvent) {
 	scanner := bufio.NewScanner(stdout)
 	scanner.Buffer(make([]byte, 1024*1024), 1024*1024)
 	for scanner.Scan() {
@@ -299,7 +271,7 @@ func streamOutput(ctx context.Context, log *slog.Logger, stdout io.Reader, event
 		if len(line) == 0 {
 			continue
 		}
-		for _, event := range parseLine(log, line, pendingRequests) {
+		for _, event := range parseLine(log, line) {
 			select {
 			case events <- event:
 			case <-ctx.Done():
@@ -343,21 +315,6 @@ func waitForProcess(ctx context.Context, log *slog.Logger, cmd *exec.Cmd, stderr
 	log.Info("cursor-agent process exited")
 }
 
-type userMessage struct {
-	Type    string      `json:"type"`
-	Message userContent `json:"message"`
-}
-
-type userContent struct {
-	Role    string        `json:"role"`
-	Content []textContent `json:"content"`
-}
-
-type textContent struct {
-	Type string `json:"type"`
-	Text string `json:"text"`
-}
-
 type controlRequest struct {
 	RequestID string          `json:"request_id"`
 	Request   *controlPayload `json:"request"`
@@ -369,40 +326,6 @@ type controlPayload struct {
 	Input                 json.RawMessage          `json:"input,omitempty"`
 	ToolUseID             string                   `json:"tool_use_id,omitempty"`
 	PermissionSuggestions []agent.PermissionUpdate `json:"permission_suggestions,omitempty"`
-}
-
-type controlResponse struct {
-	Type     string                 `json:"type"`
-	Response controlResponsePayload `json:"response"`
-}
-
-type controlResponsePayload struct {
-	Subtype   string                 `json:"subtype"`
-	RequestID string                 `json:"request_id"`
-	Response  controlResponseContent `json:"response"`
-}
-
-type controlResponseContent struct {
-	Behavior           string                   `json:"behavior,omitempty"`
-	Message            string                   `json:"message,omitempty"`
-	Interrupt          bool                     `json:"interrupt,omitempty"`
-	ToolUseID          string                   `json:"toolUseID,omitempty"`
-	UpdatedInput       json.RawMessage          `json:"updatedInput,omitempty"`
-	UpdatedPermissions []agent.PermissionUpdate `json:"updatedPermissions,omitempty"`
-}
-
-type interruptRequest struct {
-	Type      string               `json:"type"`
-	RequestID string               `json:"request_id"`
-	Request   interruptRequestData `json:"request"`
-}
-
-type interruptRequestData struct {
-	Subtype string `json:"subtype"`
-}
-
-type questionAnswerInput struct {
-	Answers map[string]string `json:"answers"`
 }
 
 type cliEvent struct {
@@ -430,7 +353,7 @@ type cliContentBlock struct {
 	Content   json.RawMessage `json:"content,omitempty"`
 }
 
-func parseLine(log *slog.Logger, line []byte, pendingRequests *sync.Map) []agent.AgentEvent {
+func parseLine(log *slog.Logger, line []byte) []agent.AgentEvent {
 	if len(line) == 0 {
 		return nil
 	}
@@ -454,10 +377,12 @@ func parseLine(log *slog.Logger, line []byte, pendingRequests *sync.Map) []agent
 	case "control_request":
 		return parseControlRequest(log, line)
 	case "control_response":
-		return parseControlResponse(log, line, pendingRequests)
+		return parseControlResponse(log, line)
 	case "control_cancel_request":
 		return parseControlCancelRequest(log, line)
 	case "progress":
+		return nil
+	case "thinking":
 		return nil
 	default:
 		log.Debug("unhandled event type from CLI", "type", event.Type)
@@ -512,18 +437,11 @@ type cliControlResponse struct {
 	} `json:"response"`
 }
 
-func parseControlResponse(log *slog.Logger, line []byte, pendingRequests *sync.Map) []agent.AgentEvent {
+func parseControlResponse(log *slog.Logger, line []byte) []agent.AgentEvent {
 	var resp cliControlResponse
 	if err := json.Unmarshal(line, &resp); err != nil {
 		log.Warn("failed to parse control response from CLI", "error", err)
 		return nil
-	}
-	requestID := resp.Response.RequestID
-	if pending, ok := pendingRequests.LoadAndDelete(requestID); ok {
-		if _, isInterrupt := pending.(interruptMarker); isInterrupt {
-			log.Info("interrupt acknowledged", "requestId", requestID)
-			return []agent.AgentEvent{agent.InterruptedEvent{}}
-		}
 	}
 	return nil
 }

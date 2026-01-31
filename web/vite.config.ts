@@ -26,7 +26,7 @@ export default defineConfig({
 	],
 	server: {
 		port: webPort,
-		allowedHosts: [".local.pockode.com"],
+		allowedHosts: ["localhost", "127.0.0.1", "::1"],
 		proxy: {
 			"/api": {
 				target: `http://localhost:${serverPort}`,

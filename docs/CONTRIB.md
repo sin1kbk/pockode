@@ -28,6 +28,12 @@ Source of truth: `package.json` (root and `web/`).
 | `test` | `vitest run` | Run tests once. |
 | `test:watch` | `vitest` | Run tests in watch mode. |
 
+### Make
+
+| Target | Purpose |
+|--------|---------|
+| `make dev` | Run `scripts/dev.sh` — dev env vars + server + web (hot reload). Optional: `make dev AGENT=cursor-agent` (default: `claude`). |
+
 ### Scripts (shell)
 
 | Script | Purpose |
@@ -71,6 +77,7 @@ There is no `.env.example` in the repo. Below is extracted from server code, `sc
 | Variable | Default | Description |
 |----------|--------|-------------|
 | `AUTH_TOKEN` | `dev-token` | Dev auth token. |
+| `AGENT` | `claude` | AI CLI backend: `claude` or `cursor-agent`. |
 | `WORK_DIR` | Project root | Resolved to absolute path. |
 | `SERVER_PORT` | `8080` | Backend port for dev. |
 | `WEB_PORT` | `5173` | Frontend port for dev. |
@@ -100,7 +107,7 @@ There is no `.env.example` in the repo. Below is extracted from server code, `sc
    - Server: no install step (Go).
 
 3. **Run locally**
-   - **Option A:** `./scripts/dev.sh` (sets env and runs `npm run dev`).
+   - **Dev:** `make dev` or `./scripts/dev.sh` (sets env and runs `npm run dev`).
    - **Option B:** `AUTH_TOKEN=your-token DEV_MODE=true npm run dev` (server + web).
    - **Option C:** Terminal 1: `npm run dev:server` with `AUTH_TOKEN` and `DEV_MODE=true`; Terminal 2: `npm run dev:web`.
 
