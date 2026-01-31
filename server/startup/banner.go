@@ -1,12 +1,10 @@
 package startup
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 	"strings"
 
-	"github.com/mdp/qrterminal/v3"
 	"golang.org/x/term"
 )
 
@@ -24,10 +22,8 @@ const (
 
 // BannerOptions configures the startup banner display.
 type BannerOptions struct {
-	Version      string
-	LocalURL     string
-	RemoteURL    string // Empty if relay is disabled
-	Announcement string // Message from cloud
+	Version  string
+	LocalURL string
 }
 
 // colorsEnabled returns true if ANSI colors should be used.
@@ -54,53 +50,9 @@ func PrintBanner(opts BannerOptions) {
 	versionStr := color(dim, opts.Version)
 	fmt.Printf("%s%s%s%s\n", indent, logo, strings.Repeat(" ", 30), versionStr)
 
-	if opts.Announcement != "" {
-		fmt.Println()
-		for _, line := range strings.Split(opts.Announcement, "\n") {
-			fmt.Printf("%s%s\n", indent, line)
-		}
-	}
-
 	fmt.Println()
-
 	fmt.Printf("%s%s  %s\n", indent, color(dim, "▸ Local"), color(green, opts.LocalURL))
-	if opts.RemoteURL != "" {
-		fmt.Printf("%s%s %s\n", indent, color(dim, "▸ Remote"), color(green, opts.RemoteURL))
-	}
-
 	fmt.Println()
-}
-
-// PrintQRCode prints an indented QR code with a label on the side.
-func PrintQRCode(url string) {
-	var buf bytes.Buffer
-	qrterminal.GenerateWithConfig(url, qrterminal.Config{
-		Level:          qrterminal.L,
-		Writer:         &buf,
-		HalfBlocks:     true,
-		BlackChar:      qrterminal.BLACK_BLACK,
-		WhiteBlackChar: qrterminal.WHITE_BLACK,
-		WhiteChar:      qrterminal.WHITE_WHITE,
-		BlackWhiteChar: qrterminal.BLACK_WHITE,
-		QuietZone:      1,
-	})
-
-	var lines []string
-	for _, line := range strings.Split(buf.String(), "\n") {
-		if line != "" {
-			lines = append(lines, line)
-		}
-	}
-
-	// Place label at vertical center of QR code
-	midLine := len(lines) / 2
-	for i, line := range lines {
-		if i == midLine {
-			fmt.Printf("%s%s  %s\n", indent, line, color(dim, "Scan to connect"))
-		} else {
-			fmt.Printf("%s%s\n", indent, line)
-		}
-	}
 }
 
 // PrintFooter prints the footer with shutdown instructions.

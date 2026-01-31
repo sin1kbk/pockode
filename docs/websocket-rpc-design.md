@@ -4,13 +4,7 @@
 
 ## 背景
 
-Pockode は Relay を介して NAT 内のユーザー PC と通信する:
-
-```
-モバイルアプリ ──WebSocket──▶ Relay Server ──WebSocket──▶ ユーザー PC (NAT内)
-```
-
-NAT 越えには PC 側からの常時接続が必須であり、WebSocket が自然な選択となる。
+Pockode はローカルネットワーク上のサーバーに WebSocket で接続し、JSON-RPC 2.0 で通信する。リアルタイム双方向通信のため WebSocket を採用している。
 
 ## メソッド命名規則
 

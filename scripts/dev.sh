@@ -13,11 +13,6 @@ export DEV_MODE="${DEV_MODE:-true}"
 export DEBUG="${DEBUG:-true}"
 export LOG_LEVEL="${LOG_LEVEL:-debug}"
 
-# Relay configuration (for local development)
-export RELAY_ENABLED="${RELAY_ENABLED:-false}"
-export CLOUD_URL="${CLOUD_URL:-http://local.pockode.com}"
-export RELAY_FRONTEND_PORT="${RELAY_FRONTEND_PORT:-$WEB_PORT}"
-
 echo "Starting dev environment..."
 echo "  Backend:  http://localhost:$SERVER_PORT"
 echo "  Frontend: http://localhost:$WEB_PORT"

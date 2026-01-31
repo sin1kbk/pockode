@@ -40,7 +40,7 @@ curl -fsSL https://pockode.com/install.sh | sh
 pockode -auth-token YOUR_PASSWORD
 ```
 
-Scan the QR code with your phone. Done.
+Open http://localhost:9870 in your browser. Done.
 
 ## Status
 

@@ -24,7 +24,6 @@ import (
 	"github.com/pockode/server/git"
 	"github.com/pockode/server/logger"
 	"github.com/pockode/server/middleware"
-	"github.com/pockode/server/relay"
 	"github.com/pockode/server/settings"
 	"github.com/pockode/server/startup"
 	"github.com/pockode/server/worktree"
@@ -159,7 +158,6 @@ func main() {
 	portFlag := flag.Int("port", 0, fmt.Sprintf("server port (default %d)", defaultPort))
 	tokenFlag := flag.String("auth-token", "", "authentication token (required)")
 	devModeFlag := flag.Bool("dev", false, "enable development mode")
-	relayFlag := flag.Bool("relay", true, "relay for remote access (use -relay=false to disable)")
 	versionFlag := flag.Bool("version", false, "print version and exit")
 	flag.Parse()
 
@@ -275,48 +273,6 @@ func main() {
 		Handler: handler,
 	}
 
-	cloudURL := os.Getenv("CLOUD_URL")
-	if cloudURL == "" {
-		cloudURL = "https://cloud.pockode.com"
-	}
-
-	// Initialize relay if enabled
-	var relayManager *relay.Manager
-	var cancelRelayStreams context.CancelFunc
-	var remoteURL string
-	relayEnabled := *relayFlag && os.Getenv("RELAY_ENABLED") != "false"
-	if relayEnabled {
-		relayCfg := relay.Config{
-			CloudURL:      cloudURL,
-			DataDir:       dataDir,
-			ClientVersion: version,
-		}
-
-		frontendPort := port
-		if envFrontendPort := os.Getenv("RELAY_FRONTEND_PORT"); envFrontendPort != "" {
-			frontendPort, _ = strconv.Atoi(envFrontendPort)
-		}
-		relayManager = relay.NewManager(relayCfg, port, frontendPort, slog.Default())
-
-		var err error
-		remoteURL, err = relayManager.Start(context.Background())
-		if err != nil {
-			slog.Error("failed to start relay", "error", err)
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-
-		slog.Info("remote access enabled", "url", remoteURL)
-
-		var relayStreamCtx context.Context
-		relayStreamCtx, cancelRelayStreams = context.WithCancel(context.Background())
-		go func() {
-			for stream := range relayManager.NewStreams() {
-				go wsHandler.HandleStream(relayStreamCtx, stream, stream.ConnectionID())
-			}
-		}()
-	}
-
 	// Graceful shutdown
 	shutdownDone := make(chan struct{})
 	go func() {
@@ -330,31 +286,16 @@ func main() {
 		if err := srv.Shutdown(ctx); err != nil {
 			slog.Error("server shutdown error", "error", err)
 		}
-		if relayManager != nil {
-			cancelRelayStreams()
-			relayManager.Stop()
-		}
 		wsHandler.Stop()
 		worktreeManager.Shutdown()
 		close(shutdownDone)
 	}()
 
-	// Fetch announcement from cloud
-	announcement := relay.NewClient(cloudURL).GetAnnouncement(context.Background())
-
 	// Display startup banner
 	startup.PrintBanner(startup.BannerOptions{
-		Version:      version,
-		LocalURL:     "http://localhost:" + portStr,
-		RemoteURL:    remoteURL,
-		Announcement: announcement,
+		Version:  version,
+		LocalURL: "http://localhost:" + portStr,
 	})
-
-	// Print QR code if relay is enabled
-	if remoteURL != "" {
-		startup.PrintQRCode(remoteURL)
-		fmt.Println()
-	}
 
 	startup.PrintFooter()
 

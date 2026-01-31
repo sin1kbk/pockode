@@ -677,8 +677,8 @@ func parseUserEvent(log *slog.Logger, event cliEvent) []agent.AgentEvent {
 		switch block.Type {
 		case "tool_result":
 			// Check if content contains image (array with type:"image" elements).
-			// TODO: Support image display. Also note current HTTP relay has 10MB limit,
-			// which may need adjustment for large images.
+			// TODO: Support image display. Request body size limits may need
+			// adjustment for large images.
 			if hasImageContent(block.Content) {
 				events = append(events, agent.WarningEvent{
 					Message: "Image content is not supported yet",
