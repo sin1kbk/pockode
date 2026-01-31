@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-REPO="sijiaoh/pockode"
+REPO="sin1kbk/pockode"
 INSTALL_DIR="/usr/local/bin"
 BINARY_NAME="pockode"
 
